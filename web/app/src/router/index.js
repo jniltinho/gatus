@@ -4,6 +4,7 @@ import EndpointDetails from "@/views/EndpointDetails";
 import SuiteDetails from '@/views/SuiteDetails';
 import AdminEndpoints from '@/views/admin/AdminEndpoints';
 import AdminEndpointForm from '@/views/admin/AdminEndpointForm';
+import StatusPage from '@/views/public/StatusPage';
 
 const routes = [
     {
@@ -37,6 +38,19 @@ const routes = [
         name: 'AdminEndpointEdit',
         component: AdminEndpointForm,
         props: true
+    },
+    // Public status pages (fork): no login screen and no call to /api/v1/config, see App.vue
+    {
+        path: '/status/:slug([a-z0-9-]{1,64})',
+        name: 'PublicStatusPage',
+        component: StatusPage,
+        meta: { public: true }
+    },
+    {
+        path: '/status/:pathMatch(.*)*',
+        name: 'PublicStatusPageNotFound',
+        component: StatusPage,
+        meta: { public: true }
     }
 ];
 

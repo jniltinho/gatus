@@ -35,12 +35,12 @@
 
 ## 4. Marco 4 — Página pública no frontend
 
-- [ ] 4.1 Rotas `/status/:slug([a-z0-9-]{1,64})` e `/status/:pathMatch(.*)*` com `meta.public` no `vue-router`; `App.vue` com `isPublic` reativo à rota e `Loading` até `router.isReady()`, `PublicLayout` com `v-if`, dashboard e login OIDC em `v-else`, `/api/v1/config` buscada só na primeira rota não pública e só então o intervalo, `lang="pt-BR"` no layout público
-- [ ] 4.2 `views/public/StatusPage.vue` e componentes em `components/public/`: cabeçalho, faixa de estado geral, seções por grupo ("Outros serviços" sem grupo), aviso "Mostrando os primeiros 200 serviços" com `truncated`, linhas com uptime, barras quadradas (50 ou 25 conforme a largura) e tooltip próprio com horário, sucesso e duração
-- [ ] 4.3 Validação do slug e `encodeURIComponent` antes do `fetch`; `watch` do slug; atualização a cada 60 s pausada com a aba oculta; "Atualizado há X" a partir de `updatedAt`; estados 404, 429, 503, erro de rede e resposta não JSON, com e sem dados anteriores, e `Retry-After` > 60 s; `document.title`; tema pelo cookie `theme`; descrição como texto puro
-- [ ] 4.4 Acessibilidade: resumo `sr-only` por endpoint, barras com `aria-hidden`, tooltip por teclado e toque, `role="status"` só na faixa, contador fora de `aria-live`, `prefers-reduced-motion`
-- [ ] 4.5 Conferir variantes `dark:` e o visual quadrado conforme a spec `ui-square-style` da change do admin; `make frontend-build` e commit de `web/static/`
-- [ ] 4.6 Capturas com `agent-browser` da página pública (claro, escuro, 390 px) em `dist/prints/status-pages/`
+- [x] 4.1 Rotas `/status/:slug([a-z0-9-]{1,64})` e `/status/:pathMatch(.*)*` com `meta.public` no `vue-router`; `App.vue` com `isPublic` reativo à rota e `Loading` até `router.isReady()`, `PublicLayout` com `v-if`, dashboard e login OIDC em `v-else`, `/api/v1/config` buscada só na primeira rota não pública e só então o intervalo, `lang="pt-BR"` no layout público
+- [x] 4.2 `views/public/StatusPage.vue` e componentes em `components/public/`: cabeçalho, faixa de estado geral, seções por grupo ("Outros serviços" sem grupo), aviso "Mostrando os primeiros 200 serviços" com `truncated`, linhas com uptime, barras quadradas (50 ou 25 conforme a largura) e tooltip próprio com horário, sucesso e duração
+- [x] 4.3 Validação do slug e `encodeURIComponent` antes do `fetch`; `watch` do slug; atualização a cada 60 s pausada com a aba oculta; "Atualizado há X" a partir de `updatedAt`; estados 404, 429, 503, erro de rede e resposta não JSON, com e sem dados anteriores, e `Retry-After` > 60 s; `document.title`; tema pelo cookie `theme`; descrição como texto puro
+- [x] 4.4 Acessibilidade: resumo `sr-only` por endpoint, barras com `aria-hidden`, tooltip por teclado e toque, `role="status"` só na faixa, contador fora de `aria-live`, `prefers-reduced-motion`
+- [x] 4.5 Conferir variantes `dark:` e o visual quadrado conforme a spec `ui-square-style` da change do admin; `make frontend-build` e commit de `web/static/`
+- [x] 4.6 Capturas com `agent-browser` da página pública (claro, escuro, 390 px) em `dist/prints/status-pages/`
 - [ ] 4.7 `make lint`, `go test ./... -race`; pull request, CI verde e merge
 
 ## 5. Marco 5 — Telas de administração das status pages

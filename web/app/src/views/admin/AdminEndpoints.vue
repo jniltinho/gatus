@@ -13,8 +13,8 @@
 
     <Input v-model="search" placeholder="Buscar por nome, grupo ou URL" class="mb-4 dark:border-gray-700" data-testid="admin-search" />
 
-    <div v-if="notice" role="status" data-testid="admin-notice" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">{{ notice }}</div>
-    <div v-if="error" role="alert" data-testid="admin-error" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">{{ error }}</div>
+    <div v-if="notice" role="status" data-testid="admin-notice" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ notice }}</div>
+    <div v-if="error" role="alert" data-testid="admin-error" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">{{ error }}</div>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
     <div v-else class="overflow-x-auto border bg-card dark:border-gray-700 dark:bg-gray-900">
@@ -38,8 +38,8 @@
           <tr v-for="item in filteredItems" :key="item.key" class="border-t dark:border-gray-700" :data-testid="`admin-row-${item.key}`">
             <td class="px-3 py-2 font-medium text-foreground dark:text-gray-100">
               {{ item.name }}
-              <span v-if="item.conflict" :title="item.conflictOrigin" class="ml-2 border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">Conflito com o YAML</span>
-              <span v-else-if="item.error" :title="item.error" class="ml-2 border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">Inválido</span>
+              <span v-if="item.conflict" :title="item.conflictOrigin" class="ml-2 border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">Conflito com o YAML</span>
+              <span v-else-if="item.error" :title="item.error" class="ml-2 border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">Inválido</span>
             </td>
             <td class="px-3 py-2 text-muted-foreground dark:text-gray-400">{{ item.group }}</td>
             <td class="px-3 py-2 uppercase text-muted-foreground dark:text-gray-400">{{ item.type }}</td>
@@ -49,7 +49,7 @@
               <span :class="item.enabled ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-500'">{{ item.enabled ? 'Habilitado' : 'Desabilitado' }}</span>
             </td>
             <td class="px-3 py-2">
-              <span :class="['border px-1.5 py-0.5 text-xs', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
+              <span :class="['border px-1.5 py-0.5 text-xs', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap text-right">
               <Button variant="ghost" size="sm" :data-testid="`admin-open-${item.key}`" @click="open(item)">{{ item.source === 'admin' ? 'Editar' : 'Ver' }}</Button>
