@@ -181,6 +181,27 @@ func TestAdminAPI(t *testing.T) {
 		env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints/validate", "name: validated\ngroup: web\nurl: https://example.org\n"+conditions, nil, http.StatusOK)
 		env.expectStatus(t, http.MethodGet, "/api/v1/admin/endpoints/web_validated", "", nil, http.StatusNotFound)
 	})
+	t.Run("parse-returns-submitted-document", func(t *testing.T) {
+		_, body := env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints/parse", "name: typed\ngroup: web\nheaders:\n  Authorization: Bearer typed\n", nil, http.StatusOK)
+		headers, _ := body["json"].(map[string]any)["headers"].(map[string]any)
+		if headers["Authorization"] != "Bearer typed" {
+			t.Errorf("expected the submitted secret to be returned as is, got %v", body)
+		}
+		env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints/parse", "name: [\n", nil, http.StatusBadRequest)
+	})
+	t.Run("spa-routes", func(t *testing.T) {
+		for _, path := range []string{"/admin", "/admin/endpoints/new", "/admin/endpoints/web_site/edit"} {
+			request := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+			response, err := env.app.Test(request, -1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+			if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
+				t.Errorf("expected %s to serve the application, got %d %s", path, response.StatusCode, response.Header.Get("Content-Type"))
+			}
+		}
+	})
 	t.Run("update-rejections", func(t *testing.T) {
 		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", siteDefinition, nil, http.StatusPreconditionRequired)
 		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", siteDefinition, map[string]string{"If-Match": `"5"`}, http.StatusPreconditionFailed)

@@ -180,6 +180,16 @@ func (s *Service) Validate(raw []byte, key string) (*Validation, error) {
 	return &Validation{Definition: definition, Effective: effective}, nil
 }
 
+// ParseDefinition decodes a definition strictly and returns it as a document with the YAML keys. It neither validates
+// the endpoint nor reads stored data, so it only returns what was submitted: it is used to convert a definition being
+// edited without exposing or masking secrets.
+func (s *Service) ParseDefinition(raw []byte) (map[string]any, error) {
+	if _, err := Parse(raw); err != nil {
+		return nil, err
+	}
+	return ToDocument(raw)
+}
+
 // Create creates a managed endpoint and starts monitoring it
 func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 	end, ok := lifecycle.TryBeginChange()

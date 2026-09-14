@@ -32,6 +32,7 @@ func registerAdminRoutes(router fiber.Router, cfg *config.Config) {
 	handler := &adminHandler{service: managedendpoint.NewService(cfg), security: cfg.Security}
 	router.Get("/metadata", handler.metadata)
 	router.Get("/endpoints", handler.list)
+	router.Post("/endpoints/parse", handler.parse)
 	router.Post("/endpoints/validate", handler.validate)
 	router.Post("/endpoints/test", handler.test)
 	router.Post("/endpoints", handler.create)
@@ -56,6 +57,14 @@ func (h *adminHandler) get(c *fiber.Ctx) error {
 		return adminServiceError(c, err)
 	}
 	return writeAdminDetail(c, http.StatusOK, detail)
+}
+
+func (h *adminHandler) parse(c *fiber.Ctx) error {
+	document, err := h.service.ParseDefinition(c.Body())
+	if err != nil {
+		return adminServiceError(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(fiber.Map{"json": document})
 }
 
 func (h *adminHandler) validate(c *fiber.Ctx) error {
