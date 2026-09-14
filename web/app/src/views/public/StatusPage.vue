@@ -26,7 +26,21 @@
         <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" />
 
         <p v-if="page.truncated" class="mt-3 text-sm text-muted-foreground">Showing the first 200 services.</p>
-        <p v-if="page.groups.length === 0" class="mt-8 text-center text-muted-foreground">No services on this page.</p>
+        <p v-if="page.groups.length === 0 && featuredEndpoints.length === 0" class="mt-8 text-center text-muted-foreground">No services on this page.</p>
+
+        <section v-if="featuredEndpoints.length" class="mt-8" aria-labelledby="status-featured-title" data-testid="status-featured">
+          <h2 id="status-featured-title" class="mb-3 text-lg font-semibold">Featured</h2>
+          <ul :class="['grid gap-4', featuredEndpoints.length > 1 ? 'md:grid-cols-2' : '']">
+            <EndpointRow
+              v-for="endpoint in featuredEndpoints"
+              :key="`${endpoint.group}-${endpoint.name}`"
+              :endpoint="endpoint"
+              :group="endpoint.group"
+              :bars="bars"
+              featured
+            />
+          </ul>
+        </section>
 
         <section
           v-for="(group, groupIndex) in page.groups"
@@ -40,7 +54,7 @@
             <span :class="['text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
           </div>
           <ul class="divide-y dark:divide-gray-800">
-            <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :bars="bars" />
+            <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" />
           </ul>
         </section>
       </template>
@@ -49,12 +63,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Loading from '@/components/Loading.vue'
 import StatusSummary from '@/components/public/StatusSummary.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
-import { SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
+import { createResponseTimesLoader, SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
 
 const REFRESH_INTERVAL_MS = 60000
 const CLOCK_INTERVAL_MS = 10000
@@ -161,10 +175,17 @@ const handleScreenChange = (event) => {
   bars.value = event.matches ? 25 : 50
 }
 
+const featuredEndpoints = computed(() => (page.value && page.value.featured) || [])
+
+// The charts of the page share one request per duration, reset when the slug changes
+let responseTimesLoader = createResponseTimesLoader(slug.value)
+provide('loadResponseTimes', (duration) => responseTimesLoader(duration))
+
 watch(slug, () => {
   page.value = null
   errorMessage.value = ''
   state.value = 'loading'
+  responseTimesLoader = createResponseTimesLoader(slug.value)
   load()
 })
 

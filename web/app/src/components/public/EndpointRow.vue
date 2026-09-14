@@ -1,18 +1,52 @@
 <template>
-  <li class="py-3" :data-testid="`status-endpoint-${endpoint.name}`">
+  <li :class="featured ? 'border bg-card p-4 dark:border-gray-800' : 'py-3'" :data-testid="`status-endpoint-${endpoint.name}`">
     <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-2 min-w-0">
         <span :class="['inline-block h-2.5 w-2.5 rounded-full flex-shrink-0', dotClass]" aria-hidden="true"></span>
-        <span class="font-medium truncate" :title="endpoint.name">{{ endpoint.name }}</span>
+        <span :class="['truncate', featured ? 'text-lg font-semibold' : 'font-medium']" :title="endpoint.name">{{ endpoint.name }}</span>
         <span :class="['text-xs', statusTextClass]" aria-hidden="true">{{ statusLabel }}</span>
+        <span v-if="featured && group" class="truncate text-xs text-muted-foreground" :title="group">{{ group }}</span>
       </div>
-      <dl class="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
-        <div v-for="period in periods" :key="period.key" class="flex gap-1">
-          <dt>{{ period.label }}</dt>
-          <dd class="font-medium text-foreground">{{ formatUptime(endpoint.uptime[period.key]) }}</dd>
-        </div>
-      </dl>
+      <div class="flex items-center gap-4">
+        <dl v-if="!featured" class="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
+          <div v-for="period in periods" :key="period.key" class="flex gap-1">
+            <dt>{{ period.label }}</dt>
+            <dd class="font-medium text-foreground">{{ formatUptime(endpoint.uptime[period.key]) }}</dd>
+          </div>
+        </dl>
+        <button
+          v-if="endpoint.chart && !featured"
+          type="button"
+          class="inline-flex h-7 items-center border border-input bg-background px-2 text-xs font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800"
+          :aria-expanded="chartOpen ? 'true' : 'false'"
+          :data-testid="`status-chart-toggle-${endpoint.name}`"
+          @click="chartOpen = !chartOpen"
+        >
+          {{ chartOpen ? 'Hide response time' : 'Response time' }}
+        </button>
+      </div>
     </div>
+    <table v-if="featured" class="mt-3 w-full text-sm" data-testid="status-featured-stats">
+      <thead>
+        <tr class="text-xs text-muted-foreground">
+          <th scope="col" class="py-1 pr-2 text-left font-normal"><span class="sr-only">Metric</span></th>
+          <th v-for="period in periods" :key="`period-${period.key}`" scope="col" class="py-1 pl-2 text-right font-normal">{{ period.label }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row" class="py-1 pr-2 text-left text-xs font-normal text-muted-foreground">Uptime</th>
+          <td v-for="period in periods" :key="`uptime-${period.key}`" class="py-1 pl-2 text-right font-medium">{{ formatUptime(endpoint.uptime[period.key]) }}</td>
+        </tr>
+        <tr>
+          <th scope="row" class="py-1 pr-2 text-left text-xs font-normal text-muted-foreground">Avg response</th>
+          <td v-for="period in periods" :key="`response-time-${period.key}`" class="py-1 pl-2 text-right font-medium">{{ formatMilliseconds(responseTime[period.key]) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p v-if="featured" class="mt-1 text-xs text-muted-foreground">
+      Last response <span class="font-medium text-foreground">{{ formatMilliseconds(lastResult ? lastResult.durationMs : null) }}</span>
+    </p>
     <p class="sr-only">{{ accessibleSummary }}</p>
     <div
       class="mt-2 flex gap-px outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -37,16 +71,21 @@
         {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : 'Failure' }} · {{ activeResult.durationMs }} ms
       </template>
     </p>
+    <ResponseTimeTrend v-if="endpoint.chart && (featured || chartOpen)" :endpoint="endpoint" :group="group" />
   </li>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import { formatDateTime, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
+import ResponseTimeTrend from '@/components/public/ResponseTimeTrend.vue'
+import { formatDateTime, formatMilliseconds, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
 
 const props = defineProps({
   endpoint: { type: Object, required: true },
-  bars: { type: Number, default: 50 }
+  bars: { type: Number, default: 50 },
+  // Featured endpoints are shown as a card, with more details and their chart open
+  featured: { type: Boolean, default: false },
+  group: { type: String, default: '' }
 })
 
 const periods = [
@@ -57,11 +96,19 @@ const periods = [
 
 const hoveredIndex = ref(null)
 const selectedIndex = ref(null)
+const chartOpen = ref(false)
 
 const displayedResults = computed(() => {
   const results = (props.endpoint.results || []).slice(-props.bars)
   return [...Array(props.bars - results.length).fill(null), ...results]
 })
+
+const lastResult = computed(() => {
+  const results = props.endpoint.results || []
+  return results.length > 0 ? results[results.length - 1] : null
+})
+
+const responseTime = computed(() => props.endpoint.responseTime || {})
 
 const activeIndex = computed(() => (hoveredIndex.value !== null ? hoveredIndex.value : selectedIndex.value))
 const activeResult = computed(() => (activeIndex.value !== null ? displayedResults.value[activeIndex.value] : null))
@@ -78,7 +125,7 @@ const statusTextClass = computed(() => ({
 const accessibleSummary = computed(() => {
   const results = props.endpoint.results || []
   const successes = results.filter((result) => result.success).length
-  return `${props.endpoint.name}: ${statusLabel.value}, ${successes} of ${results.length} checks successful, 24-hour uptime ${formatUptime(props.endpoint.uptime['24h'])}`
+  return `${props.endpoint.name}: ${statusLabel.value}, ${successes} of ${results.length} checks successful, 24-hour uptime ${formatUptime(props.endpoint.uptime['24h'])}, 24-hour average response time ${formatMilliseconds(responseTime.value['24h'])}`
 })
 
 const barClass = (result, index) => {

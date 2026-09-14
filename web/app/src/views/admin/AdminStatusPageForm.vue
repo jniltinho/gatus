@@ -67,16 +67,44 @@
 
         <section>
           <h2 class="mb-1 text-sm font-semibold text-foreground dark:text-gray-200">Endpoints</h2>
-          <p class="mb-2 text-xs text-muted-foreground dark:text-gray-400">Endpoints picked one by one, in addition to the groups. {{ form.endpoints.length }} selected.</p>
+          <p class="mb-2 text-xs text-muted-foreground dark:text-gray-400">
+            Endpoints picked one by one, in addition to the groups. <strong>Featured</strong> endpoints are shown at the top of the page with more details;
+            <strong>Chart</strong> adds a response time chart to an endpoint of the page (at most {{ MAXIMUM_FEATURED }} of each).
+            {{ form.endpoints.length }} selected · {{ form.featured.length }} featured · {{ form.charts.length }} with chart.
+          </p>
           <Input v-model="endpointSearch" placeholder="Search by name, group or key" class="mb-2 dark:border-gray-700" data-testid="status-page-endpoint-search" />
           <div class="max-h-72 overflow-y-auto border dark:border-gray-700">
             <p v-if="filteredEndpoints.length === 0" class="px-3 py-4 text-sm text-muted-foreground dark:text-gray-400">No endpoints found.</p>
-            <label v-for="endpoint in filteredEndpoints" :key="endpoint.key" class="flex items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0 dark:border-gray-800">
-              <input v-model="form.endpoints" type="checkbox" :value="endpoint.key" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" :data-testid="`status-page-endpoint-${endpoint.key}`" />
-              <span class="font-medium text-foreground dark:text-gray-100">{{ endpoint.name }}</span>
-              <span class="text-muted-foreground dark:text-gray-400">{{ endpoint.group || 'no group' }}</span>
+            <div v-for="endpoint in filteredEndpoints" :key="endpoint.key" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-2 text-sm last:border-b-0 dark:border-gray-800">
+              <label class="flex min-w-0 items-center gap-2">
+                <input v-model="form.endpoints" type="checkbox" :value="endpoint.key" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" :data-testid="`status-page-endpoint-${endpoint.key}`" />
+                <span class="font-medium text-foreground dark:text-gray-100">{{ endpoint.name }}</span>
+                <span class="text-muted-foreground dark:text-gray-400">{{ endpoint.group || 'no group' }}</span>
+              </label>
               <span class="ml-auto font-mono text-xs text-muted-foreground dark:text-gray-500">{{ endpoint.key }}</span>
-            </label>
+              <label class="flex items-center gap-1 text-xs text-foreground dark:text-gray-200">
+                <input
+                  v-model="form.featured"
+                  type="checkbox"
+                  :value="endpoint.key"
+                  :disabled="!form.featured.includes(endpoint.key) && form.featured.length >= MAXIMUM_FEATURED"
+                  class="h-4 w-4 accent-gray-900 dark:accent-gray-100"
+                  :data-testid="`status-page-featured-${endpoint.key}`"
+                />
+                Featured
+              </label>
+              <label class="flex items-center gap-1 text-xs text-foreground dark:text-gray-200" :title="isOnPage(endpoint) ? '' : 'Select the endpoint, its group or feature it to add a chart'">
+                <input
+                  v-model="form.charts"
+                  type="checkbox"
+                  :value="endpoint.key"
+                  :disabled="!form.charts.includes(endpoint.key) && (form.charts.length >= MAXIMUM_CHARTS || !isOnPage(endpoint))"
+                  class="h-4 w-4 accent-gray-900 dark:accent-gray-100"
+                  :data-testid="`status-page-chart-${endpoint.key}`"
+                />
+                Chart
+              </label>
+            </div>
           </div>
         </section>
       </div>
@@ -91,7 +119,7 @@
         <p class="text-foreground dark:text-gray-100">The page will show {{ validation.endpoints === 1 ? '1 endpoint' : `${validation.endpoints} endpoints` }}.</p>
         <ul v-if="validation.warnings.length" class="mt-2 list-disc pl-5 text-amber-800 dark:text-amber-300">
           <li v-for="warning in validation.warnings" :key="`${warning.type}-${warning.value}`">
-            {{ warning.type === 'group' ? `Group ${warning.value} has no endpoints at the moment.` : `Endpoint ${warning.value} does not exist at the moment.` }}
+            {{ warningMessage(warning) }}
           </li>
         </ul>
       </div>
@@ -99,13 +127,22 @@
       <div v-if="preview" data-testid="status-page-preview" class="mt-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
         <h2 class="text-lg font-semibold text-foreground dark:text-gray-100">Preview of the saved version</h2>
         <p class="mb-4 text-sm text-muted-foreground dark:text-gray-400">{{ preview.title }} · {{ pageStatusLabel(preview.status) }}</p>
-        <p v-if="preview.groups.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No endpoints selected.</p>
+        <p v-if="preview.groups.length === 0 && (preview.featured || []).length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No endpoints selected.</p>
+        <div v-if="(preview.featured || []).length" class="mb-4" data-testid="status-page-preview-featured">
+          <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">Featured</h3>
+          <ul class="mt-1 space-y-1 text-sm">
+            <li v-for="endpoint in preview.featured" :key="`${endpoint.group}-${endpoint.name}`" class="flex justify-between gap-4">
+              <span class="text-foreground dark:text-gray-200">{{ endpoint.name }} <span class="text-muted-foreground dark:text-gray-400">{{ endpoint.group }}</span></span>
+              <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}{{ endpoint.chart ? ' · chart' : '' }}</span>
+            </li>
+          </ul>
+        </div>
         <div v-for="group in preview.groups" :key="group.name || '__without-group__'" class="mb-4">
           <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">{{ group.name || 'Other services' }}</h3>
           <ul class="mt-1 space-y-1 text-sm">
             <li v-for="endpoint in group.endpoints" :key="endpoint.name" class="flex justify-between gap-4">
               <span class="text-foreground dark:text-gray-200">{{ endpoint.name }}</span>
-              <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
+              <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}{{ endpoint.chart ? ' · chart' : '' }}</span>
             </li>
           </ul>
         </div>
@@ -143,7 +180,10 @@ const endpointSearch = ref('')
 const validation = ref(null)
 const preview = ref(null)
 
-const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [] })
+const MAXIMUM_FEATURED = 10
+const MAXIMUM_CHARTS = 10
+
+const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], charts: [] })
 const form = reactive(emptyForm())
 
 // Message shown after the route changes from the creation to the edition of the created page
@@ -166,15 +206,25 @@ const groupOptions = computed(() => {
   return [...options.value.groups, ...missing]
 })
 
-// Endpoints of the options matching the search, plus the selected keys that do not exist at the moment
+// Endpoints of the options matching the search, plus the selected, featured and chart keys that do not exist at the moment
 const filteredEndpoints = computed(() => {
   const keys = new Set(options.value.endpoints.map((endpoint) => endpoint.key))
-  const missing = form.endpoints.filter((key) => !keys.has(key)).map((key) => ({ key, name: key, group: '' }))
+  const missing = [...new Set([...form.endpoints, ...form.featured, ...form.charts])].filter((key) => !keys.has(key)).map((key) => ({ key, name: key, group: '' }))
   const query = endpointSearch.value.trim().toLowerCase()
   return [...options.value.endpoints, ...missing].filter((endpoint) =>
     !query || [endpoint.key, endpoint.name, endpoint.group].some((value) => (value || '').toLowerCase().includes(query))
   )
 })
+
+// isOnPage returns whether the endpoint is shown on the page as currently selected, which a chart requires
+const isOnPage = (endpoint) => form.groups.includes((endpoint.group || '').trim()) || form.endpoints.includes(endpoint.key) || form.featured.includes(endpoint.key)
+
+const warningMessage = (warning) => ({
+  group: `Group ${warning.value} has no endpoints at the moment.`,
+  endpoint: `Endpoint ${warning.value} does not exist at the moment.`,
+  featured: `Featured endpoint ${warning.value} does not exist at the moment.`,
+  chart: `The chart of ${warning.value} is not shown: the endpoint is not on the page.`
+}[warning.type] || `${warning.type}: ${warning.value}`)
 
 const pageStatusLabel = (status) => STATUS_LABELS[status]?.page || STATUS_LABELS.unknown.page
 const endpointStatusLabel = (status) => STATUS_LABELS[status]?.endpoint || STATUS_LABELS.unknown.endpoint
@@ -191,6 +241,8 @@ const currentDocument = () => ({
   description: form.description.trim(),
   groups: [...form.groups],
   endpoints: [...form.endpoints],
+  featured: [...form.featured],
+  charts: [...form.charts],
   enabled: form.enabled
 })
 
@@ -208,7 +260,9 @@ const loadDetail = async () => {
       description: definition.description || '',
       enabled: data.origin === 'config' ? definition.enabled !== false : definition.enabled === true,
       groups: definition.groups || [],
-      endpoints: definition.endpoints || []
+      endpoints: definition.endpoints || [],
+      featured: definition.featured || [],
+      charts: definition.charts || []
     })
   }
 }

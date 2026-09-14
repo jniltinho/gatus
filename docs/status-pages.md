@@ -22,6 +22,8 @@ status-pages:
       title: "Services"
       description: "External websites and APIs"
       groups: [sites, apis]
+      featured: [sites_github]           # shown at the top of the page, with more details
+      charts: [sites_github, apis_github-api]  # response time charts
     - slug: infrastructure
       title: "Infrastructure"
       groups: [dns]
@@ -36,9 +38,11 @@ status-pages:
 | `description` | Optional, up to 1000 characters, plain text (no markdown or HTML). |
 | `groups` | Up to 50 groups. Every enabled endpoint of the group is shown, including the ones created later. |
 | `endpoints` | Up to 200 keys in the `group_name` format (the same key as the badges). |
+| `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
+| `charts` | Up to 10 keys of endpoints of the page that show a response time chart, like the one of the endpoint details page of the dashboard. A key of an endpoint that is not on the page is ignored with a warning. |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
-A page must select at least one group or endpoint. A group or key that does not exist yet does not invalidate the page:
+A page must select at least one group, endpoint or featured endpoint. A group or key that does not exist yet does not invalidate the page:
 the load logs a warning and the administration shows the warning when validating.
 
 The default `config.yaml` of the fork (Docker image and release tarballs) already ships the `/status/services` and
@@ -60,6 +64,10 @@ database as the endpoints (SQLite or PostgreSQL).
 
 ## What the page shows
 
+- **Featured** endpoints first, in cards with the uptime and the average response time over 24 hours, 7 days and
+  30 days, the last response time, the check bars and, when the endpoint has a chart, the chart already open.
+- A **Response time** button on the rows of the endpoints with a chart. The chart has the format of the endpoint
+  details page of the dashboard (`/endpoints/<key>`), with its own 24 hours / 7 days / 30 days selector.
 - Sections in the order of `groups`, then the groups only reached through `endpoints` (in alphabetical order) and, last,
   **Other services** with the endpoints without group. Within each section, endpoints are sorted by name.
 - Endpoints of the file, external endpoints and endpoints managed through the web, as long as they are enabled. Suites
@@ -87,16 +95,39 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
 {
   "slug": "services", "title": "Services", "description": "External websites and APIs",
   "status": "degraded", "updatedAt": "2026-09-14T19:30:00Z", "truncated": false,
+  "featured": [{
+    "name": "github", "group": "sites", "status": "up", "chart": true,
+    "uptime": {"24h": 1, "7d": 0.999, "30d": 0.998},
+    "responseTime": {"24h": 180, "7d": 175, "30d": 190},
+    "results": [{"timestamp": "2026-09-14T19:29:30Z", "success": true, "durationMs": 171}]
+  }],
   "groups": [{
     "name": "apis", "status": "degraded",
     "endpoints": [{
-      "name": "github-api", "status": "up",
+      "name": "github-api", "status": "up", "chart": true,
       "uptime": {"24h": 0.9993, "7d": 0.998, "30d": null},
+      "responseTime": {"24h": 123, "7d": 130, "30d": null},
       "results": [{"timestamp": "2026-09-14T19:29:00Z", "success": true, "durationMs": 123}]
     }]
   }]
 }
 ```
+
+`GET /api/v1/status-pages/<slug>/response-times/<24h|7d|30d>` responds, also without authentication, the hourly
+average response times of the endpoints with a chart, in the order of the page, identified by name and group (never by
+key):
+
+```json
+{
+  "duration": "24h",
+  "endpoints": [{
+    "name": "github", "group": "sites",
+    "points": [{"timestamp": "2026-09-14T18:00:00Z", "ms": 176}, {"timestamp": "2026-09-14T19:00:00Z", "ms": 182}]
+  }]
+}
+```
+
+An invalid duration responds the same 404 as a missing page.
 
 **Never published:** key, URL, hostname, IP, port, HTTP status, errors, conditions, events, certificate or domain
 expiration, alerts and `extra-labels`.
@@ -117,6 +148,8 @@ expiration, alerts and `extra-labels`.
   same assembly. A change made through the administration takes effect on the next request.
 - The assembly reads the database in one transaction with three queries, whatever the number of endpoints, and at most
   4 pages are assembled at the same time.
+- The response time charts are assembled at most once every 5 minutes per page and duration, for at most 10 endpoints,
+  and a page without charts does not read them at all.
 - If the database fails, the error is cached for 5 seconds so as not to overload it.
 - The page in the browser refreshes every 60 seconds and pauses while the tab is hidden.
 

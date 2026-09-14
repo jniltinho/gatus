@@ -91,6 +91,10 @@ status-pages:
       title: "Services"
       description: "External websites and APIs monitored by this Gatus"
       groups: [sites, apis]
+      # Shown at the top of the page, with more details
+      featured: [sites_github]
+      # Response time charts, like the endpoint details page of the dashboard
+      charts: [sites_github, apis_github-api]
 
     - slug: infrastructure
       title: "Infrastructure"

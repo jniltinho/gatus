@@ -62,10 +62,10 @@
 
 ## 7. Marco 7 — Endpoints em destaque e gráficos (pedido do dono)
 
-- [ ] 7.1 `featured` e `charts` em `config/statuspage` (até 10 chaves cada, normalização, destaques contam como seleção) e mapeamento para 400 na administração; testes
-- [ ] 7.2 Médias de tempo de resposta de 24h/7d/30d em `EndpointUptimes` (SQL na mesma consulta, memória nas estatísticas horárias); testes comparando com `GetAverageResponseTimeByKey`
-- [ ] 7.3 Seleção com destaques fora das seções, payload com `featured`, `chart` e `responseTime`, avisos `featured` e `chart`; testes (inclusive lista de permitidos)
-- [ ] 7.4 `GET /api/v1/status-pages/:slug/response-times/:duration`: séries na ordem da página, sem chave, cache de 5 min, `singleflight`, semáforo, 404 idêntico para duração inválida; testes de serviço e HTTP
-- [ ] 7.5 Página pública: cartões em destaque, gráfico no formato do `ResponseTimeChart` com seletor por gráfico, botão de gráfico nas linhas, tema escuro e 390 px; build e capturas
-- [ ] 7.6 Formulário da administração: marcar destaque e gráfico nos endpoints resolvidos pela seleção, limites de 10, pré-visualização com destaques; build e capturas
+- [x] 7.1 `featured` e `charts` em `config/statuspage` (até 10 chaves cada, normalização, destaques contam como seleção) e mapeamento para 400 na administração; testes
+- [x] 7.2 Médias de tempo de resposta de 24h/7d/30d em `EndpointUptimes` (SQL na mesma consulta, memória nas estatísticas horárias); testes comparando com `GetAverageResponseTimeByKey`
+- [x] 7.3 Seleção com destaques fora das seções, payload com `featured`, `chart` e `responseTime`, avisos `featured` e `chart`; testes (inclusive lista de permitidos)
+- [x] 7.4 `GET /api/v1/status-pages/:slug/response-times/:duration`: séries na ordem da página, sem chave, cache de 5 min, `singleflight`, semáforo, 404 idêntico para duração inválida; testes de serviço e HTTP
+- [x] 7.5 Página pública: cartões em destaque, gráfico no formato do `ResponseTimeChart` com seletor por gráfico, botão de gráfico nas linhas, tema escuro e 390 px; build e capturas
+- [x] 7.6 Formulário da administração: marcar destaque e gráfico nos endpoints resolvidos pela seleção, limites de 10, pré-visualização com destaques; build e capturas
 - [ ] 7.7 Documentação (em inglês), `config.yaml` padrão com um destaque e um gráfico de exemplo, E2E, `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge

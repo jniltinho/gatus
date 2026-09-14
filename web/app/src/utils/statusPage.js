@@ -41,3 +41,38 @@ export const relativeTimeLabel = (timestamp, now) => {
   const hours = Math.floor(minutes / 60)
   return hours === 1 ? '1 hour ago' : `${hours} hours ago`
 }
+
+// Periods of the response time charts, like the endpoint details page of the dashboard
+export const RESPONSE_TIME_DURATIONS = [
+  { value: '24h', label: '24 hours' },
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' }
+]
+
+// The server caches the response time charts for 5 minutes
+const RESPONSE_TIMES_TTL_MS = 5 * 60 * 1000
+
+// formatMilliseconds formats a response time, or a dash without execution
+export const formatMilliseconds = (milliseconds) => (milliseconds === null || milliseconds === undefined ? '—' : `${milliseconds} ms`)
+
+// createResponseTimesLoader returns a function that loads the response time charts of a status page for a duration,
+// sharing one request per duration between all the charts of the page
+export const createResponseTimesLoader = (slug) => {
+  const requests = new Map()
+  return (duration) => {
+    const cached = requests.get(duration)
+    if (cached && Date.now() - cached.time < RESPONSE_TIMES_TTL_MS) {
+      return cached.promise
+    }
+    const promise = fetch(`/api/v1/status-pages/${encodeURIComponent(slug)}/response-times/${encodeURIComponent(duration)}`, { credentials: 'omit' })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`unexpected status ${response.status}`)
+        }
+        return response.json()
+      })
+    promise.catch(() => requests.delete(duration))
+    requests.set(duration, { promise, time: Date.now() })
+    return promise
+  }
+}

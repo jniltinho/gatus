@@ -64,6 +64,8 @@ status-pages:
       description: "End-to-end test page"
       groups: [core]
       endpoints: [_panel]
+      featured: [core_health]
+      charts: [core_health, _panel]
     - slug: draft
       title: "Draft"
       groups: [core]
@@ -147,6 +149,23 @@ public wait 300 >/dev/null
 grep -q " ms" <<<"$(js public "document.querySelector('[data-testid=\"status-endpoint-health\"] [data-testid=status-endpoint-detail]').textContent")" || fail "the keyboard did not show the detail of the check"
 public screenshot "$PRINTS/02-services-keyboard-detail.png" >/dev/null
 
+step "Featured endpoint and response time charts"
+public wait "$(testid status-featured)" >/dev/null || fail "the featured section did not show up"
+grep -q "Avg response" <<<"$(js public "document.querySelector('[data-testid=status-featured]').innerText")" || fail "the featured card did not show the average response times"
+public wait "[data-testid=\"status-chart-health\"] canvas" >/dev/null || fail "the chart of the featured endpoint did not show up"
+[ "$(js public "document.querySelector('[data-testid=\"status-group-core\"] [data-testid=\"status-endpoint-health\"]') ? 'yes' : 'no'")" = "no" ] || fail "the featured endpoint is repeated in its group"
+public click "$(testid status-chart-toggle-panel)" >/dev/null
+public wait "[data-testid=\"status-chart-panel\"] canvas" >/dev/null || fail "the chart of panel did not open"
+public eval "const select = document.querySelector('[data-testid=\"status-chart-duration-panel\"]'); select.value = '7d'; select.dispatchEvent(new Event('change'))" >/dev/null
+public wait 1000 >/dev/null
+grep -q "response-times/7d" <<<"$(public network requests 2>/dev/null)" || fail "changing the period did not load the 7d response times"
+public screenshot --full "$PRINTS/02b-services-featured-and-charts.png" >/dev/null
+[ "$(api_status "$BASE/api/v1/status-pages/services/response-times/24h")" = 200 ] || fail "expected 200 from the public response times"
+[ "$(api_status "$BASE/api/v1/status-pages/services/response-times/1y")" = 404 ] || fail "expected 404 for an invalid duration"
+if curl -s "$BASE/api/v1/status-pages/services/response-times/24h" | grep -qE '127\.0\.0\.1|core_health|_panel'; then
+  fail "the response times exposed a URL or a key"
+fi
+
 step "Dark mode and 390 px screen"
 public set media dark >/dev/null
 public open "$BASE/status/services" >/dev/null
@@ -201,6 +220,8 @@ admin fill "$(testid status-page-field-description)" "Services used by the team"
 admin click "$(testid status-page-group-core)" >/dev/null
 admin fill "$(testid status-page-endpoint-search)" "panel" >/dev/null
 admin click "$(testid status-page-endpoint-_panel)" >/dev/null
+admin click "$(testid status-page-featured-_panel)" >/dev/null
+admin click "$(testid status-page-chart-_panel)" >/dev/null
 admin click "$(testid status-page-validate)" >/dev/null
 admin wait --text "The page will show 3 endpoints" >/dev/null || fail "the validation did not count the 3 endpoints"
 admin screenshot --full "$PRINTS/08-admin-validation.png" >/dev/null
@@ -212,6 +233,7 @@ admin wait --text "Status page created" >/dev/null || fail "the creation was not
 [ "$(api_status "$BASE/api/v1/status-pages/team")" = 404 ] || fail "the page that was just created should not be public"
 admin click "$(testid status-page-preview-button)" >/dev/null
 admin wait "$(testid status-page-preview)" >/dev/null || fail "the preview did not show up"
+admin wait "$(testid status-page-preview-featured)" >/dev/null || fail "the preview did not show the featured endpoint"
 admin screenshot --full "$PRINTS/09-admin-preview.png" >/dev/null
 
 step "Administration: publish and open without credentials"
@@ -220,6 +242,7 @@ admin click "$(testid status-page-save)" >/dev/null
 admin wait --text "saved and published" >/dev/null || fail "the publication was not confirmed"
 public open "$BASE/status/team" >/dev/null
 public wait --text "Services used by the team" >/dev/null || fail "the published page did not open without credentials"
+public wait "[data-testid=\"status-featured\"] [data-testid=\"status-endpoint-panel\"]" >/dev/null || fail "the team page did not show panel as featured"
 public screenshot --full "$PRINTS/10-team-public.png" >/dev/null
 
 step "Administration: exposure warning in the endpoint form"
