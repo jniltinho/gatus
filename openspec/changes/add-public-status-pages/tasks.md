@@ -27,10 +27,10 @@
 
 ## 3. Marco 3 — API de administração das status pages
 
-- [ ] 3.1 Serviço de administração em `statuspage`: mutex, `lifecycle.TryBeginChange` antes de validar ou gravar, decodificação estrita em JSON e YAML, `enabled` ausente como `false` na criação, slugs reservados, gravação e **publicação depois do commit** com revisão nova, auditoria sem corpo
-- [ ] 3.2 `api/admin_status_pages.go` no grupo admin: listar (com `publicationEnabled`, `managedUnavailable` e `sharedRateLimitWarning`), `options`, `exposure` (400 sem `group` e sem `key`), `validate`, criar (201 com `ETag`), obter, alterar, habilitar, desabilitar e remover com `If-Match`, `preview` sem cache nem limitador e com semáforo próprio de 1 vaga; rotas fixas antes de `/:slug`
-- [ ] 3.3 `api/admin_status_pages_errors.go`: mapeamento próprio (501, 409, 400, 412, 428, 503, 404, 201 e 500 sem texto)
-- [ ] 3.4 Testes dos cenários da spec `status-page-management`: 401, 403 por subject e por CSRF, 413, 415, 428, 412, 409 com YAML e com gerenciada, 400 por campo desconhecido, troca e reserva de slug, 501, 503 durante ciclo sem gravação, falha de gravação sem publicação (store falso injetado no serviço), exposição sem parâmetros, criação sem `enabled` desabilitada, páginas do YAML somente leitura, remoção de gerenciada em conflito, pré-visualização de página desabilitada, exposição por grupo e por chave, administração com `status-pages.enabled: false`
+- [x] 3.1 Serviço de administração em `statuspage`: mutex, `lifecycle.TryBeginChange` antes de validar ou gravar, decodificação estrita em JSON e YAML, `enabled` ausente como `false` na criação, slugs reservados, gravação e **publicação depois do commit** com revisão nova, auditoria sem corpo
+- [x] 3.2 `api/admin_status_pages.go` no grupo admin: listar (com `publicationEnabled`, `managedUnavailable` e `sharedRateLimitWarning`), `options`, `exposure` (400 sem `group` e sem `key`), `validate`, criar (201 com `ETag`), obter, alterar, habilitar, desabilitar e remover com `If-Match`, `preview` sem cache nem limitador e com semáforo próprio de 1 vaga; rotas fixas antes de `/:slug`
+- [x] 3.3 `api/admin_status_pages_errors.go`: mapeamento próprio (501, 409, 400, 412, 428, 503, 404, 201 e 500 sem texto)
+- [x] 3.4 Testes dos cenários da spec `status-page-management`: 401, 403 por subject e por CSRF, 413, 415, 428, 412, 409 com YAML e com gerenciada, 400 por campo desconhecido, troca e reserva de slug, 501, 503 durante ciclo sem gravação, falha de gravação sem publicação (store falso injetado no serviço), exposição sem parâmetros, criação sem `enabled` desabilitada, páginas do YAML somente leitura, remoção de gerenciada em conflito, pré-visualização de página desabilitada, exposição por grupo e por chave, administração com `status-pages.enabled: false`
 - [ ] 3.5 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
 
 ## 4. Marco 4 — Página pública no frontend

@@ -41,6 +41,8 @@ func registerAdminRoutes(router fiber.Router, cfg *config.Config) {
 	router.Post("/endpoints/:key/enable", handler.setEnabled(true))
 	router.Post("/endpoints/:key/disable", handler.setEnabled(false))
 	router.Delete("/endpoints/:key", handler.delete)
+	// Status pages (see api/admin_status_pages.go)
+	registerAdminStatusPageRoutes(router, cfg.Security)
 }
 
 func (h *adminHandler) metadata(c *fiber.Ctx) error {

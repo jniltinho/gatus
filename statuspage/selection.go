@@ -30,7 +30,7 @@ type Selection struct {
 }
 
 // Keys returns the keys of the selected endpoints, in display order
-func (selection *Selection) Keys() []string {
+func (selection Selection) Keys() []string {
 	var keys []string
 	for _, section := range selection.Sections {
 		for _, ref := range section.Endpoints {
