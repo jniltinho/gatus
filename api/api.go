@@ -132,5 +132,9 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	protectedAPIRouter.Get("/v1/endpoints/:key/statuses", EndpointStatus(cfg))
 	protectedAPIRouter.Get("/v1/suites/statuses", SuiteStatuses(cfg))
 	protectedAPIRouter.Get("/v1/suites/:key/statuses", SuiteStatus(cfg))
+	// Administration of endpoints (fork): only registered when enabled, see api/admin.go
+	if cfg.Admin.IsEnabled() {
+		registerAdminRoutes(protectedAPIRouter.Group("/v1/admin", cfg.Security.AdminMiddleware(cfg.Admin), adminRequestProtection(cfg.Admin)), cfg)
+	}
 	return app
 }

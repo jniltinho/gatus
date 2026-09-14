@@ -41,7 +41,7 @@
 - [x] 4.5 Mascaramento de segredos e preservação do valor armazenado quando a máscara é reenviada; testes
 - [x] 4.6 Registro dos gerenciados (copy-on-write) e carga em `initializeStorage` independente de `admin.enabled`: preservação de chaves, conflito com o YAML, gerenciados inválidos, restauração de alertas; busca por chave em `api/badge.go` também nos gerenciados; aviso de várias instâncias com PostgreSQL; testes de reinício, recarga, conflito e admin desligado
 - [x] 4.7 Autor da requisição (usuário basic ou subject OIDC), middleware de autorização de administrador, middleware de CSRF, limite de corpo; `admin` em `GET /api/v1/config`; helper de teste para sessão OIDC injetada; testes de 401, 403 (subject, `Origin`, `Sec-Fetch-Site`), 413, 415, proxy HTTPS, porta não padrão e ambiente dev
-- [ ] 4.8 Serviço de administração com mutex e rotas: listar, obter com `ETag`, criar, alterar e remover com `If-Match`, habilitar, desabilitar, validar, testar (limites) e metadados; 503 durante ciclo; auditoria; remoção de séries Prometheus; invalidação do cache de status da API na remoção; testes para os cenários da spec
+- [x] 4.8 Serviço de administração com mutex e rotas: listar, obter com `ETag`, criar, alterar e remover com `If-Match`, habilitar, desabilitar, validar, testar (limites) e metadados; 503 durante ciclo; auditoria; remoção de séries Prometheus; invalidação do cache de status da API na remoção; testes para os cenários da spec
 - [ ] 4.9 Pull request, CI verde e merge
 
 ## 5. Marco 5 — Frontend, E2E, documentação e release
