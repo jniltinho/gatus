@@ -59,8 +59,8 @@ var (
 	// ErrDescriptionTooLong is returned when a description is too long
 	ErrDescriptionTooLong = fmt.Errorf("description must have at most %d characters", MaximumDescriptionLength)
 
-	// ErrEmptySelection is returned when a page selects no group and no endpoint
-	ErrEmptySelection = errors.New("status page must select at least one group or endpoint")
+	// ErrEmptySelection is returned when a page selects no group, no endpoint and no featured endpoint
+	ErrEmptySelection = errors.New("status page must select at least one group, endpoint or featured endpoint")
 
 	// ErrInvalidGroups is returned when the groups of a page are invalid
 	ErrInvalidGroups = errors.New("invalid groups")
