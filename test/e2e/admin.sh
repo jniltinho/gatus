@@ -162,10 +162,14 @@ step "Tema escuro"
 agent-browser open "$BASE/admin" >/dev/null
 wait_for "$(testid admin-row-web_site)"
 agent-browser eval "document.documentElement.classList.add('dark')" >/dev/null
+# Espera a transição de cores dos botões terminar antes da captura
+agent-browser wait 700 >/dev/null
 shot 10-lista-escuro
 agent-browser open "$BASE/admin/endpoints/new" >/dev/null
 wait_for "$(testid admin-field-name)"
 agent-browser eval "document.documentElement.classList.add('dark')" >/dev/null
+# Espera a transição de cores dos botões terminar antes da captura
+agent-browser wait 700 >/dev/null
 shot 11-formulario-escuro
 
 step "Remoção: cancelar e confirmar"
