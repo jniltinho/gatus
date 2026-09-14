@@ -28,6 +28,19 @@ func (s *Store) createManagedEndpointsSchema() error {
 		`)
 		return err
 	}
+	if s.driver == driverMySQL {
+		_, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS managed_endpoints (
+				managed_endpoint_id BIGINT       AUTO_INCREMENT PRIMARY KEY,
+				endpoint_key        VARCHAR(768) NOT NULL UNIQUE,
+				definition          MEDIUMTEXT   NOT NULL,
+				version             BIGINT       NOT NULL,
+				created_at          BIGINT       NOT NULL,
+				updated_at          BIGINT       NOT NULL,
+				updated_by          MEDIUMTEXT   NOT NULL
+			) ` + mysqlTableOptions)
+		return err
+	}
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS managed_endpoints (
 			managed_endpoint_id BIGSERIAL PRIMARY KEY,

@@ -28,9 +28,35 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Versões mínimas suportadas do storage mysql (change add-mysql-storage)
+      mysql:
+        image: mysql:8.4.11
+        env:
+          MYSQL_ROOT_PASSWORD: gatus-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pgatus-root --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+      mariadb:
+        image: mariadb:10.11.19
+        env:
+          MARIADB_ROOT_PASSWORD: gatus-root
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
     env:
-      # Testes do store em PostgreSQL (sem a variável, esses testes rodam só em SQLite)
+      # Testes do store em PostgreSQL, MySQL e MariaDB (sem as variáveis, esses testes rodam só em SQLite).
+      # Os usuários de MySQL e MariaDB precisam criar bancos: cada teste usa um banco próprio.
       GATUS_TEST_POSTGRES_URL: postgres://gatus:gatus@127.0.0.1:5432/gatus?sslmode=disable
+      GATUS_TEST_MYSQL_URL: root:gatus-root@tcp(127.0.0.1:3306)/
+      GATUS_TEST_MARIADB_URL: root:gatus-root@tcp(127.0.0.1:3307)/
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -52,4 +78,47 @@ jobs:
       - name: Test
         # sudo: um dos testes usa ping (ICMP), que exige privilégios de superusuário.
         # As variáveis mantêm o Go e os caches configurados pelo setup-go.
-        run: sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "GATUS_TEST_POSTGRES_URL=$GATUS_TEST_POSTGRES_URL" go test ./... -race
+        run: sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "GATUS_TEST_POSTGRES_URL=$GATUS_TEST_POSTGRES_URL" "GATUS_TEST_MYSQL_URL=$GATUS_TEST_MYSQL_URL" "GATUS_TEST_MARIADB_URL=$GATUS_TEST_MARIADB_URL" go test ./... -race
+
+  storage-latest:
+    name: Storage mysql nas LTS mais novas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:9.7.2
+        env:
+          MYSQL_ROOT_PASSWORD: gatus-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pgatus-root --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+      mariadb:
+        image: mariadb:12.3.3
+        env:
+          MARIADB_ROOT_PASSWORD: gatus-root
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      GATUS_TEST_MYSQL_URL: root:gatus-root@tcp(127.0.0.1:3306)/
+      GATUS_TEST_MARIADB_URL: root:gatus-root@tcp(127.0.0.1:3307)/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        # Only the packages that use the storage: ./config/... would include the ICMP tests, which require sudo
+        run: go test ./storage/... ./statuspage/... ./managedendpoint/... ./config -race

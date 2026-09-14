@@ -15,6 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/service/ses v1.34.24
 	github.com/coreos/go-oidc/v3 v3.18.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/google/go-github/v48 v48.2.0
 	github.com/google/uuid v1.6.0
@@ -41,6 +42,7 @@ require (
 	cloud.google.com/go/auth v0.20.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/42wim/httpsig v1.2.4 // indirect
 	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
