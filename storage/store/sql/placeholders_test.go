@@ -52,6 +52,25 @@ func TestTranslatePlaceholders(t *testing.T) {
 	}
 }
 
+func TestTranslatePlaceholders_InsertReturning(t *testing.T) {
+	translated, err := parsePlaceholders("\n\t\tINSERT INTO endpoint_results (endpoint_id, success)\n\t\tVALUES ($1, $2)\n\t\tRETURNING endpoint_result_id\n\t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if translated.returningColumn != "endpoint_result_id" || translated.insertWithoutReturning != "INSERT INTO endpoint_results (endpoint_id, success)\n\t\tVALUES (?, ?)" {
+		t.Errorf("unexpected emulation of RETURNING: column=%q insert=%q", translated.returningColumn, translated.insertWithoutReturning)
+	}
+	for _, query := range []string{
+		"SELECT endpoint_id FROM endpoints WHERE endpoint_key = $1",
+		"UPDATE endpoints SET endpoint_name = $1 RETURNING endpoint_id",
+		"INSERT INTO endpoints (endpoint_key) VALUES ($1) RETURNING endpoint_id, endpoint_key",
+	} {
+		if translated, err := parsePlaceholders(query); err != nil || len(translated.returningColumn) > 0 {
+			t.Errorf("%q: expected no RETURNING emulation, got %q (err=%v)", query, translated.returningColumn, err)
+		}
+	}
+}
+
 func TestTranslatePlaceholders_Invalid(t *testing.T) {
 	for _, query := range []string{"SELECT ?", "SELECT $0", "SELECT $65536", "SELECT $1 WHERE a = ?"} {
 		if _, err := parsePlaceholders(query); !errors.Is(err, errInvalidPlaceholder) {

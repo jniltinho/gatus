@@ -256,7 +256,7 @@ func (s *Store) GetHourlyAverageResponseTimeByKey(key string, from, to time.Time
 }
 
 // InsertEndpointResult adds the observed result for the specified endpoint into the store
-func (s *Store) InsertEndpointResult(ep *endpoint.Endpoint, result *endpoint.Result) error {
+func (s *Store) insertEndpointResultWithoutRetry(ep *endpoint.Endpoint, result *endpoint.Result) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -500,13 +500,13 @@ func (s *Store) UpsertTriggeredEndpointAlert(ep *endpoint.Endpoint, triggeredAle
 		}
 	}
 	_, err = tx.Exec(
-		`
+		s.dialectQuery(mysqlUpsertTriggeredEndpointAlertQuery, `
 			INSERT INTO endpoint_alerts_triggered (endpoint_id, configuration_checksum, resolve_key, number_of_successes_in_a_row) 
 			VALUES ($1, $2, $3, $4)
 			ON CONFLICT(endpoint_id, configuration_checksum) DO UPDATE SET
 				resolve_key = $3,
 				number_of_successes_in_a_row = $4
-		`,
+		`),
 		endpointID,
 		triggeredAlert.Checksum(),
 		triggeredAlert.ResolveKey,
@@ -670,7 +670,8 @@ func (s *Store) insertEndpointResultWithSuiteID(tx *sql.Tx, endpointID int64, re
 func (s *Store) insertConditionResults(tx *sql.Tx, endpointResultID int64, conditionResults []*endpoint.ConditionResult) error {
 	var err error
 	for _, cr := range conditionResults {
-		_, err = tx.Exec("INSERT INTO endpoint_result_conditions (endpoint_result_id, condition, success) VALUES ($1, $2, $3)",
+		// Fork: "condition" is quoted because it is a reserved word in MySQL and MariaDB
+		_, err = tx.Exec(`INSERT INTO endpoint_result_conditions (endpoint_result_id, "condition", success) VALUES ($1, $2, $3)`,
 			endpointResultID,
 			cr.Condition,
 			cr.Success,
@@ -689,14 +690,14 @@ func (s *Store) updateEndpointUptime(tx *sql.Tx, endpointID int64, result *endpo
 		successfulExecutions = 1
 	}
 	_, err := tx.Exec(
-		`
+		s.dialectQuery(mysqlUpsertHourlyUptimeQuery, `
 			INSERT INTO endpoint_uptimes (endpoint_id, hour_unix_timestamp, total_executions, successful_executions, total_response_time) 
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT(endpoint_id, hour_unix_timestamp) DO UPDATE SET
 				total_executions = excluded.total_executions + endpoint_uptimes.total_executions,
 				successful_executions = excluded.successful_executions + endpoint_uptimes.successful_executions,
 				total_response_time = excluded.total_response_time + endpoint_uptimes.total_response_time
-		`,
+		`),
 		endpointID,
 		unixTimestampFlooredAtHour,
 		1,
@@ -847,7 +848,7 @@ func (s *Store) getEndpointResultsByEndpointID(tx *sql.Tx, endpointID int64, pag
 	}
 	// Get condition results
 	args := make([]interface{}, 0, len(idResultMap))
-	query := `SELECT endpoint_result_id, condition, success
+	query := `SELECT endpoint_result_id, "condition", success
 				FROM endpoint_result_conditions
 				WHERE endpoint_result_id IN (`
 	index := 1
@@ -1024,6 +1025,10 @@ func (s *Store) getLastEndpointResultSuccessValue(tx *sql.Tx, endpointID int64) 
 
 // deleteOldEndpointEvents deletes endpoint events that are no longer needed
 func (s *Store) deleteOldEndpointEvents(tx *sql.Tx, endpointID int64) error {
+	if s.driver == driverMySQL {
+		_, err := tx.Exec(mysqlDeleteOldEndpointEventsQuery, endpointID, s.maximumNumberOfEvents)
+		return err
+	}
 	_, err := tx.Exec(
 		`
 			DELETE FROM endpoint_events 
@@ -1044,6 +1049,10 @@ func (s *Store) deleteOldEndpointEvents(tx *sql.Tx, endpointID int64) error {
 
 // deleteOldEndpointResults deletes endpoint results that are no longer needed
 func (s *Store) deleteOldEndpointResults(tx *sql.Tx, endpointID int64) error {
+	if s.driver == driverMySQL {
+		_, err := tx.Exec(mysqlDeleteOldEndpointResultsQuery, endpointID, s.maximumNumberOfResults)
+		return err
+	}
 	_, err := tx.Exec(
 		`
 			DELETE FROM endpoint_results
@@ -1131,14 +1140,14 @@ func (s *Store) mergeHourlyUptimeEntriesOlderThanMergeThresholdIntoDailyUptimeEn
 	// Insert new daily uptime entries
 	for unixTimestamp, entry := range dailyEntries {
 		_, err = tx.Exec(
-			`
+			s.dialectQuery(mysqlUpsertDailyUptimeQuery, `
 					INSERT INTO endpoint_uptimes (endpoint_id, hour_unix_timestamp, total_executions, successful_executions, total_response_time)
 					VALUES ($1, $2, $3, $4, $5)
 					ON CONFLICT(endpoint_id, hour_unix_timestamp) DO UPDATE SET
 						total_executions = $3,
 						successful_executions = $4,
 						total_response_time = $5
-				`,
+				`),
 			endpointID,
 			unixTimestamp,
 			entry.totalExecutions,
@@ -1304,7 +1313,7 @@ func (s *Store) GetSuiteStatusByKey(key string, params *paging.SuiteStatusParams
 }
 
 // InsertSuiteResult adds the observed result for the specified suite into the store
-func (s *Store) InsertSuiteResult(su *suite.Suite, result *suite.Result) error {
+func (s *Store) insertSuiteResultWithoutRetry(su *suite.Suite, result *suite.Result) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -1581,7 +1590,7 @@ func (s *Store) getSuiteResults(tx *sql.Tx, suiteID int64, page, pageSize int) (
 		// Fetch condition results for all endpoint results in this suite result
 		if len(epResultMap) > 0 {
 			args := make([]interface{}, 0, len(epResultMap))
-			condQuery := `SELECT endpoint_result_id, condition, success
+			condQuery := `SELECT endpoint_result_id, "condition", success
 						  FROM endpoint_result_conditions
 						  WHERE endpoint_result_id IN (`
 			index := 1
@@ -1636,6 +1645,10 @@ func (s *Store) getNumberOfSuiteResultsByID(tx *sql.Tx, suiteID int64) (int64, e
 
 // deleteOldSuiteResults deletes old suite results beyond the maximum
 func (s *Store) deleteOldSuiteResults(tx *sql.Tx, suiteID int64) error {
+	if s.driver == driverMySQL {
+		_, err := tx.Exec(mysqlDeleteOldSuiteResultsQuery, suiteID, s.maximumNumberOfResults)
+		return err
+	}
 	_, err := tx.Exec(`
 		DELETE FROM suite_results
 		WHERE suite_id = $1 

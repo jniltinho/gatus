@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"regexp"
 	"sync"
 )
 
@@ -28,7 +29,15 @@ type translatedQuery struct {
 	// numberOfArguments is the highest placeholder number referenced by the query, which is the number of arguments it
 	// requires, as with PostgreSQL
 	numberOfArguments int
+
+	// insertWithoutReturning and returningColumn are set when the query is an INSERT ... RETURNING <column>, which MySQL
+	// does not support: see mysqlConn.queryInsertReturning
+	insertWithoutReturning string
+	returningColumn        string
 }
+
+// insertReturningPattern matches an INSERT whose last clause is RETURNING with a single column
+var insertReturningPattern = regexp.MustCompile(`(?is)^\s*(INSERT\s.*?)\s+RETURNING\s+([A-Za-z_][A-Za-z0-9_]*)\s*$`)
 
 var (
 	translationsMutex sync.Mutex
@@ -99,6 +108,9 @@ func parsePlaceholders(query string) (*translatedQuery, error) {
 		}
 	}
 	translated.query = string(output)
+	if matches := insertReturningPattern.FindStringSubmatch(translated.query); matches != nil {
+		translated.insertWithoutReturning, translated.returningColumn = matches[1], matches[2]
+	}
 	return translated, nil
 }
 

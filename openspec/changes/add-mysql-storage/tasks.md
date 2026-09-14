@@ -14,14 +14,14 @@
 
 ## 2. Marco 2 — Paridade do store do upstream
 
-- [ ] 2.1 Dialeto MySQL para as 4 inserções com `RETURNING` (`LastInsertId` na mesma transação)
-- [ ] 2.2 Dialeto MySQL para os 3 upserts (`ON DUPLICATE KEY UPDATE` com `VALUES()` e as mesmas expressões do upstream): alertas disparados e consolidação diária substituem (`col = VALUES(col)`), uptime horário acumula (`col = col + VALUES(col)`)
-- [ ] 2.3 Dialeto MySQL para as 3 exclusões de excedentes com corte `<=` por identificador em tabela derivada e o mesmo N do upstream
-- [ ] 2.4 `"condition"` citado nas consultas do upstream (SQLite, PostgreSQL e MySQL com `ANSI_QUOTES`); conferir que nenhuma consulta usa aspas duplas para literal de texto
-- [ ] 2.5 Retry único da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL
-- [ ] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
-- [ ] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado
-- [ ] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar
+- [x] 2.1 `INSERT ... RETURNING <coluna>` emulado no conector com `Exec` e `LastInsertId`, sem mudar as 4 inserções do upstream
+- [x] 2.2 Dialeto MySQL para os 3 upserts (`ON DUPLICATE KEY UPDATE` com `VALUES()` e as mesmas expressões do upstream): alertas disparados e consolidação diária substituem (`col = VALUES(col)`), uptime horário acumula (`col = col + VALUES(col)`)
+- [x] 2.3 Dialeto MySQL para as 3 exclusões de excedentes com corte `<=` por identificador em tabela derivada e o mesmo N do upstream
+- [x] 2.4 `"condition"` citado nas consultas do upstream (SQLite, PostgreSQL e MySQL com `ANSI_QUOTES`); conferir que nenhuma consulta usa aspas duplas para literal de texto
+- [x] 2.5 Retry único da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL
+- [x] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
+- [x] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado (mantido `REPEATABLE READ`: 8 endpoints × 25 resultados concorrentes sem erro nos dois bancos)
+- [x] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar (mantido ligado: MySQL 8.4 ~6,4 ms contra ~8,3 ms e MariaDB 10.11 ~4,1 ms contra ~6,2 ms por gravação)
 - [ ] 2.9 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
 
 ## 3. Marco 3 — Tabelas do fork, administração e status pages

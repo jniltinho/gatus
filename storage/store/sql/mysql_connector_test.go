@@ -30,7 +30,7 @@ func mysqlTestServers() map[string]string {
 
 // newMySQLTestDatabase creates a database of its own for the test on the server of dsn, removed when the test ends,
 // so that packages tested in parallel never share data, and returns its DSN
-func newMySQLTestDatabase(t *testing.T, dsn string) string {
+func newMySQLTestDatabase(t testing.TB, dsn string) string {
 	t.Helper()
 	cfg, err := mysql.ParseDSN(dsn)
 	if err != nil {
@@ -134,6 +134,53 @@ func TestMySQLConnector_Placeholders(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestMySQLConnector_InsertReturning(t *testing.T) {
+	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
+		openMySQLForTest(t, dsn)
+		for dbIndex, db := range []*sql.DB{openMySQLForTestWithoutTable(t, dsn), reopenWithoutInterpolation(t, dsn)} {
+			var ids []int64
+			for i := 0; i < 2; i++ {
+				var id int64
+				label := "returning-" + strconv.Itoa(dbIndex) + "-" + strconv.Itoa(i)
+				if err := db.QueryRow(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3) RETURNING item_id`, i, label, time.Now()).Scan(&id); err != nil {
+					t.Fatalf("insert with RETURNING failed: %v", err)
+				}
+				ids = append(ids, id)
+			}
+			if ids[0] <= 0 || ids[1] != ids[0]+1 {
+				t.Errorf("expected consecutive generated ids, got %v", ids)
+			}
+			var label string
+			if err := db.QueryRow(`SELECT label FROM items WHERE item_id = $1`, ids[1]).Scan(&label); err != nil || label != "returning-"+strconv.Itoa(dbIndex)+"-1" {
+				t.Errorf("expected the returned id to identify the inserted row, got %q (err=%v)", label, err)
+			}
+		}
+		// A failed INSERT ... RETURNING aborts the transaction like any other statement
+		db := openMySQLForTestWithoutTable(t, dsn)
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var id int64
+		if err := tx.QueryRow(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3) RETURNING item_id`, 1, strings.Repeat("x", 30), time.Now()).Scan(&id); err == nil {
+			t.Fatal("expected the insert of a label longer than VARCHAR(20) to fail in strict mode")
+		}
+		if err := tx.Commit(); !errors.Is(err, errTransactionAborted) {
+			t.Errorf("expected Commit to fail after the failed insert, got %v", err)
+		}
+	})
+}
+
+func openMySQLForTestWithoutTable(t *testing.T, dsn string) *sql.DB {
+	t.Helper()
+	db, _, err := openMySQL(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	return db
 }
 
 func reopenWithoutInterpolation(t *testing.T, dsn string) *sql.DB {
