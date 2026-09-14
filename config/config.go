@@ -22,6 +22,7 @@ import (
 	"gatus/v5/config/key"
 	"gatus/v5/config/maintenance"
 	"gatus/v5/config/remote"
+	"gatus/v5/config/statuspage"
 	"gatus/v5/config/suite"
 	"gatus/v5/config/tunneling"
 	"gatus/v5/config/ui"
@@ -86,6 +87,9 @@ type Config struct {
 
 	// Admin is the configuration of the web administration of endpoints
 	Admin *admin.Config `yaml:"admin,omitempty"`
+
+	// StatusPages is the configuration of the public status pages
+	StatusPages *statuspage.Config `yaml:"status-pages,omitempty"`
 
 	// Security is the configuration for securing access to Gatus
 	Security *security.Config `yaml:"security,omitempty"`
@@ -343,6 +347,9 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 			return nil, err
 		}
 		if err := ValidateUniqueKeys(config); err != nil {
+			return nil, err
+		}
+		if err := ValidateStatusPagesConfig(config); err != nil {
 			return nil, err
 		}
 		ValidateAndSetConcurrencyDefaults(config)
