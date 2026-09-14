@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/TwiN/gatus/v5/client"
 	"github.com/TwiN/gatus/v5/storage"
 	"github.com/TwiN/logr"
 )
@@ -60,4 +61,10 @@ func containsIgnoringCase(values []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// ResolveTunnelForClientConfig resolves the SSH tunnel referenced by clientConfig, if any, against the tunneling
+// configuration. It is used for endpoints that are not part of the configuration file.
+func ResolveTunnelForClientConfig(config *Config, clientConfig *client.Config) error {
+	return resolveTunnelForClientConfig(config, clientConfig)
 }
