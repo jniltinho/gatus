@@ -49,10 +49,10 @@
 - [x] 5.1 Rotas SPA `/admin`, `/admin/endpoints/new` e `/admin/endpoints/:key/edit` em `api/api.go` e no `vue-router`
 - [x] 5.2 Link "Admin" no cabeçalho conforme `config.admin`
 - [x] 5.3 View de lista: busca, origem, conflito e erro, habilitar/desabilitar com `If-Match`, remoção com confirmação e aviso de alertas disparados
-- [x] 5.4 View de formulário: modo formulário e modo YAML, conversão via `POST /validate`, nome e grupo somente leitura, segredos mascarados, tratamento de 412
+- [x] 5.4 View de formulário: modo formulário e modo YAML, conversão com serializador próprio e `POST /parse`, nome e grupo somente leitura, segredos mascarados, tratamento de 412
 - [x] 5.5 Ações Validar, Testar (resultado por condição e duração) e Salvar, com erros exibidos sem perder o conteúdo
 - [x] 5.6 Conferir variantes `dark:` e as convenções do `AGENTS.md` nos componentes novos; `make frontend-build` e commit de `web/static/`
-- [ ] 5.7 Roteiro `test/e2e/admin.sh` com `agent-browser` (lista, criar, validar, testar, salvar, editar, desabilitar, remover, sem credenciais) nos temas claro e escuro, com capturas em `dist/prints/`
-- [ ] 5.8 `README.md`: seção `admin` com exemplo, pré-requisitos, API, segredos mascarados, várias instâncias, ordenação das tags do fork e rollback
+- [x] 5.7 Roteiro `test/e2e/admin.sh` com `agent-browser` (lista, criar, validar, testar, salvar, editar, desabilitar, remover, sem credenciais) nos temas claro e escuro, com capturas em `dist/prints/`
+- [x] 5.8 Documentação em `docs/admin-endpoints.md`, com uma seção curta no `README.md` apontando para ela: exemplo de `admin`, pré-requisitos, API, segredos mascarados, várias instâncias, ordenação das tags do fork e rollback
 - [ ] 5.9 `openspec validate add-admin-endpoint-management --strict`, `make lint`, `make test`, roteiro E2E e CI verdes
 - [ ] 5.10 Pull request e merge; publicar a próxima release pela skill `create-release` e conferir a imagem no Docker Hub

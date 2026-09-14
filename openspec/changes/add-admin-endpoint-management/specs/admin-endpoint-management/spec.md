@@ -82,6 +82,7 @@ O sistema MUST expor as operações abaixo, respondendo em JSON com erros no for
 - `PUT /api/v1/admin/endpoints/{key}`: altera;
 - `POST /api/v1/admin/endpoints/{key}/enable` e `POST /api/v1/admin/endpoints/{key}/disable`: habilitam e desabilitam;
 - `DELETE /api/v1/admin/endpoints/{key}`: remove;
+- `POST /api/v1/admin/endpoints/parse`: decodifica a definição e a devolve como documento, sem validar, sem ler dados armazenados e sem mascarar;
 - `POST /api/v1/admin/endpoints/validate`: valida sem persistir;
 - `POST /api/v1/admin/endpoints/test`: valida e executa uma verificação única;
 - `GET /api/v1/admin/metadata`: tipos de alerta configurados, túneis disponíveis e labels Prometheus permitidas.
