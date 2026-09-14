@@ -1,12 +1,12 @@
 <template>
   <div id="settings" class="fixed bottom-4 left-4 z-50">
-    <div class="flex items-center gap-1 bg-background/95 backdrop-blur-sm border rounded-full shadow-md p-1">
+    <div class="flex items-center gap-1 bg-background/95 backdrop-blur-sm border rounded-none shadow-md p-1">
       <!-- Refresh Rate -->
       <button 
         @click="showRefreshMenu = !showRefreshMenu"
         :aria-label="`Refresh interval: ${formatRefreshInterval(refreshIntervalValue)}`"
         :aria-expanded="showRefreshMenu"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-accent transition-colors relative"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-none hover:bg-accent transition-colors relative"
       >
         <RefreshCw class="w-3.5 h-3.5 text-muted-foreground" />
         <span class="text-xs font-medium">{{ formatRefreshInterval(refreshIntervalValue) }}</span>
@@ -38,7 +38,7 @@
       <button
         @click="toggleDarkMode"
         :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-        class="p-1.5 rounded-full hover:bg-accent transition-colors group relative"
+        class="p-1.5 rounded-none hover:bg-accent transition-colors group relative"
       >
         <Sun v-if="darkMode" class="h-3.5 w-3.5 transition-all" />
         <Moon v-else class="h-3.5 w-3.5 transition-all" />

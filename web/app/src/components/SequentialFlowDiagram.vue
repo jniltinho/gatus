@@ -3,9 +3,9 @@
     <!-- Timeline header -->
     <div class="flex items-center gap-4">
       <div class="text-sm font-medium text-muted-foreground">Start</div>
-      <div class="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div class="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-none overflow-hidden">
         <div 
-          class="h-full bg-green-500 dark:bg-green-600 rounded-full transition-all duration-300 ease-out"
+          class="h-full bg-green-500 dark:bg-green-600 rounded-none transition-all duration-300 ease-out"
           :style="{ width: progressPercentage + '%' }"
         ></div>
       </div>

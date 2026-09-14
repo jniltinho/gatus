@@ -203,7 +203,7 @@ func generateUptimeBadgeSVG(duration string, uptime float64) []byte {
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>
@@ -268,7 +268,7 @@ func generateResponseTimeBadgeSVG(duration string, averageResponseTime int, key 
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>
@@ -330,7 +330,7 @@ func generateHealthBadgeSVG(healthStatus string) []byte {
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>

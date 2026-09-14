@@ -13,12 +13,12 @@
 
 ## 2. Marco 2 — Visual quadrado
 
-- [ ] 2.1 `--radius: 0` em `web/app/src/index.css` e `theme.borderRadius` substituído no `tailwind.config.js` (todas as variantes 0, `full` mantido)
-- [ ] 2.2 Trocar `rounded-full` por `rounded-none` em `Badge.vue`, no contador de falhas de `Home.vue`, na barra e nos botões de `Settings.vue` e nas barras de progresso de `SequentialFlowDiagram.vue`
-- [ ] 2.3 Definir `cornerRadius: 0` no tooltip de `ResponseTimeChart.vue`
-- [ ] 2.4 Remover `rx` dos `rect` dos badges SVG em `api/badge.go` e ajustar os testes
-- [ ] 2.5 `make frontend-build` e commit de `web/static/`
-- [ ] 2.6 Capturas com `agent-browser` do dashboard, detalhes de endpoint e suite, anúncios e configurações nos temas claro e escuro, em `dist/prints/`
+- [x] 2.1 `--radius: 0` em `web/app/src/index.css` e `theme.borderRadius` substituído no `tailwind.config.js` (todas as variantes 0, `full` mantido)
+- [x] 2.2 Trocar `rounded-full` por `rounded-none` em `Badge.vue`, no contador de falhas de `Home.vue`, na barra e nos botões de `Settings.vue` e nas barras de progresso de `SequentialFlowDiagram.vue`
+- [x] 2.3 Definir `cornerRadius: 0` no tooltip de `ResponseTimeChart.vue`
+- [x] 2.4 Remover `rx` dos `rect` dos badges SVG em `api/badge.go` e ajustar os testes
+- [x] 2.5 `make frontend-build` e commit de `web/static/`
+- [x] 2.6 Capturas com `agent-browser` do dashboard, detalhes de endpoint e suite, anúncios e configurações nos temas claro e escuro, em `dist/prints/`
 - [ ] 2.7 Pull request, CI verde e merge
 
 ## 3. Marco 3 — Fundação: hot-reload, watchdog e métricas

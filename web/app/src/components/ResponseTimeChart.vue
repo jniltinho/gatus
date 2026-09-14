@@ -158,6 +158,7 @@ const chartOptions = computed(() => {
         borderColor: isDark.value ? '#4b5563' : '#e5e7eb',
         borderWidth: 1,
         padding: 12,
+        cornerRadius: 0,
         displayColors: false,
         callbacks: {
           title: (tooltipItems) => {
@@ -206,6 +207,7 @@ const chartOptions = computed(() => {
               hoveredEventIndex.value = null
             },
             label: {
+              borderRadius: 0,
               display: () => hoveredEventIndex.value === index,
               content: [event.isOngoing ? `Status: ONGOING` : `Status: RESOLVED`, `Unhealthy for ${event.duration}`, `Started at ${new Date(event.timestamp).toLocaleString()}`],
               backgroundColor: getEventColor(),
