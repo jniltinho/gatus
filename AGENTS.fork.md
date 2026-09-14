@@ -43,6 +43,17 @@ Mudança em andamento: `openspec/changes/add-admin-endpoint-management/` (leia `
 - Escritas da administração são serializadas entre si e com a partida e o hot-reload.
 - Mantenha código novo em arquivos novos sempre que possível, para reduzir conflitos com o upstream.
 
+## Status pages públicas
+
+Mudança: `openspec/changes/add-public-status-pages/` (leia `design.md` antes de mexer nessas áreas; documentação em `docs/status-pages.md`).
+
+- O payload público usa só os tipos de `statuspage/payload.go`: nunca serialize `endpoint.Status` ou `endpoint.Result` numa rota pública (hostname, erros e condições vazariam). O teste de sanitização decodifica o JSON com `DisallowUnknownFields`.
+- As rotas públicas (`/api/v1/status-pages/*` e `/status/*`) ficam no bloco livre de `api/api.go`, antes dos arquivos estáticos e do middleware de segurança. O catch-all de `/api/v1/status-pages` é sempre registrado: um caminho que caia no middleware responderia 401 e abriria o login do navegador.
+- Escritas da administração gravam no banco e **só depois do commit** publicam o snapshot com revisão nova; cache e `singleflight` usam `slug|revisão|geração`, nunca a versão do banco.
+- A montagem é síncrona na goroutine da requisição e resolve o leitor do store a cada montagem (a recarga fecha e troca o store).
+- O limitador é próprio e sem goroutine (o `limiter` do Fiber vaza uma goroutine por recarga) e conta só as respostas 404.
+- No frontend, as rotas com `meta.public` não mostram a tela de login nem buscam `/api/v1/config`. O Tailwind do projeto (3.1.8) não tem o tom 950: use `dark:bg-*-900/30`.
+
 ## OpenSpec
 
 - Propostas em `openspec/changes/<change>/`; valide com `openspec validate <change> --strict`.
@@ -52,6 +63,7 @@ Mudança em andamento: `openspec/changes/add-admin-endpoint-management/` (leia `
 
 - Use a skill `agent-browser`. Com o binário avulso, defina `AGENT_BROWSER_SKILLS_DIR` apontando para o `skill-data` da versão instalada antes de `agent-browser skills get core`.
 - Capturas de tela vão para `dist/prints/`. `dist/` está no `.gitignore`: **nunca** commite capturas.
+- Roteiros: `test/e2e/admin.sh` e `test/e2e/status-pages.sh`. Espere por um seletor (`wait "[data-testid=...]"`) em vez de texto quando a tela anterior tiver o mesmo texto (por exemplo, o botão "Nova status page" e o título do formulário).
 
 ## Sincronização com o upstream
 

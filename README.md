@@ -44,6 +44,10 @@ Este fork adiciona a **administração de endpoints pela web**: cadastrar, edita
 [docs/admin-endpoints.md](docs/admin-endpoints.md). Releases do fork: tags `v<versão-do-upstream>-fork.<N>` e imagem
 `jniltinho/gatus` no Docker Hub.
 
+Também adiciona **status pages públicas**: páginas abertas sem login em `/status/<slug>`, com os grupos e endpoints
+escolhidos, definidas no arquivo de configuração ou cadastradas pela web, enquanto o dashboard continua protegido.
+Configuração, proxy reverso, API e segurança em [docs/status-pages.md](docs/status-pages.md).
+
 O módulo Go do fork se chama `gatus/v5` e não depende do repositório original: gere o binário com `make build` ou use os
 tarballs e a imagem das [releases](https://github.com/jniltinho/gatus/releases) (o fork não é instalável com `go install`).
 
