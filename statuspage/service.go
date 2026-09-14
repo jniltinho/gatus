@@ -469,7 +469,8 @@ func findState(slug string) *State {
 	return snap.configStates[slug]
 }
 
-// selectionWarnings returns the groups and the endpoint keys selected by the page without match among refs
+// selectionWarnings returns the groups, endpoint keys and featured endpoint keys selected by the page without match
+// among refs, and the keys of the charts of endpoints that are not on the page
 func selectionWarnings(page *pageconfig.Page, refs []EndpointRef) []Warning {
 	groups := make(map[string]struct{}, len(refs))
 	keys := make(map[string]struct{}, len(refs))
@@ -486,6 +487,22 @@ func selectionWarnings(page *pageconfig.Page, refs []EndpointRef) []Warning {
 	for _, key := range page.Endpoints {
 		if _, exists := keys[key]; !exists {
 			warnings = append(warnings, Warning{Type: "endpoint", Value: key})
+		}
+	}
+	for _, key := range page.Featured {
+		if _, exists := keys[key]; !exists {
+			warnings = append(warnings, Warning{Type: "featured", Value: key})
+		}
+	}
+	if len(page.Charts) > 0 {
+		onPage := make(map[string]struct{})
+		for _, key := range Select(page, refs).Keys() {
+			onPage[key] = struct{}{}
+		}
+		for _, key := range page.Charts {
+			if _, exists := onPage[key]; !exists {
+				warnings = append(warnings, Warning{Type: "chart", Value: key})
+			}
 		}
 	}
 	return warnings

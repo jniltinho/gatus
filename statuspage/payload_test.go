@@ -63,13 +63,19 @@ func TestBuildPayload(t *testing.T) {
 
 // Mirror types of the public JSON: decoding with DisallowUnknownFields fails if any other field is published
 type allowedPayload struct {
-	Slug        string         `json:"slug"`
-	Title       string         `json:"title"`
-	Description string         `json:"description"`
-	Status      string         `json:"status"`
-	UpdatedAt   string         `json:"updatedAt"`
-	Truncated   bool           `json:"truncated"`
-	Groups      []allowedGroup `json:"groups"`
+	Slug        string            `json:"slug"`
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	Status      string            `json:"status"`
+	UpdatedAt   string            `json:"updatedAt"`
+	Truncated   bool              `json:"truncated"`
+	Featured    []allowedFeatured `json:"featured"`
+	Groups      []allowedGroup    `json:"groups"`
+}
+
+type allowedFeatured struct {
+	allowedEndpoint
+	Group string `json:"group"`
 }
 
 type allowedGroup struct {
@@ -81,11 +87,17 @@ type allowedGroup struct {
 type allowedEndpoint struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
+	Chart  bool   `json:"chart"`
 	Uptime struct {
 		Last24Hours *float64 `json:"24h"`
 		Last7Days   *float64 `json:"7d"`
 		Last30Days  *float64 `json:"30d"`
 	} `json:"uptime"`
+	ResponseTime struct {
+		Last24Hours *int `json:"24h"`
+		Last7Days   *int `json:"7d"`
+		Last30Days  *int `json:"30d"`
+	} `json:"responseTime"`
 	Results []struct {
 		Timestamp  string `json:"timestamp"`
 		Success    bool   `json:"success"`
