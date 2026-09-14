@@ -22,7 +22,7 @@
 - [x] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
 - [x] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado (adotado no marco 3, depois de uma gravação perdida no MariaDB sob carga com `REPEATABLE READ`)
 - [x] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar (mantido ligado: MySQL 8.4 ~6,4 ms contra ~8,3 ms e MariaDB 10.11 ~4,1 ms contra ~6,2 ms por gravação)
-- [ ] 2.9 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
+- [x] 2.9 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge (PR #9, junto dos marcos 3 e 4)
 
 ## 3. Marco 3 — Tabelas do fork, administração e status pages
 
@@ -32,7 +32,7 @@
 - [x] 3.4 Limite de 768 caracteres (`utf8.RuneCountInString`) com `storage.type: mysql` na validação de endpoints, external-endpoints, suites, endpoints de suite e da administração; testes com `mysql`, com chave multibyte e sem o limite nos outros tipos
 - [x] 3.5 `config/config_admin.go` aceitando `mysql`, com a mensagem de tipo atualizada e o aviso de várias instâncias; testes
 - [x] 3.6 Helpers de teste do fork (`managedEndpointTestStores` e similares) usando o helper comum com os quatro bancos
-- [ ] 3.7 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
+- [x] 3.7 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge (PR #9)
 
 ## 4. Marco 4 — Documentação, deploy e release
 
@@ -41,4 +41,4 @@
 - [x] 4.3 Exemplo `.examples/docker-compose-mariadb-storage/` com `jniltinho/gatus` e `mariadb:11.4.13` em tags fixas
 - [x] 4.4 `AGENTS.fork.md` (containers de teste, variáveis e passo de sincronização com o upstream) e contexto do `openspec/config.yaml`
 - [x] 4.5 Pacote de deploy `/home/jnsilva/Projetos/gatus/mariadb` (compose, compose de build, `.env` com versões fixas, config, `gatus.sh`, `Dockerfile`), bind em `127.0.0.1`; subir e conferir dashboard, admin e status page (pacote conferido com a imagem local da branch: senhas geradas, healthcheck, `status`, API e resultados gravados no MariaDB 11.4.13, segundo `subir` sem baixar imagens; admin e status pages conferidos pelos E2E com MariaDB)
-- [ ] 4.6 `openspec validate add-mysql-storage --strict`, pull request, CI verde e merge; release pela skill `create-release` e atualização do servidor local de validação
+- [x] 4.6 `openspec validate add-mysql-storage --strict`, pull request, CI verde e merge; release pela skill `create-release` e atualização do servidor local de validação (PR #9, release `v5.36.0-fork.4` com imagem amd64/arm64 e servidor local nessa imagem)
