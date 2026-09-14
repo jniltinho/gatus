@@ -34,7 +34,7 @@
 
 ## 4. Marco 4 — Backend de administração
 
-- [ ] 4.1 Pacote `config/admin` (`enabled`, `allowed-subjects`, `allowed-origins`) e validação dos pré-requisitos antes da exigência de endpoints; configuração sem endpoints com `admin.enabled`; testes
+- [x] 4.1 Pacote `config/admin` (`enabled`, `allowed-subjects`, `allowed-origins`) e validação dos pré-requisitos antes da exigência de endpoints; configuração sem endpoints com `admin.enabled`; testes
 - [ ] 4.2 Tipo `ManagedEndpoint` (com `version`) e interface `ManagedEndpointStore`; tabela `managed_endpoints` em SQLite e PostgreSQL com erro no `CREATE`; implementação com transações e conflito de unicidade como erro próprio; testes em SQLite e PostgreSQL (`GATUS_TEST_POSTGRES_URL`) e serviço PostgreSQL no `ci.yml`
 - [ ] 4.3 Remoção de todos os dados de uma chave nos stores SQL e memory, invalidando o `writeThroughCache` da chave e o cache de status da API; testes
 - [ ] 4.4 Validação dos gerenciados: decodificação estrita sem env, campos bloqueados, `client.tunnel`, validação estrita de alertas por endpoint, chave única por `Key()` com origem na mensagem, `extra-labels` contidos na lista registrada; padrões só em memória; serialização `definition` e `effective`; testes

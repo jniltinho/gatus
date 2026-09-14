@@ -16,6 +16,7 @@ import (
 	"github.com/TwiN/gatus/v5/alerting/alert"
 	"github.com/TwiN/gatus/v5/alerting/provider"
 	"github.com/TwiN/gatus/v5/client"
+	"github.com/TwiN/gatus/v5/config/admin"
 	"github.com/TwiN/gatus/v5/config/announcement"
 	"github.com/TwiN/gatus/v5/config/connectivity"
 	"github.com/TwiN/gatus/v5/config/endpoint"
@@ -82,6 +83,9 @@ type Config struct {
 	// Concurrency is the maximum number of endpoints/suites that can be monitored concurrently
 	// Defaults to DefaultConcurrency. Set to 0 for unlimited concurrency.
 	Concurrency int `yaml:"concurrency,omitempty"`
+
+	// Admin is the configuration of the web administration of endpoints
+	Admin *admin.Config `yaml:"admin,omitempty"`
 
 	// Security is the configuration for securing access to Gatus
 	Security *security.Config `yaml:"security,omitempty"`
@@ -292,7 +296,7 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 		return
 	}
 	// Check if the configuration file at least has endpoints configured
-	if config == nil || (len(config.Endpoints) == 0 && len(config.Suites) == 0) {
+	if config == nil || (len(config.Endpoints) == 0 && len(config.Suites) == 0 && !config.Admin.IsEnabled()) {
 		err = ErrNoEndpointOrSuiteInConfig
 	} else {
 		// XXX: Remove this in v6.0.0
@@ -318,6 +322,9 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 			return nil, err
 		}
 		if err := ValidateStorageConfig(config); err != nil {
+			return nil, err
+		}
+		if err := ValidateAdminConfig(config); err != nil {
 			return nil, err
 		}
 		if err := ValidateRemoteConfig(config); err != nil {
