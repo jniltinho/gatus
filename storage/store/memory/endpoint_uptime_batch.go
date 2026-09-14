@@ -68,7 +68,7 @@ func uptimesOf(endpointStatus *endpoint.Status, now time.Time) *common.EndpointU
 		now.Add(-30 * 24 * time.Hour).Truncate(time.Hour).Unix(),
 	}
 	end := now.Unix()
-	var totalExecutions, successfulExecutions [3]uint64
+	var totalExecutions, successfulExecutions, totalResponseTimes [3]uint64
 	for hourlyUnixTimestamp, hourlyStats := range endpointStatus.Uptime.HourlyStatistics {
 		if hourlyStats == nil || hourlyUnixTimestamp > end {
 			continue
@@ -77,6 +77,7 @@ func uptimesOf(endpointStatus *endpoint.Status, now time.Time) *common.EndpointU
 			if hourlyUnixTimestamp >= periodStart {
 				totalExecutions[i] += hourlyStats.TotalExecutions
 				successfulExecutions[i] += hourlyStats.SuccessfulExecutions
+				totalResponseTimes[i] += hourlyStats.TotalExecutionsResponseTime
 			}
 		}
 	}
@@ -84,10 +85,22 @@ func uptimesOf(endpointStatus *endpoint.Status, now time.Time) *common.EndpointU
 		return nil
 	}
 	return &common.EndpointUptimes{
-		Last24Hours: uptimeRatio(successfulExecutions[0], totalExecutions[0]),
-		Last7Days:   uptimeRatio(successfulExecutions[1], totalExecutions[1]),
-		Last30Days:  uptimeRatio(successfulExecutions[2], totalExecutions[2]),
+		Last24Hours:                uptimeRatio(successfulExecutions[0], totalExecutions[0]),
+		Last7Days:                  uptimeRatio(successfulExecutions[1], totalExecutions[1]),
+		Last30Days:                 uptimeRatio(successfulExecutions[2], totalExecutions[2]),
+		AverageResponseTime24Hours: averageResponseTime(totalResponseTimes[0], totalExecutions[0]),
+		AverageResponseTime7Days:   averageResponseTime(totalResponseTimes[1], totalExecutions[1]),
+		AverageResponseTime30Days:  averageResponseTime(totalResponseTimes[2], totalExecutions[2]),
 	}
+}
+
+// averageResponseTime returns the average response time in milliseconds, rounded down, or nil without execution
+func averageResponseTime(totalResponseTime, totalExecutions uint64) *int {
+	if totalExecutions == 0 {
+		return nil
+	}
+	average := int(totalResponseTime / totalExecutions)
+	return &average
 }
 
 func uptimeRatio(successfulExecutions, totalExecutions uint64) *float64 {

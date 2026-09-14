@@ -53,19 +53,59 @@ export const adminApi = {
   remove: (key, version) => request('DELETE', `/endpoints/${encodeKey(key)}`, { version }),
 }
 
+const encodeSlug = (slug) => encodeURIComponent(slug)
+
+// Client of the administration API of the public status pages (/api/v1/admin/status-pages)
+export const statusPagesApi = {
+  list: () => request('GET', '/status-pages'),
+  options: () => request('GET', '/status-pages/options'),
+  exposure: ({ group, key }) => {
+    const params = new URLSearchParams()
+    if (group) {
+      params.set('group', group)
+    }
+    if (key) {
+      params.set('key', key)
+    }
+    return request('GET', `/status-pages/exposure?${params}`)
+  },
+  validate: (document, slug) => request('POST', slug ? `/status-pages/validate?slug=${encodeSlug(slug)}` : '/status-pages/validate', jsonPayload(document)),
+  get: (slug) => request('GET', `/status-pages/${encodeSlug(slug)}`),
+  create: (document) => request('POST', '/status-pages', jsonPayload(document)),
+  update: (slug, document, version) => request('PUT', `/status-pages/${encodeSlug(slug)}`, { ...jsonPayload(document), version }),
+  setEnabled: (slug, enabled, version) => request('POST', `/status-pages/${encodeSlug(slug)}/${enabled ? 'enable' : 'disable'}`, { version }),
+  remove: (slug, version) => request('DELETE', `/status-pages/${encodeSlug(slug)}`, { version }),
+  preview: (slug) => request('GET', `/status-pages/${encodeSlug(slug)}/preview`),
+}
+
+export function describeStatusPageError(error) {
+  switch (error && error.status) {
+    case 409:
+      return error.message && error.message.includes('configuration file and cannot be changed')
+        ? 'This status page is defined in the configuration file and cannot be changed through the web.'
+        : 'A status page with this slug already exists.'
+    case 412:
+      return 'The status page was changed by someone else since you opened it. Reload it to see the current version.'
+    case 501:
+      return 'The configured storage does not support status pages managed through the web.'
+    default:
+      return describeAdminError(error)
+  }
+}
+
 export function describeAdminError(error) {
   switch (error && error.status) {
     case 401:
-      return 'Autenticação necessária.'
+      return 'Authentication required.'
     case 403:
-      return 'Sem permissão de administrador.'
+      return 'Administrator permission required.'
     case 412:
-      return 'O endpoint foi alterado por outra pessoa desde que você o abriu.'
+      return 'The endpoint was changed by someone else since you opened it.'
     case 429:
-      return 'Muitos testes em andamento. Tente novamente em instantes.'
+      return 'Too many endpoint tests in progress. Try again in a moment.'
     case 503:
-      return 'O Gatus está iniciando ou recarregando a configuração. Tente novamente em instantes.'
+      return 'Gatus is starting or reloading its configuration. Try again in a moment.'
     default:
-      return (error && error.message) || 'Erro inesperado.'
+      return (error && error.message) || 'Unexpected error.'
   }
 }

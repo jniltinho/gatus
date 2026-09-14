@@ -13,7 +13,7 @@
       </div>
       <p class="px-6 pb-4 text-sm text-muted-foreground dark:text-gray-400 whitespace-pre-line">{{ message }}</p>
       <div class="flex justify-end gap-2 px-6 pb-5">
-        <Button variant="outline" data-testid="confirm-cancel" @click="$emit('cancel')">Cancelar</Button>
+        <Button variant="outline" data-testid="confirm-cancel" @click="$emit('cancel')">Cancel</Button>
         <Button variant="destructive" data-testid="confirm-accept" @click="$emit('confirm')">{{ confirmLabel }}</Button>
       </div>
     </div>
@@ -27,7 +27,7 @@ defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, required: true },
   message: { type: String, required: true },
-  confirmLabel: { type: String, default: 'Confirmar' },
+  confirmLabel: { type: String, default: 'Confirm' },
 })
 
 defineEmits(['confirm', 'cancel'])

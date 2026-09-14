@@ -1,18 +1,19 @@
-# Administração de endpoints pela web
+# Endpoint administration through the web
 
-> Funcionalidade exclusiva do fork [jniltinho/gatus](https://github.com/jniltinho/gatus). O Gatus original só aceita
-> endpoints no arquivo de configuração ([TwiN/gatus#1345](https://github.com/TwiN/gatus/issues/1345)).
+> Feature exclusive to the [jniltinho/gatus](https://github.com/jniltinho/gatus) fork. The original Gatus only accepts
+> endpoints in the configuration file ([TwiN/gatus#1345](https://github.com/TwiN/gatus/issues/1345)).
 
-Com a administração habilitada, endpoints podem ser cadastrados, editados, desabilitados e removidos em `/admin`,
-sem acesso ao servidor e sem reiniciar o Gatus. Os endpoints do arquivo de configuração continuam funcionando como
-sempre e aparecem na administração apenas para consulta.
+With the administration enabled, endpoints can be created, edited, disabled and removed at `/admin`, without access to
+the server and without restarting Gatus. The endpoints of the configuration file keep working as always and are shown
+in the administration for reference only.
 
-## Requisitos
+## Requirements
 
-- `security.basic` ou `security.oidc` configurado. Com OIDC, `admin.allowed-subjects` é obrigatório.
-- `storage.type` igual a `sqlite` ou `postgres`: os endpoints cadastrados pela web ficam na tabela `managed_endpoints`.
+- `security.basic` or `security.oidc` configured. With OIDC, `admin.allowed-subjects` is required.
+- `storage.type` set to `sqlite` or `postgres`: the endpoints managed through the web are stored in the
+  `managed_endpoints` table.
 
-## Configuração
+## Configuration
 
 ```yaml
 storage:
@@ -22,132 +23,135 @@ storage:
 security:
   basic:
     username: admin
-    # Senha em bcrypt codificada em base64 (veja abaixo)
+    # bcrypt hash of the password, base64 encoded (see below)
     password-bcrypt-base64: "JDJhJDEwJHRiMnRFakxWazZLdXBzRERQazB1TE8vckRLY05Yb1hSdnoxWU0yQ1FaYXZRSW1McmladDYu"
 
 admin:
   enabled: true
-  # Obrigatório com security.oidc: subjects (claim sub) que podem administrar, sem diferenciar maiúsculas
-  # allowed-subjects: ["ops@exemplo.com"]
-  # Origens aceitas nas alterações; necessário atrás de proxy que publica outra porta
-  # allowed-origins: ["https://status.exemplo.com:8443"]
+  # Required with security.oidc: subjects (sub claim) allowed to administer, case-insensitive
+  # allowed-subjects: ["ops@example.com"]
+  # Origins accepted for changes; needed behind a proxy that exposes another port
+  # allowed-origins: ["https://status.example.com:8443"]
 
-# Sem nenhum endpoint no arquivo, o Gatus inicia normalmente quando admin.enabled é true
+# Without any endpoint in the file, Gatus starts normally when admin.enabled is true
 endpoints: []
 ```
 
-Para gerar `password-bcrypt-base64`:
+To generate `password-bcrypt-base64`:
 
 ```bash
-htpasswd -bnBC 10 "" 'sua-senha' | tr -d ':\n' | sed 's/$2y/$2a/' | base64 -w0 | tr '+/' '-_'
+htpasswd -bnBC 10 "" 'your-password' | tr -d ':\n' | sed 's/$2y/$2a/' | base64 -w0 | tr '+/' '-_'
 ```
 
-O Gatus decodifica esse valor com o alfabeto base64 de URL; o `tr '+/' '-_'` evita falhas com hashes que geram `+` ou
-`/` no base64 padrão.
+Gatus decodes this value with the URL base64 alphabet; `tr '+/' '-_'` prevents failures with hashes that produce `+`
+or `/` in standard base64.
 
-Com `security.basic`, o único usuário basic é o administrador. Com `security.oidc`, só os subjects de
-`admin.allowed-subjects` administram; os demais usuários autenticados continuam vendo o dashboard.
+With `security.basic`, the only basic user is the administrator. With `security.oidc`, only the subjects of
+`admin.allowed-subjects` can administer; the other authenticated users keep seeing the dashboard.
 
-## Uso
+## Usage
 
-- **Lista (`/admin`):** busca por nome, grupo ou URL; mostra a origem (Web ou YAML), endpoints em conflito com o YAML e
-  endpoints inválidos; permite habilitar, desabilitar e remover os endpoints cadastrados pela web.
-- **Formulário (`/admin/endpoints/new` e `/admin/endpoints/<chave>/edit`):** modo formulário (nome, grupo, URL, método,
-  intervalo, condições, headers, alertas e habilitado) e modo YAML, com as mesmas chaves de um item de `endpoints` do
-  arquivo de configuração. Nome e grupo não mudam depois de criados.
-- **Validar** confere a definição sem gravar. **Testar** executa uma verificação única, sem gravar resultado nem
-  disparar alertas, e mostra cada condição. **Salvar** grava e aplica.
-- **Remover** apaga a definição e todo o histórico do endpoint. Alertas disparados não são notificados aos provedores.
+- **List (`/admin`):** search by name, group or URL; shows the source (Web or YAML), endpoints in conflict with the YAML
+  and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web.
+- **Form (`/admin/endpoints/new` and `/admin/endpoints/<key>/edit`):** form mode (name, group, URL, method, interval,
+  conditions, headers, alerts and enabled) and YAML mode, with the same keys as an item of `endpoints` in the
+  configuration file. The name and the group cannot be changed after creation.
+- **Validate** checks the definition without saving it. **Test** runs a single check, without storing the result or
+  triggering alerts, and shows each condition. **Save** stores and applies it.
+- **Remove** deletes the definition and the whole history of the endpoint. Triggered alerts are not resolved with the
+  alerting providers.
 
-## Comportamento
+## Behavior
 
-- Criar, alterar, habilitar, desabilitar ou remover vale na hora, sem reiniciar o Gatus e sem reiniciar os demais
-  endpoints. Uma verificação em andamento termina antes da mudança e o resultado dela é descartado.
-- O histórico dos endpoints cadastrados pela web é mantido em reinícios e recargas do arquivo de configuração.
-- Se o arquivo de configuração passar a definir a mesma chave (grupo e nome) de um endpoint cadastrado pela web, o do
-  arquivo prevalece e o da web fica marcado como em conflito, sem ser apagado. Remover o da web, nesse caso, não afeta o
-  do arquivo.
-- Desligar `admin.enabled` apenas esconde a administração: os endpoints cadastrados pela web continuam monitorados.
-- Durante a partida ou a recarga da configuração, alterações respondem 503 e nada é gravado.
-- Com `skip-invalid-config-update: true`, um arquivo de configuração inválido não derruba mais o Gatus: a configuração
-  anterior continua em uso até o arquivo ser corrigido.
+- Creating, changing, enabling, disabling or removing an endpoint takes effect immediately, without restarting Gatus
+  and without restarting the other endpoints. A check in progress finishes before the change and its result is
+  discarded.
+- The history of the endpoints managed through the web is kept across restarts and reloads of the configuration file.
+- If the configuration file starts defining the same key (group and name) as an endpoint managed through the web, the
+  one from the file wins and the one from the web is marked as in conflict, without being deleted. Removing the web one,
+  in that case, does not affect the one from the file.
+- Turning `admin.enabled` off only hides the administration: the endpoints managed through the web keep being monitored.
+- During startup or a configuration reload, changes respond 503 and nothing is stored.
+- With `skip-invalid-config-update: true`, an invalid configuration file no longer brings Gatus down: the previous
+  configuration stays in use until the file is fixed.
 
-## Restrições dos endpoints cadastrados pela web
+## Restrictions of the endpoints managed through the web
 
-- Variáveis de ambiente (`$VAR`, `${VAR}`) não são expandidas.
-- Não são aceitos `client.identity-aware-proxy`, `client.tls.certificate-file`, `client.tls.private-key-file`, `store`
-  e `always-run`, que usariam credenciais ou arquivos do servidor.
-- `client.tunnel` precisa existir em `tunneling`.
-- Alertas precisam de um provedor configurado em `alerting`; overrides inválidos são rejeitados.
-- `extra-labels` só podem usar labels que já existam nos endpoints do arquivo de configuração (métricas Prometheus).
-- A chave não pode ser igual à de um endpoint, external-endpoint, suite ou endpoint de suite do arquivo.
+- Environment variables (`$VAR`, `${VAR}`) are not expanded.
+- `client.identity-aware-proxy`, `client.tls.certificate-file`, `client.tls.private-key-file`, `store` and `always-run`,
+  which would use credentials or files of the server, are not accepted.
+- `client.tunnel` must exist in `tunneling`.
+- Alerts need a provider configured in `alerting`; invalid overrides are rejected.
+- `extra-labels` can only use labels that already exist in the endpoints of the configuration file (Prometheus metrics).
+- The key cannot be the same as the key of an endpoint, external endpoint, suite or suite endpoint of the file.
 
-## Segredos
+## Secrets
 
-Toda resposta mascara com `********`: headers cujo nome contém `authorization`, `cookie`, `token`, `secret`, `password`
-ou `key`; senha e parâmetros sensíveis da URL; `client.oauth2.client-secret`; `ssh.password`; `ssh.private-key`; e os
-valores de `alerts[].provider-override`. Ao salvar, um valor igual à máscara mantém o valor armazenado. Os segredos
-ficam em texto no banco, como ficariam no arquivo de configuração: proteja os backups.
+Every response masks with `********`: headers whose name contains `authorization`, `cookie`, `token`, `secret`,
+`password` or `key`; the password and sensitive parameters of the URL; `client.oauth2.client-secret`; `ssh.password`;
+`ssh.private-key`; and the values of `alerts[].provider-override`. When saving, a value equal to the mask keeps the
+stored value. Secrets are stored as plain text in the database, as they would be in the configuration file: protect
+your backups.
 
 ## API
 
-Todas as rotas exigem autenticação de administrador. Alterações exigem `Content-Type` `application/json` ou
-`application/yaml` quando há corpo, e o `Origin` do navegador deve corresponder ao endereço do Gatus.
+Every route requires administrator authentication. Changes require `Content-Type` `application/json` or
+`application/yaml` when there is a body, and the `Origin` of the browser must match the address of Gatus.
 
-| Método e rota | Descrição |
-|---------------|-----------|
-| `GET /api/v1/admin/endpoints` | Lista endpoints do arquivo e cadastrados pela web |
-| `GET /api/v1/admin/endpoints/{chave}` | Definição armazenada e efetiva (com `ETag`) |
-| `POST /api/v1/admin/endpoints` | Cria (201) |
-| `PUT /api/v1/admin/endpoints/{chave}` | Altera (exige `If-Match`) |
-| `POST /api/v1/admin/endpoints/{chave}/enable` e `/disable` | Habilita ou desabilita (exige `If-Match`) |
-| `DELETE /api/v1/admin/endpoints/{chave}` | Remove (exige `If-Match`) |
-| `POST /api/v1/admin/endpoints/validate[?key=]` | Valida sem gravar |
-| `POST /api/v1/admin/endpoints/test[?key=]` | Testa uma vez (no máximo 2 testes simultâneos) |
-| `POST /api/v1/admin/endpoints/parse` | Converte YAML em documento JSON, sem validar |
-| `GET /api/v1/admin/metadata` | Tipos de alerta, túneis e labels disponíveis |
+| Method and route | Description |
+|------------------|-------------|
+| `GET /api/v1/admin/endpoints` | Lists the endpoints of the file and the ones managed through the web |
+| `GET /api/v1/admin/endpoints/{key}` | Stored and effective definition (with `ETag`) |
+| `POST /api/v1/admin/endpoints` | Creates (201) |
+| `PUT /api/v1/admin/endpoints/{key}` | Changes (requires `If-Match`) |
+| `POST /api/v1/admin/endpoints/{key}/enable` and `/disable` | Enables or disables (requires `If-Match`) |
+| `DELETE /api/v1/admin/endpoints/{key}` | Removes (requires `If-Match`) |
+| `POST /api/v1/admin/endpoints/validate[?key=]` | Validates without saving |
+| `POST /api/v1/admin/endpoints/test[?key=]` | Tests once (at most 2 concurrent tests) |
+| `POST /api/v1/admin/endpoints/parse` | Converts YAML into a JSON document, without validating |
+| `GET /api/v1/admin/metadata` | Available alert types, tunnels and labels |
 
-Códigos: 400 definição inválida ou nome/grupo alterados; 404 inexistente; 409 chave em uso ou endpoint do arquivo de
-configuração; 412 versão desatualizada; 413 corpo acima de 256 KB; 415 tipo de conteúdo inválido; 428 sem `If-Match`;
-429 testes demais; 503 partida ou recarga em andamento.
+Status codes: 400 invalid definition or changed name/group; 404 not found; 409 key in use or endpoint of the
+configuration file; 412 outdated version; 413 body above 256 KB; 415 invalid content type; 428 missing `If-Match`;
+429 too many tests; 503 startup or reload in progress.
 
 ```bash
-curl -u admin:sua-senha -H 'Content-Type: application/yaml' \
-  --data-binary $'name: site\ngroup: web\nurl: https://exemplo.com\nconditions: ["[STATUS] == 200"]\n' \
+curl -u admin:your-password -H 'Content-Type: application/yaml' \
+  --data-binary $'name: site\ngroup: web\nurl: https://example.com\nconditions: ["[STATUS] == 200"]\n' \
   http://127.0.0.1:8080/api/v1/admin/endpoints
 ```
 
-## Atrás de proxy reverso
+## Behind a reverse proxy
 
-A origem esperada nas alterações é derivada do header `Host` e do esquema (`X-Forwarded-Proto`). Com nginx, repasse
-esses headers:
+The origin expected for changes is derived from the `Host` header and the scheme (`X-Forwarded-Proto`). With nginx,
+forward these headers:
 
 ```nginx
 proxy_set_header Host $host;
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Se o endereço público usar uma porta diferente da repassada no `Host`, liste-o em `admin.allowed-origins`.
+If the public address uses a port different from the one forwarded in `Host`, list it in `admin.allowed-origins`.
 
-## Várias instâncias com o mesmo PostgreSQL
+## Multiple instances with the same PostgreSQL
 
-Uma alteração feita numa instância só vale nas outras depois que elas reiniciarem ou recarregarem a configuração. Nesse
-meio-tempo, uma instância que ainda monitora um endpoint removido pode recriar o histórico dele.
+A change made on one instance only takes effect on the others after they restart or reload their configuration. In the
+meantime, an instance that still monitors a removed endpoint may recreate its history.
 
-## Versões e imagens
+## Versions and images
 
-- Releases do fork usam tags `v<versão-do-upstream>-fork.<N>` (ex.: `v5.36.0-fork.1`). Pela precedência do SemVer,
-  essas tags ordenam abaixo da versão do upstream de mesma base em ferramentas como Renovate e `sort -V`.
-- Imagem no Docker Hub: `jniltinho/gatus:<tag>` (`linux/amd64` e `linux/arm64`), publicada com
-  `make docker-release VERSION=<versão sem o v>`. A tag `latest` não é publicada.
+- Fork releases use `v<upstream-version>-fork.<N>` tags (e.g. `v5.36.0-fork.1`). Because of SemVer precedence, these
+  tags sort below the upstream version with the same base in tools such as Renovate and `sort -V`.
+- Docker Hub image: `jniltinho/gatus:<tag>` (`linux/amd64` and `linux/arm64`), published with
+  `make docker-release VERSION=<version without the v>`. The `latest` tag is not published.
 
-## Voltar para o Gatus original
+## Going back to the original Gatus
 
-A imagem original ignora a tabela `managed_endpoints`: os endpoints cadastrados pela web deixam de ser monitorados e o
-histórico deles é apagado no primeiro start. Antes de voltar, faça backup do banco e garanta que o arquivo de
-configuração tenha pelo menos um endpoint, senão a imagem original não inicia.
+The original image ignores the `managed_endpoints` table: the endpoints managed through the web stop being monitored
+and their history is deleted on the first start. Before going back, back up the database and make sure the
+configuration file has at least one endpoint, otherwise the original image does not start.
 
-## Testes ponta a ponta
+## End-to-end tests
 
-`test/e2e/admin.sh` sobe o Gatus local com SQLite temporário e percorre as telas com o
-[agent-browser](https://github.com/vercel-labs/agent-browser), salvando capturas em `dist/prints/` (fora do git).
+`test/e2e/admin.sh` starts a local Gatus with a temporary SQLite database and goes through the screens with
+[agent-browser](https://github.com/vercel-labs/agent-browser), saving screenshots in `dist/prints/` (outside of git).

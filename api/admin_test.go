@@ -190,7 +190,7 @@ func TestAdminAPI(t *testing.T) {
 		env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints/parse", "name: [\n", nil, http.StatusBadRequest)
 	})
 	t.Run("spa-routes", func(t *testing.T) {
-		for _, path := range []string{"/admin", "/admin/endpoints/new", "/admin/endpoints/web_site/edit"} {
+		for _, path := range []string{"/admin", "/admin/endpoints/new", "/admin/endpoints/web_site/edit", "/admin/status-pages", "/admin/status-pages/new", "/admin/status-pages/infra/edit"} {
 			request := httptest.NewRequest(http.MethodGet, path, http.NoBody)
 			response, err := env.app.Test(request, -1)
 			if err != nil {

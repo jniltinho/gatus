@@ -1,77 +1,90 @@
 # AGENTS.fork.md
 
-Regras para agentes no fork **jniltinho/gatus**. Complementam o [AGENTS.md](AGENTS.md) do upstream; em caso de conflito, estas regras prevalecem.
+Rules for agents in the **jniltinho/gatus** fork. They complement the upstream [AGENTS.md](AGENTS.md); in case of conflict, these rules prevail.
 
-## Skills obrigatórias
+## Required skills
 
-Em qualquer tarefa com Go, carregue `golang-how-to`, que seleciona as demais skills `golang-*` de `.claude/skills/` (code style, naming, error handling, concurrency, database, testing, security, lint, entre outras). Para releases, use `create-release`. Para testar a interface pelo navegador, use `agent-browser`.
+For any Go task, load `golang-how-to`, which selects the other `golang-*` skills in `.claude/skills/` (code style, naming, error handling, concurrency, database, testing, security, lint, among others). For releases, use `create-release`. To test the interface through the browser, use `agent-browser`.
 
-## Comandos do fork
+## Fork commands
 
-- `make lint` — `go vet ./...` e `gofmt` apenas nos arquivos Go adicionados ou alterados desde `UPSTREAM_BASE` (não reformate código do upstream)
-- `make fmt` — aplica `gofmt` nesses mesmos arquivos
-- `make build` — binário estático em `dist/gatus`
-- `make release-cross VERSION=5.36.0-fork.1` — tarballs `linux/amd64` e `linux/arm64` em `dist/`
-- `make docker-release VERSION=5.36.0-fork.1` — publica `jniltinho/gatus:v5.36.0-fork.1` (amd64 e arm64) no Docker Hub a partir da máquina local; nunca publica `latest`
-- `make test` e os demais alvos do `AGENTS.md` continuam valendo
+- `make lint` — `go vet ./...` and `gofmt` only on the Go files added or changed since `UPSTREAM_BASE` (do not reformat upstream code)
+- `make fmt` — applies `gofmt` to those same files
+- `make build` — static binary in `dist/gatus`
+- `make release-cross VERSION=5.36.0-fork.1` — `linux/amd64` and `linux/arm64` tarballs in `dist/`
+- `make docker-release VERSION=5.36.0-fork.1` — publishes `jniltinho/gatus:v5.36.0-fork.1` (amd64 and arm64) to Docker Hub from the local machine; never publishes `latest`
+- `make test` and the other targets of `AGENTS.md` still apply
 
-`UPSTREAM_BASE` (no `Makefile`) é o commit do upstream em que o fork está baseado.
+`UPSTREAM_BASE` (in the `Makefile`) is the upstream commit the fork is based on.
 
-## Módulo Go
+## Go module
 
-O caminho do módulo do fork é `gatus/v5` (no upstream, `github.com/TwiN/gatus/v5`). Imports internos usam sempre `gatus/v5/...`; nunca reintroduza `github.com/TwiN/gatus/v5`. O fork não é instalável com `go install`/`go get`: gere o binário com `make build` ou use os tarballs e a imagem das releases.
+The module path of the fork is `gatus/v5` (upstream: `github.com/TwiN/gatus/v5`). Internal imports always use `gatus/v5/...`; never reintroduce `github.com/TwiN/gatus/v5`. The fork cannot be installed with `go install`/`go get`: build the binary with `make build` or use the tarballs and the image of the releases.
 
-## Dependências
+## Dependencies
 
-- Depois de adicionar ou atualizar uma dependência Go, execute `go mod tidy`.
-- **Não** execute `go mod vendor`: `vendor/` não é versionado neste repositório (a instrução do `AGENTS.md` não vale aqui).
+- After adding or updating a Go dependency, run `go mod tidy`.
+- Do **not** run `go mod vendor`: `vendor/` is not versioned in this repository (the instruction in `AGENTS.md` does not apply here).
 
-## CI e releases
+## CI and releases
 
-- `.github/workflows/ci.yml`: `make lint`, `make build` e `go test ./... -race` (com `sudo`, por causa do teste de ICMP).
-- `.github/workflows/release.yml`: disparado por tags `v*-fork.*`; gera os tarballs e a GitHub Release. Não publica imagens.
-- Tags do fork: `v<versão-upstream>-fork.<N>`. Nunca crie tags `vX.Y.Z` sem o sufixo.
+- `.github/workflows/ci.yml`: `make lint`, `make build` and `go test ./... -race` (with `sudo`, because of the ICMP test).
+- `.github/workflows/release.yml`: triggered by `v*-fork.*` tags; builds the tarballs and the GitHub Release. It does not publish images.
+- Fork tags: `v<upstream-version>-fork.<N>`. Never create `vX.Y.Z` tags without the suffix.
 
-## Administração de endpoints
+## Endpoint administration
 
-Mudança em andamento: `openspec/changes/add-admin-endpoint-management/` (leia `design.md` antes de mexer nessas áreas).
+Change: `openspec/changes/add-admin-endpoint-management/` (read `design.md` before touching these areas).
 
-- Endpoints cadastrados pela web ficam na tabela `managed_endpoints`; `cfg.Endpoints` contém só o YAML e não é alterado depois do load.
-- O watchdog controla cada endpoint por um registro (contexto e `done` por endpoint). Nunca altere um `*endpoint.Endpoint` que esteja em execução: crie um objeto novo e reinicie pelo registro.
-- As labels Prometheus são as registradas no ciclo atual; não recalcule a lista fora de `InitializePrometheusMetrics`.
-- Endpoints gerenciados passam por validação estrita: sem expansão de variáveis de ambiente e sem campos que usem credenciais ou arquivos do servidor.
-- Escritas da administração são serializadas entre si e com a partida e o hot-reload.
-- Mantenha código novo em arquivos novos sempre que possível, para reduzir conflitos com o upstream.
+- Endpoints managed through the web are stored in the `managed_endpoints` table; `cfg.Endpoints` only contains the YAML and is not changed after the load.
+- The watchdog controls each endpoint through a registry (context and `done` per endpoint). Never change an `*endpoint.Endpoint` that is running: create a new object and restart it through the registry.
+- The Prometheus labels are the ones registered in the current cycle; do not recompute the list outside of `InitializePrometheusMetrics`.
+- Managed endpoints go through strict validation: no environment variable expansion and no fields that use credentials or files of the server.
+- Administration writes are serialized with each other and with startup and hot reload.
+- Keep new code in new files whenever possible, to reduce conflicts with upstream.
+
+## Public status pages
+
+Change: `openspec/changes/add-public-status-pages/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md`).
+
+- The public payload only uses the types of `statuspage/payload.go`: never serialize `endpoint.Status` or `endpoint.Result` on a public route (hostname, errors and conditions would leak). The sanitization test decodes the JSON with `DisallowUnknownFields`.
+- The public routes (`/api/v1/status-pages/*` and `/status/*`) are in the unprotected block of `api/api.go`, before the static files and the security middleware. The catch-all of `/api/v1/status-pages` is always registered: a path reaching the middleware would respond 401 and open the login prompt of the browser.
+- Administration writes store to the database and **only after the commit** publish the snapshot with a new revision; the cache and `singleflight` use `slug|revision|generation`, never the database version.
+- The assembly is synchronous in the goroutine of the request and resolves the store reader on every assembly (a reload closes and replaces the store).
+- The limiter is our own and has no goroutine (the Fiber `limiter` leaks a goroutine per reload) and only counts 404 responses.
+- In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
+- The interface texts are in English, like the rest of the Gatus UI.
 
 ## OpenSpec
 
-- Propostas em `openspec/changes/<change>/`; valide com `openspec validate <change> --strict`.
-- Ao concluir uma tarefa de `tasks.md`, marque o checkbox.
+- Proposals in `openspec/changes/<change>/`; validate with `openspec validate <change> --strict`.
+- When a task of `tasks.md` is done, tick its checkbox.
 
-## Testes ponta a ponta
+## End-to-end tests
 
-- Use a skill `agent-browser`. Com o binário avulso, defina `AGENT_BROWSER_SKILLS_DIR` apontando para o `skill-data` da versão instalada antes de `agent-browser skills get core`.
-- Capturas de tela vão para `dist/prints/`. `dist/` está no `.gitignore`: **nunca** commite capturas.
+- Use the `agent-browser` skill. With the standalone binary, set `AGENT_BROWSER_SKILLS_DIR` to the `skill-data` of the installed version before `agent-browser skills get core`.
+- Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
+- Scripts: `test/e2e/admin.sh` and `test/e2e/status-pages.sh`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
-## Sincronização com o upstream
+## Syncing with upstream
 
 ```bash
 git fetch upstream --tags
 git merge upstream/master
-# Código novo do upstream chega com o caminho de módulo antigo
+# New upstream code comes with the old module path
 grep -rl --include='*.go' 'github.com/TwiN/gatus/v5' . | xargs -r sed -i 's#github.com/TwiN/gatus/v5#gatus/v5#g'
 gofmt -w $(git diff --name-only -- '*.go')
 ```
 
-- Conflitos em imports (quase todo arquivo Go difere do upstream só pelo caminho do módulo): resolva mantendo o conteúdo do upstream e aplique a troca acima; confira com `grep -rn 'github.com/TwiN/gatus/v5' --include='*.go' .` (sem resultados) e `go build ./...`.
-- `go.mod`: mantenha `module gatus/v5`.
+- Import conflicts (almost every Go file differs from upstream only by the module path): resolve them keeping the upstream content and apply the replacement above; check with `grep -rn 'github.com/TwiN/gatus/v5' --include='*.go' .` (no results) and `go build ./...`.
+- `go.mod`: keep `module gatus/v5`.
 
-- Conflito em `web/static/`: aceite qualquer lado e regenere com `make frontend-install && make frontend-build`.
-- Workflows removidos pelo fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): mantenha removidos.
-- `AGENTS.md`: aceite a versão do upstream e mantenha a linha que aponta para este arquivo.
-- Atualize `UPSTREAM_BASE` no `Makefile` para o commit do upstream incorporado e rode `make lint test`.
-- A próxima release passa a usar a nova versão do upstream como base (`vX.Y.Z-fork.1`).
+- Conflict in `web/static/`: accept either side and regenerate with `make frontend-install && make frontend-build`.
+- Workflows removed by the fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): keep them removed.
+- `AGENTS.md`: accept the upstream version and keep the line pointing to this file.
+- Update `UPSTREAM_BASE` in the `Makefile` to the incorporated upstream commit and run `make lint test`.
+- The next release uses the new upstream version as its base (`vX.Y.Z-fork.1`).
 
-## Commits e PRs
+## Commits and PRs
 
-Siga a regra do `AGENTS.md`: commits e PRs feitos por agente informam que foram feitos por agente, com o nome e a versão do modelo. Use prefixos `feat:`, `fix:`, `chore:`, `docs:`, `ci:` (a skill `create-release` usa esses prefixos para as notas).
+Follow the rule of `AGENTS.md`: commits and PRs made by an agent state that they were made by an agent, with the name and version of the model. Use the `feat:`, `fix:`, `chore:`, `docs:`, `ci:` prefixes (the `create-release` skill uses these prefixes for the notes).

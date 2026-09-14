@@ -443,6 +443,25 @@ Alternativa: contador `gatus_status_page_requests_total{slug,code}`. Adiada.
 - temas claro e escuro, viewport de 390 px;
 - capturas em `dist/prints/status-pages/`.
 
+### D15. Endpoints em destaque (pedido do dono)
+- Campo `featured` na página (YAML e administração): até 10 chaves, normalizadas como `endpoints`.
+- Os destaques **contam como seleção** (uma página só com `featured` é válida), aparecem no topo na ordem da lista e **não se repetem** nas seções de grupo. Entram primeiro no limite de 200 endpoints.
+- Payload: `featured: [{...endpoint, "group": "<nome real>"}]`; o estado da página agrega destaques e seções.
+- Chave sem endpoint publicável: ignorada na página, aviso na carga e na validação (`type: "featured"`).
+- Cartão na página pública: nome, grupo, estado, uptime e tempo médio de resposta de 24h/7d/30d, último tempo de resposta, barras e, se marcado, o gráfico já aberto.
+
+### D16. Gráficos de tempo de resposta escolhidos por endpoint (pedido do dono)
+- Campo `charts` na página: até 10 chaves. Só endpoints presentes na página (destaque, grupo ou chave) ganham `chart: true`; chave fora da página gera aviso (`type: "chart"`).
+- O gráfico segue o da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`, componente `ResponseTimeChart`): linha com área, médias horárias e seletor 24h/7d/30d **em cada gráfico**. Nos destaques aparece aberto; nas linhas das seções, abre por um botão.
+- Os dados **não** usam a rota do dashboard (`/api/v1/endpoints/<chave>/response-times/...`), que exige a chave: rota pública nova `GET /api/v1/status-pages/:slug/response-times/:duration` com `{"duration", "endpoints": [{"name", "group", "points": [{"timestamp", "ms"}]}]}`, na ordem da página, só dos endpoints com gráfico.
+- Leitura por `GetHourlyAverageResponseTimeByKey` (já existe nos dois stores) para no máximo 10 endpoints; página sem `charts` não lê o storage.
+- Custo: cache de 5 minutos por `slug|revisão|geração|duração` (médias horárias mudam devagar), `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 s. Duração inválida ou página não publicada: 404 idêntico, contando no limitador.
+- Alternativa: incluir as séries no payload principal. Rejeitada: até 10 × 720 pontos a cada 30 s para todos os visitantes, mesmo sem abrir gráfico.
+
+### D17. Tempo médio de resposta no payload
+- `EndpointUptimes` ganha as médias em milissegundos de 24h/7d/30d, das mesmas somas horárias (`total_response_time`), sem consulta extra; nulas sem execução.
+- Payload: `responseTime: {"24h": 123, "7d": 130, "30d": null}` em todos os endpoints.
+
 ## Risks / Trade-offs
 
 - **Exposição de nomes de endpoints e grupos:** podem revelar nomes internos, e endpoints novos de um grupo entram sozinhos. → Página gerenciada nasce desabilitada, pré-visualização, aviso de exposição no formulário de endpoints e documentação.

@@ -35,6 +35,12 @@ const (
 
 	// MaximumEndpointKeyLength is the maximum length of an endpoint key
 	MaximumEndpointKeyLength = 400
+
+	// MaximumFeatured is the maximum number of featured endpoints of a page
+	MaximumFeatured = 10
+
+	// MaximumCharts is the maximum number of endpoints of a page with a response time chart
+	MaximumCharts = 10
 )
 
 var (
@@ -53,14 +59,20 @@ var (
 	// ErrDescriptionTooLong is returned when a description is too long
 	ErrDescriptionTooLong = fmt.Errorf("description must have at most %d characters", MaximumDescriptionLength)
 
-	// ErrEmptySelection is returned when a page selects no group and no endpoint
-	ErrEmptySelection = errors.New("status page must select at least one group or endpoint")
+	// ErrEmptySelection is returned when a page selects no group, no endpoint and no featured endpoint
+	ErrEmptySelection = errors.New("status page must select at least one group, endpoint or featured endpoint")
 
 	// ErrInvalidGroups is returned when the groups of a page are invalid
 	ErrInvalidGroups = errors.New("invalid groups")
 
 	// ErrInvalidEndpoints is returned when the endpoint keys of a page are invalid
 	ErrInvalidEndpoints = errors.New("invalid endpoints")
+
+	// ErrInvalidFeatured is returned when the featured endpoint keys of a page are invalid
+	ErrInvalidFeatured = errors.New("invalid featured endpoints")
+
+	// ErrInvalidCharts is returned when the endpoint keys of the charts of a page are invalid
+	ErrInvalidCharts = errors.New("invalid charts")
 
 	// ErrInvalidTrustedProxy is returned when an entry of trusted-proxies is neither an IP address nor a CIDR
 	ErrInvalidTrustedProxy = errors.New("status-pages.trusted-proxies entries must be IP addresses or CIDRs")
@@ -162,6 +174,13 @@ type Page struct {
 	// Endpoints selects endpoints by key
 	Endpoints []string `yaml:"endpoints,omitempty" json:"endpoints,omitempty"`
 
+	// Featured selects endpoints by key and shows them at the top of the page, with more details, instead of in their
+	// group
+	Featured []string `yaml:"featured,omitempty" json:"featured,omitempty"`
+
+	// Charts lists the keys of the endpoints of the page that show a response time chart
+	Charts []string `yaml:"charts,omitempty" json:"charts,omitempty"`
+
 	// Enabled is whether the page is published. Pages of the configuration file default to true.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }
@@ -190,16 +209,25 @@ func (p *Page) ValidateAndSetDefaults() error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidGroups, err)
 	}
-	endpoints, err := normalizeList(p.Endpoints, MaximumEndpoints, MaximumEndpointKeyLength, func(key string) string {
+	normalizeKey := func(key string) string {
 		return strings.ToLower(strings.TrimSpace(key))
-	})
+	}
+	endpoints, err := normalizeList(p.Endpoints, MaximumEndpoints, MaximumEndpointKeyLength, normalizeKey)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidEndpoints, err)
 	}
-	if len(groups) == 0 && len(endpoints) == 0 {
+	featured, err := normalizeList(p.Featured, MaximumFeatured, MaximumEndpointKeyLength, normalizeKey)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidFeatured, err)
+	}
+	charts, err := normalizeList(p.Charts, MaximumCharts, MaximumEndpointKeyLength, normalizeKey)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidCharts, err)
+	}
+	if len(groups) == 0 && len(endpoints) == 0 && len(featured) == 0 {
 		return ErrEmptySelection
 	}
-	p.Groups, p.Endpoints = groups, endpoints
+	p.Groups, p.Endpoints, p.Featured, p.Charts = groups, endpoints, featured, charts
 	return nil
 }
 

@@ -29,6 +29,7 @@ func registerStatusPageRoutes(app *fiber.App, unprotectedAPIRouter fiber.Router,
 	notFound := statusPageNotFound(cfg.StatusPages.TrustedProxyPrefixes())
 	if cfg.StatusPages.IsEnabled() {
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug", statusPageHandler(notFound))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/response-times/:duration", statusPageResponseTimesHandler(notFound))
 	}
 	unprotectedAPIRouter.All("/v1/status-pages", notFound)
 	unprotectedAPIRouter.All("/v1/status-pages/*", notFound)
@@ -45,6 +46,25 @@ func statusPageHandler(notFound fiber.Handler) fiber.Handler {
 		case err == nil:
 			setPublicAPIHeaders(c)
 			// The payload is cached by the server: an HTTP cache must not keep a page that was just disabled
+			c.Set(fiber.HeaderCacheControl, "no-cache")
+			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			return c.Status(fiber.StatusOK).Send(body)
+		case errors.Is(err, statuspage.ErrPageNotFound):
+			return notFound(c)
+		default:
+			return sendStatusPageError(c, fiber.StatusServiceUnavailable, statusPageUnavailableBody)
+		}
+	}
+}
+
+// statusPageResponseTimesHandler serves the response time charts of a published status page, see
+// statuspage.PublicResponseTimes
+func statusPageResponseTimesHandler(notFound fiber.Handler) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		body, err := statuspage.PublicResponseTimes(c.Params("slug"), c.Params("duration"))
+		switch {
+		case err == nil:
+			setPublicAPIHeaders(c)
 			c.Set(fiber.HeaderCacheControl, "no-cache")
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 			return c.Status(fiber.StatusOK).Send(body)

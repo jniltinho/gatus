@@ -37,15 +37,20 @@ For more details, see [Usage](#usage)
 Have any feedback or questions? [Create a discussion](https://github.com/TwiN/gatus/discussions/new).
 
 
-## Fork jniltinho/gatus
+## jniltinho/gatus fork
 
-Este fork adiciona a **administração de endpoints pela web**: cadastrar, editar, desabilitar e remover endpoints em
-`/admin`, persistidos em SQLite ou PostgreSQL, sem reiniciar o Gatus. Configuração, uso, API e limitações em
-[docs/admin-endpoints.md](docs/admin-endpoints.md). Releases do fork: tags `v<versão-do-upstream>-fork.<N>` e imagem
-`jniltinho/gatus` no Docker Hub.
+This fork adds **endpoint administration through the web**: create, edit, disable and remove endpoints at `/admin`,
+stored in SQLite or PostgreSQL, without restarting Gatus. Configuration, usage, API and limitations in
+[docs/admin-endpoints.md](docs/admin-endpoints.md). Fork releases: `v<upstream-version>-fork.<N>` tags and the
+`jniltinho/gatus` image on Docker Hub.
 
-O módulo Go do fork se chama `gatus/v5` e não depende do repositório original: gere o binário com `make build` ou use os
-tarballs e a imagem das [releases](https://github.com/jniltinho/gatus/releases) (o fork não é instalável com `go install`).
+It also adds **public status pages**: pages open without login at `/status/<slug>`, with the selected groups and
+endpoints, defined in the configuration file or managed through the web, while the dashboard stays protected.
+Configuration, reverse proxy, API and security in [docs/status-pages.md](docs/status-pages.md).
+
+The Go module of the fork is named `gatus/v5` and does not depend on the original repository: build the binary with
+`make build` or use the tarballs and the image of the [releases](https://github.com/jniltinho/gatus/releases) (the fork
+cannot be installed with `go install`).
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)

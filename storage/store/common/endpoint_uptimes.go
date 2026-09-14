@@ -8,6 +8,12 @@ type EndpointUptimes struct {
 	Last24Hours *float64
 	Last7Days   *float64
 	Last30Days  *float64
+
+	// AverageResponseTime24Hours, AverageResponseTime7Days and AverageResponseTime30Days are the average response times
+	// in milliseconds over the same periods. A nil value means that there was no execution during the period.
+	AverageResponseTime24Hours *int
+	AverageResponseTime7Days   *int
+	AverageResponseTime30Days  *int
 }
 
 // ResultSummary is the part of an endpoint result that can be shown on a public status page

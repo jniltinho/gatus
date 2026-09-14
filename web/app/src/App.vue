@@ -1,7 +1,17 @@
 <template>
   <div id="global" class="bg-background text-foreground">
+    <!-- Waiting for the router: the layout depends on the route -->
+    <div v-if="!routerReady" class="flex items-center justify-center min-h-screen">
+      <Loading size="lg" />
+    </div>
+
+    <!-- Public status pages (fork): no dashboard header, no login screen and no call to /api/v1/config -->
+    <PublicLayout v-else-if="isPublic">
+      <router-view />
+    </PublicLayout>
+
     <!-- Loading State -->
-    <div v-if="!retrievedConfig" class="flex items-center justify-center min-h-screen">
+    <div v-else-if="!retrievedConfig" class="flex items-center justify-center min-h-screen">
       <Loading size="lg" />
     </div>
 
@@ -158,21 +168,28 @@
     </div>
 
     <!-- Tooltip -->
-    <Tooltip :result="tooltip.result" :event="tooltip.event" :isPersistent="tooltipIsPersistent" />
+    <Tooltip v-if="routerReady && !isPublic" :result="tooltip.result" :event="tooltip.event" :isPersistent="tooltipIsPersistent" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Menu, X, LogIn } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import Social from './components/Social.vue'
 import Tooltip from './components/Tooltip.vue'
 import Loading from './components/Loading.vue'
+import PublicLayout from './components/public/PublicLayout.vue'
 
 const route = useRoute()
+const router = useRouter()
+
+// The layout depends on the route, so nothing is shown before the router resolves the first one
+const routerReady = ref(false)
+const isPublic = computed(() => route.meta.public === true)
+let configLoadingStarted = false
 
 // State
 const retrievedConfig = ref(false)
@@ -260,11 +277,21 @@ const handleDocumentClick = (event) => {
   }
 }
 
-// Fetch config on mount and set up interval
-onMounted(() => {
+// The config (and the OIDC login screen) is only needed outside of the public status pages: it is fetched when the first
+// non-public route is shown, and only then refreshed every 10 minutes for announcements
+watch([routerReady, isPublic], ([ready, isPublicRoute]) => {
+  if (!ready || isPublicRoute || configLoadingStarted) {
+    return
+  }
+  configLoadingStarted = true
   fetchConfig()
-  // Refresh config every 10 minutes for announcements
   configInterval = setInterval(fetchConfig, 600000)
+})
+
+onMounted(() => {
+  router.isReady().then(() => {
+    routerReady.value = true
+  })
   // Add click listener for closing persistent tooltips
   document.addEventListener('click', handleDocumentClick)
 })

@@ -264,27 +264,14 @@ func logPublished(snap *snapshot) {
 		return
 	}
 	refs := Endpoints()
-	groups := make(map[string]struct{}, len(refs))
-	keys := make(map[string]struct{}, len(refs))
-	for _, ref := range refs {
-		groups[pageconfig.NormalizeGroup(ref.Group)] = struct{}{}
-		keys[ref.Key] = struct{}{}
-	}
 	published := map[Origin][]string{}
 	for _, state := range append(sortedStates(snap.configStates), sortedStates(snap.managedStates)...) {
 		if !state.IsPublished() {
 			continue
 		}
 		published[state.Origin] = append(published[state.Origin], state.Slug)
-		for _, group := range state.Page.Groups {
-			if _, exists := groups[group]; !exists {
-				logr.Warnf("[statuspage.Load] Status page with slug=%s selects group=%s, which has no endpoint", state.Slug, group)
-			}
-		}
-		for _, key := range state.Page.Endpoints {
-			if _, exists := keys[key]; !exists {
-				logr.Warnf("[statuspage.Load] Status page with slug=%s selects endpoint key=%s, which does not exist", state.Slug, key)
-			}
+		for _, warning := range selectionWarnings(state.Page, refs) {
+			logr.Warnf("[statuspage.Load] Status page with slug=%s selects %s=%s, which has no match", state.Slug, warning.Type, warning.Value)
 		}
 	}
 	if len(published) > 0 {
