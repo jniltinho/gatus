@@ -70,10 +70,21 @@ type Published struct {
 
 	// Revision changes every time the published status pages change, and identifies the definition of Page
 	Revision uint64
+
+	// Generation changes every time the status pages are loaded (start and reload)
+	Generation uint64
+
+	// MaximumResults is the number of latest results shown for each endpoint
+	MaximumResults int
 }
+
+// MaximumPublicResults is the maximum number of latest results shown for each endpoint of a public status page
+const MaximumPublicResults = 50
 
 type snapshot struct {
 	revision           uint64
+	generation         uint64
+	maximumResults     int
 	enabled            bool
 	managedUnavailable bool
 	configStates       map[string]*State
@@ -90,6 +101,9 @@ var (
 
 	// revisions is incremented on every publication, so that a revision is never reused
 	revisions atomic.Uint64
+
+	// generations is incremented on every Load
+	generations atomic.Uint64
 )
 
 // Load publishes the status pages of cfg and the managed status pages persisted in the storage, replacing the previous
@@ -101,6 +115,8 @@ func Load(cfg *config.Config) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	next := &snapshot{
+		generation:      generations.Add(1),
+		maximumResults:  maximumPublicResults(cfg),
 		enabled:         cfg.StatusPages.IsEnabled(),
 		configStates:    make(map[string]*State),
 		managedStates:   make(map[string]*State),
@@ -122,6 +138,8 @@ func Load(cfg *config.Config) {
 		}
 	}
 	publish(next)
+	// The cache keys include the revision and the generation, so this only frees memory
+	publicCache.Clear()
 	logPublished(next)
 }
 
@@ -159,7 +177,23 @@ func Lookup(slug string) (Published, bool) {
 	if state == nil || !state.IsPublished() {
 		return Published{}, false
 	}
-	return Published{Page: state.Page, Revision: snap.revision}, true
+	return Published{Page: state.Page, Revision: snap.revision, Generation: snap.generation, MaximumResults: snap.maximumResults}, true
+}
+
+// Generation returns the generation of the loaded status pages, 0 before the first Load
+func Generation() uint64 {
+	if snap := current.Load(); snap != nil {
+		return snap.generation
+	}
+	return 0
+}
+
+// maximumPublicResults returns MaximumPublicResults, or storage.maximum-number-of-results if it is lower
+func maximumPublicResults(cfg *config.Config) int {
+	if cfg.Storage != nil && cfg.Storage.MaximumNumberOfResults > 0 && cfg.Storage.MaximumNumberOfResults < MaximumPublicResults {
+		return cfg.Storage.MaximumNumberOfResults
+	}
+	return MaximumPublicResults
 }
 
 // List returns the state of every status page: the pages of the configuration file, then the managed status pages,
