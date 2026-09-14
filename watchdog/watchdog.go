@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/TwiN/gatus/v5/config"
+	"github.com/TwiN/gatus/v5/metrics"
+	"github.com/TwiN/logr"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -34,12 +36,16 @@ func Monitor(cfg *config.Config) {
 		// Limited concurrency based on configuration
 		monitoringSemaphore = semaphore.NewWeighted(int64(cfg.Concurrency))
 	}
-	extraLabels := cfg.GetUniqueExtraMetricLabels()
+	endpoints := newEndpointRegistry(ctx, cfg)
+	registry.Store(endpoints)
+	extraLabels := metrics.RegisteredExtraLabels()
 	for _, endpoint := range cfg.Endpoints {
 		if endpoint.IsEnabled() {
 			// To prevent multiple requests from running at the same time, we'll wait for a little before each iteration
 			time.Sleep(222 * time.Millisecond)
-			go monitorEndpoint(endpoint, cfg, extraLabels, ctx)
+			if err := endpoints.start(endpoint, SourceConfig); err != nil {
+				logr.Errorf("[watchdog.Monitor] Failed to start monitoring endpoint with key=%s: %s", endpoint.Key(), err.Error())
+			}
 		}
 	}
 	for _, externalEndpoint := range cfg.ExternalEndpoints {
@@ -60,6 +66,9 @@ func Monitor(cfg *config.Config) {
 
 // Shutdown stops monitoring all endpoints
 func Shutdown(cfg *config.Config) {
+	if endpoints := registry.Load(); endpoints != nil {
+		endpoints.close()
+	}
 	// Stop in-flight HTTP connections
 	for _, ep := range cfg.Endpoints {
 		ep.Close()

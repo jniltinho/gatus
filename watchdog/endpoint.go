@@ -14,7 +14,7 @@ import (
 // monitorEndpoint a single endpoint in a loop
 func monitorEndpoint(ep *endpoint.Endpoint, cfg *config.Config, extraLabels []string, ctx context.Context) {
 	// Run it immediately on start
-	executeEndpoint(ep, cfg, extraLabels)
+	executeEndpoint(ctx, ep, cfg, extraLabels)
 	// Loop for the next executions
 	ticker := time.NewTicker(ep.Interval)
 	defer ticker.Stop()
@@ -24,7 +24,7 @@ func monitorEndpoint(ep *endpoint.Endpoint, cfg *config.Config, extraLabels []st
 			logr.Warnf("[watchdog.monitorEndpoint] Canceling current execution of group=%s; endpoint=%s; key=%s", ep.Group, ep.Name, ep.Key())
 			return
 		case <-ticker.C:
-			executeEndpoint(ep, cfg, extraLabels)
+			executeEndpoint(ctx, ep, cfg, extraLabels)
 		}
 	}
 	// Just in case somebody wandered all the way to here and wonders, "what about ExternalEndpoints?"
@@ -32,10 +32,12 @@ func monitorEndpoint(ep *endpoint.Endpoint, cfg *config.Config, extraLabels []st
 	// periodically like they are for normal endpoints.
 }
 
-func executeEndpoint(ep *endpoint.Endpoint, cfg *config.Config, extraLabels []string) {
+// executeEndpoint evaluates the endpoint once. ctx is the context of the endpoint's monitoring: once it is
+// cancelled (shutdown, or the endpoint was stopped or replaced), the result is discarded.
+func executeEndpoint(ctx context.Context, ep *endpoint.Endpoint, cfg *config.Config, extraLabels []string) {
 	// Acquire semaphore to limit concurrent endpoint monitoring
 	if err := monitoringSemaphore.Acquire(ctx, 1); err != nil {
-		// Only fails if context is cancelled (during shutdown)
+		// Only fails if context is cancelled (during shutdown, or because the endpoint was stopped)
 		logr.Debugf("[watchdog.executeEndpoint] Context cancelled, skipping execution: %s", err.Error())
 		return
 	}
@@ -47,6 +49,10 @@ func executeEndpoint(ep *endpoint.Endpoint, cfg *config.Config, extraLabels []st
 	}
 	logr.Debugf("[watchdog.executeEndpoint] Monitoring group=%s; endpoint=%s; key=%s", ep.Group, ep.Name, ep.Key())
 	result := ep.EvaluateHealth()
+	if ctx.Err() != nil {
+		logr.Debugf("[watchdog.executeEndpoint] Discarding result of group=%s; endpoint=%s; key=%s because its monitoring was stopped", ep.Group, ep.Name, ep.Key())
+		return
+	}
 	if cfg.Metrics {
 		metrics.PublishMetricsForEndpoint(ep, result, extraLabels)
 	}

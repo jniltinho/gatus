@@ -16,7 +16,6 @@ import (
 )
 
 func CreateExternalEndpointResult(cfg *config.Config) fiber.Handler {
-	extraLabels := cfg.GetUniqueExtraMetricLabels()
 	return func(c *fiber.Ctx) error {
 		// Check if the success query parameter is present
 		success, exists := c.Queries()["success"]
@@ -84,7 +83,7 @@ func CreateExternalEndpointResult(cfg *config.Config) fiber.Handler {
 			logr.Debug("[api.CreateExternalEndpointResult] Not handling alerting because currently in the maintenance window")
 		}
 		if cfg.Metrics {
-			metrics.PublishMetricsForEndpoint(convertedEndpoint, result, extraLabels)
+			metrics.PublishMetricsForEndpoint(convertedEndpoint, result, metrics.RegisteredExtraLabels())
 		}
 		// Return the result
 		return c.Status(200).SendString("")

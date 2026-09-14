@@ -1,7 +1,9 @@
 package metrics
 
 import (
+	"slices"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/TwiN/gatus/v5/config"
 	"github.com/TwiN/gatus/v5/config/endpoint"
@@ -28,6 +30,10 @@ var (
 	// Track if metrics have been initialized to prevent duplicate registration
 	metricsInitialized bool
 	currentRegisterer  prometheus.Registerer
+
+	// registeredExtraLabels holds the extra labels the endpoint and suite metrics were registered with.
+	// Publishing always uses this list, so that a caller with a different list cannot cause a label cardinality panic.
+	registeredExtraLabels atomic.Pointer[[]string]
 )
 
 // UnregisterPrometheusMetrics unregisters all previously registered metrics
@@ -72,6 +78,7 @@ func UnregisterPrometheusMetrics() {
 
 	metricsInitialized = false
 	currentRegisterer = nil
+	registeredExtraLabels.Store(nil)
 }
 
 func InitializePrometheusMetrics(cfg *config.Config, reg prometheus.Registerer) {
@@ -88,6 +95,8 @@ func InitializePrometheusMetrics(cfg *config.Config, reg prometheus.Registerer) 
 	currentRegisterer = reg
 
 	extraLabels := cfg.GetUniqueExtraMetricLabels()
+	labels := slices.Clone(extraLabels)
+	registeredExtraLabels.Store(&labels)
 	resultTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "results_total",
@@ -166,6 +175,8 @@ func InitializePrometheusMetrics(cfg *config.Config, reg prometheus.Registerer) 
 // PublishMetricsForEndpoint publishes metrics for the given endpoint and its result.
 // These metrics will be exposed at /metrics if the metrics are enabled
 func PublishMetricsForEndpoint(ep *endpoint.Endpoint, result *endpoint.Result, extraLabels []string) {
+	// Always use the extra labels the metrics were registered with (see registeredExtraLabels)
+	extraLabels = RegisteredExtraLabels()
 	var labelValues []string
 	for _, label := range extraLabels {
 		if value, ok := ep.ExtraLabels[label]; ok {
@@ -205,6 +216,8 @@ func PublishMetricsForSuite(s *suite.Suite, result *suite.Result, extraLabels []
 	if !metricsInitialized {
 		return
 	}
+	// Always use the extra labels the metrics were registered with (see registeredExtraLabels)
+	extraLabels = RegisteredExtraLabels()
 	var labelValues []string
 	// For now, suites don't have ExtraLabels, so we'll use empty values
 	// This maintains consistency with endpoint metrics structure

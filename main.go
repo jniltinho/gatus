@@ -9,6 +9,7 @@ import (
 
 	"github.com/TwiN/gatus/v5/config"
 	"github.com/TwiN/gatus/v5/controller"
+	"github.com/TwiN/gatus/v5/lifecycle"
 	"github.com/TwiN/gatus/v5/metrics"
 	"github.com/TwiN/gatus/v5/storage/store"
 	"github.com/TwiN/gatus/v5/watchdog"
@@ -31,6 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	lifecycle.BeginCycle() // ended by start
 	initializeStorage(cfg)
 	start(cfg)
 	// Wait for termination signal
@@ -40,6 +42,7 @@ func main() {
 	go func() {
 		<-signalChannel
 		logr.Info("Received termination signal, attempting to gracefully shut down")
+		lifecycle.BeginCycle() // never ended: the application is shutting down
 		stop(cfg)
 		save()
 		done <- true
@@ -48,10 +51,12 @@ func main() {
 	logr.Info("Shutting down")
 }
 
+// start must be called with a lifecycle cycle in progress, which it ends once monitoring has started
 func start(cfg *config.Config) {
 	go controller.Handle(cfg)
 	metrics.InitializePrometheusMetrics(cfg, nil)
 	watchdog.Monitor(cfg)
+	lifecycle.EndCycle()
 	go listenToConfigurationFileChanges(cfg)
 }
 
@@ -135,79 +140,19 @@ func initializeStorage(cfg *config.Config) {
 	// Clean up the triggered alerts from the storage provider and load valid triggered endpoint alerts
 	numberOfPersistedTriggeredAlertsLoaded := 0
 	for _, ep := range cfg.Endpoints {
-		var checksums []string
-		for _, alert := range ep.Alerts {
-			if alert.IsEnabled() {
-				checksums = append(checksums, alert.Checksum())
-			}
-		}
-		numberOfTriggeredAlertsDeleted := store.Get().DeleteAllTriggeredAlertsNotInChecksumsByEndpoint(ep, checksums)
-		if numberOfTriggeredAlertsDeleted > 0 {
-			logr.Debugf("[main.initializeStorage] Deleted %d triggered alerts for endpoint with key=%s because their configurations have been changed or deleted", numberOfTriggeredAlertsDeleted, ep.Key())
-		}
-		for _, alert := range ep.Alerts {
-			exists, resolveKey, numberOfSuccessesInARow, err := store.Get().GetTriggeredEndpointAlert(ep, alert)
-			if err != nil {
-				logr.Errorf("[main.initializeStorage] Failed to get triggered alert for endpoint with key=%s: %s", ep.Key(), err.Error())
-				continue
-			}
-			if exists {
-				alert.Triggered, alert.ResolveKey = true, resolveKey
-				ep.NumberOfSuccessesInARow, ep.NumberOfFailuresInARow = numberOfSuccessesInARow, alert.FailureThreshold
-				numberOfPersistedTriggeredAlertsLoaded++
-			}
-		}
+		numberOfPersistedTriggeredAlertsLoaded += watchdog.RestorePersistedTriggeredAlerts(ep)
 	}
 	for _, ee := range cfg.ExternalEndpoints {
-		var checksums []string
-		for _, alert := range ee.Alerts {
-			if alert.IsEnabled() {
-				checksums = append(checksums, alert.Checksum())
-			}
-		}
 		convertedEndpoint := ee.ToEndpoint()
-		numberOfTriggeredAlertsDeleted := store.Get().DeleteAllTriggeredAlertsNotInChecksumsByEndpoint(convertedEndpoint, checksums)
-		if numberOfTriggeredAlertsDeleted > 0 {
-			logr.Debugf("[main.initializeStorage] Deleted %d triggered alerts for endpoint with key=%s because their configurations have been changed or deleted", numberOfTriggeredAlertsDeleted, ee.Key())
-		}
-		for _, alert := range ee.Alerts {
-			exists, resolveKey, numberOfSuccessesInARow, err := store.Get().GetTriggeredEndpointAlert(convertedEndpoint, alert)
-			if err != nil {
-				logr.Errorf("[main.initializeStorage] Failed to get triggered alert for endpoint with key=%s: %s", ee.Key(), err.Error())
-				continue
-			}
-			if exists {
-				alert.Triggered, alert.ResolveKey = true, resolveKey
-				ee.NumberOfSuccessesInARow, ee.NumberOfFailuresInARow = numberOfSuccessesInARow, alert.FailureThreshold
-				numberOfPersistedTriggeredAlertsLoaded++
-			}
+		if restored := watchdog.RestorePersistedTriggeredAlerts(convertedEndpoint); restored > 0 {
+			ee.NumberOfSuccessesInARow, ee.NumberOfFailuresInARow = convertedEndpoint.NumberOfSuccessesInARow, convertedEndpoint.NumberOfFailuresInARow
+			numberOfPersistedTriggeredAlertsLoaded += restored
 		}
 	}
 	// Load persisted triggered alerts for suite endpoints
 	for _, suite := range cfg.Suites {
 		for _, ep := range suite.Endpoints {
-			var checksums []string
-			for _, alert := range ep.Alerts {
-				if alert.IsEnabled() {
-					checksums = append(checksums, alert.Checksum())
-				}
-			}
-			numberOfTriggeredAlertsDeleted := store.Get().DeleteAllTriggeredAlertsNotInChecksumsByEndpoint(ep, checksums)
-			if numberOfTriggeredAlertsDeleted > 0 {
-				logr.Debugf("[main.initializeStorage] Deleted %d triggered alerts for suite endpoint with key=%s because their configurations have been changed or deleted", numberOfTriggeredAlertsDeleted, ep.Key())
-			}
-			for _, alert := range ep.Alerts {
-				exists, resolveKey, numberOfSuccessesInARow, err := store.Get().GetTriggeredEndpointAlert(ep, alert)
-				if err != nil {
-					logr.Errorf("[main.initializeStorage] Failed to get triggered alert for suite endpoint with key=%s: %s", ep.Key(), err.Error())
-					continue
-				}
-				if exists {
-					alert.Triggered, alert.ResolveKey = true, resolveKey
-					ep.NumberOfSuccessesInARow, ep.NumberOfFailuresInARow = numberOfSuccessesInARow, alert.FailureThreshold
-					numberOfPersistedTriggeredAlertsLoaded++
-				}
-			}
+			numberOfPersistedTriggeredAlertsLoaded += watchdog.RestorePersistedTriggeredAlerts(ep)
 		}
 	}
 	if numberOfPersistedTriggeredAlertsLoaded > 0 {
@@ -233,6 +178,7 @@ func listenToConfigurationFileChanges(cfg *config.Config) {
 			if !ok {
 				continue
 			}
+			lifecycle.BeginCycle() // ended by start
 			stop(cfg)
 			time.Sleep(time.Second) // Wait a bit to make sure everything is done.
 			save()

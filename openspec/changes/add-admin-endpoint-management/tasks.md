@@ -24,12 +24,12 @@
 ## 3. Marco 3 — Fundação: hot-reload, watchdog e métricas
 
 - [x] 3.1 Hot-reload: carregar e validar o YAML novo antes de `stop()`; com `skip-invalid-config-update: true`, manter tudo rodando se for inválido; testes
-- [ ] 3.2 Registro por endpoint no `watchdog` (origem, contexto, cancelamento, `done`, estado `closed`) com `StartEndpoint`, `StopEndpoint` e `RestartEndpoint`; `Monitor` e `Shutdown` sobre o registro sem mudar o comportamento para o YAML
-- [ ] 3.3 `executeEndpoint` com o contexto do endpoint no semáforo e descarte de resultados após cancelamento (sem métricas, store ou alertas)
-- [ ] 3.4 `metrics`: expor a lista de labels registrada no ciclo e usá-la no watchdog e em `api/external_endpoint.go`; função para apagar as séries de uma chave com `DeletePartialMatch`
-- [ ] 3.5 Lock de ciclo de vida (exclusivo na partida e no hot-reload; tentativa compartilhada para escritas administrativas) com indicação de ciclo em andamento
-- [ ] 3.6 Extrair de `initializeStorage` a restauração de alertas disparados para uma função reutilizável
-- [ ] 3.7 Testes: parada durante verificação lenta (`httptest`) não grava nada depois; reinício sem resultados ou alertas duplicados; parar um endpoint não reinicia outro; `go test -race` limpo
+- [x] 3.2 Registro por endpoint no `watchdog` (origem, contexto, cancelamento, `done`, estado `closed`) com `StartEndpoint`, `StopEndpoint` e `RestartEndpoint`; `Monitor` e `Shutdown` sobre o registro sem mudar o comportamento para o YAML
+- [x] 3.3 `executeEndpoint` com o contexto do endpoint no semáforo e descarte de resultados após cancelamento (sem métricas, store ou alertas)
+- [x] 3.4 `metrics`: expor a lista de labels registrada no ciclo e usá-la no watchdog e em `api/external_endpoint.go`; função para apagar as séries de uma chave com `DeletePartialMatch`
+- [x] 3.5 Lock de ciclo de vida (exclusivo na partida e no hot-reload; tentativa compartilhada para escritas administrativas) com indicação de ciclo em andamento
+- [x] 3.6 Extrair de `initializeStorage` a restauração de alertas disparados para uma função reutilizável
+- [x] 3.7 Testes: parada durante verificação lenta (`httptest`) não grava nada depois; reinício sem resultados ou alertas duplicados; parar um endpoint não reinicia outro; `go test -race` limpo
 - [ ] 3.8 Pull request, CI verde e merge
 
 ## 4. Marco 4 — Backend de administração
