@@ -7,17 +7,18 @@ const sanitizeKeyPart = (value) => (value || '').toLowerCase().trim().replace(/[
 // endpointKey mirrors key.ConvertGroupAndNameToKey of the backend
 export const endpointKey = (group, name) => `${sanitizeKeyPart(group)}_${sanitizeKeyPart(name)}`
 
-// Labels of the statuses of the payload, for a page or group ("page") and for an endpoint ("endpoint")
+// Labels of the statuses of the payload, for a page ("page"), a group ("group") and an endpoint ("endpoint")
 export const STATUS_LABELS = {
-  operational: { page: 'Todos os sistemas operacionais', group: 'Operacional' },
-  degraded: { page: 'Degradação parcial', group: 'Degradação parcial' },
-  down: { page: 'Indisponível', group: 'Indisponível', endpoint: 'Fora do ar' },
-  up: { endpoint: 'No ar' },
-  unknown: { page: 'Sem dados', group: 'Sem dados', endpoint: 'Sem dados' }
+  operational: { page: 'All systems operational', group: 'Operational' },
+  degraded: { page: 'Partial outage', group: 'Partial outage' },
+  down: { page: 'Major outage', group: 'Major outage', endpoint: 'Down' },
+  up: { endpoint: 'Up' },
+  unknown: { page: 'No data', group: 'No data', endpoint: 'No data' }
 }
 
-const percentFormat = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 2 })
-const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' })
+// Like the dashboard, numbers and dates use the locale of the browser
+const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 2 })
+const dateTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'medium' })
 
 // formatUptime formats an uptime between 0 and 1, or a dash without execution during the period
 export const formatUptime = (uptime) => (uptime === null || uptime === undefined ? '—' : percentFormat.format(uptime))
@@ -28,15 +29,15 @@ export const formatDateTime = (timestamp) => dateTimeFormat.format(new Date(time
 export const relativeTimeLabel = (timestamp, now) => {
   const seconds = Math.max(0, Math.round((now - Date.parse(timestamp)) / 1000))
   if (seconds < 10) {
-    return 'agora mesmo'
+    return 'just now'
   }
   if (seconds < 60) {
-    return `há ${seconds} segundos`
+    return `${seconds} seconds ago`
   }
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) {
-    return minutes === 1 ? 'há 1 minuto' : `há ${minutes} minutos`
+    return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`
   }
   const hours = Math.floor(minutes / 60)
-  return hours === 1 ? 'há 1 hora' : `há ${hours} horas`
+  return hours === 1 ? '1 hour ago' : `${hours} hours ago`
 }

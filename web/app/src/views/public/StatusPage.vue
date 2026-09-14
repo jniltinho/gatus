@@ -3,8 +3,8 @@
     <div v-if="state === 'loading'" class="py-16 flex justify-center"><Loading /></div>
 
     <section v-else-if="state === 'not-found'" class="py-16 text-center" data-testid="status-page-not-found">
-      <h1 class="text-2xl font-bold tracking-tight">Página não encontrada</h1>
-      <p class="mt-2 text-muted-foreground">Confira o endereço da página de status.</p>
+      <h1 class="text-2xl font-bold tracking-tight">Page not found</h1>
+      <p class="mt-2 text-muted-foreground">Check the address of the status page.</p>
     </section>
 
     <template v-else>
@@ -25,8 +25,8 @@
 
         <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" />
 
-        <p v-if="page.truncated" class="mt-3 text-sm text-muted-foreground">Mostrando os primeiros 200 serviços.</p>
-        <p v-if="page.groups.length === 0" class="mt-8 text-center text-muted-foreground">Nenhum serviço nesta página.</p>
+        <p v-if="page.truncated" class="mt-3 text-sm text-muted-foreground">Showing the first 200 services.</p>
+        <p v-if="page.groups.length === 0" class="mt-8 text-center text-muted-foreground">No services on this page.</p>
 
         <section
           v-for="(group, groupIndex) in page.groups"
@@ -36,7 +36,7 @@
           :data-testid="`status-group-${group.name || 'outros'}`"
         >
           <div class="flex items-center justify-between gap-4 border-b pb-2 dark:border-gray-800">
-            <h2 :id="`status-group-${groupIndex}`" class="text-lg font-semibold">{{ group.name || 'Outros serviços' }}</h2>
+            <h2 :id="`status-group-${groupIndex}`" class="text-lg font-semibold">{{ group.name || 'Other services' }}</h2>
             <span :class="['text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
           </div>
           <ul class="divide-y dark:divide-gray-800">
@@ -101,7 +101,7 @@ const showNotFound = () => {
   page.value = null
   errorMessage.value = ''
   state.value = 'not-found'
-  document.title = 'Página não encontrada'
+  document.title = 'Page not found'
 }
 
 const load = async () => {
@@ -129,10 +129,10 @@ const load = async () => {
         retryDelayMs = retryAfterSeconds * 1000
       }
       errorMessage.value = response.status === 429
-        ? 'Muitas requisições no momento. A página será atualizada automaticamente.'
-        : 'Página temporariamente indisponível. A página será atualizada automaticamente.'
+        ? 'Too many requests right now. This page will refresh automatically.'
+        : 'This status page is temporarily unavailable. It will refresh automatically.'
     } else if (!response.ok || !(response.headers.get('Content-Type') || '').includes('application/json')) {
-      errorMessage.value = 'Não foi possível carregar a página de status. A página será atualizada automaticamente.'
+      errorMessage.value = 'Could not load the status page. It will refresh automatically.'
     } else {
       page.value = await response.json()
       errorMessage.value = ''
@@ -142,7 +142,7 @@ const load = async () => {
     if (error.name === 'AbortError' || generation !== requestGeneration) {
       return
     }
-    errorMessage.value = 'Não foi possível conectar ao servidor. A página será atualizada automaticamente.'
+    errorMessage.value = 'Could not reach the server. This page will refresh automatically.'
   }
   now.value = Date.now()
   state.value = 'ready'

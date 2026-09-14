@@ -16,13 +16,13 @@
         <button
           type="button"
           class="inline-flex h-9 items-center gap-2 border border-input bg-background px-3 text-sm hover:bg-accent motion-safe:transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-          :aria-label="darkMode ? 'Usar tema claro' : 'Usar tema escuro'"
+          :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
           data-testid="public-theme-toggle"
           @click="toggleTheme"
         >
           <Sun v-if="darkMode" class="h-4 w-4" aria-hidden="true" />
           <Moon v-else class="h-4 w-4" aria-hidden="true" />
-          <span class="hidden sm:inline">{{ darkMode ? 'Tema claro' : 'Tema escuro' }}</span>
+          <span class="hidden sm:inline">{{ darkMode ? 'Light mode' : 'Dark mode' }}</span>
         </button>
       </div>
     </header>
@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Moon, Sun } from 'lucide-vue-next'
 
 const THEME_COOKIE_NAME = 'theme'
@@ -58,15 +58,4 @@ const toggleTheme = () => {
   darkMode.value = theme === 'dark'
   document.documentElement.classList.toggle('dark', darkMode.value)
 }
-
-let previousLanguage = ''
-
-onMounted(() => {
-  previousLanguage = document.documentElement.lang
-  document.documentElement.lang = 'pt-BR'
-})
-
-onUnmounted(() => {
-  document.documentElement.lang = previousLanguage
-})
 </script>

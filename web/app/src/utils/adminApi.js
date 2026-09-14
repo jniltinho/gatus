@@ -82,12 +82,12 @@ export function describeStatusPageError(error) {
   switch (error && error.status) {
     case 409:
       return error.message && error.message.includes('configuration file and cannot be changed')
-        ? 'Esta página é do arquivo de configuração e não pode ser alterada pela web.'
-        : 'Já existe uma status page com esse slug.'
+        ? 'This status page is defined in the configuration file and cannot be changed through the web.'
+        : 'A status page with this slug already exists.'
     case 412:
-      return 'A status page foi alterada por outra pessoa desde que você a abriu. Recarregue a página para ver a versão atual.'
+      return 'The status page was changed by someone else since you opened it. Reload it to see the current version.'
     case 501:
-      return 'O storage configurado não suporta status pages cadastradas pela web.'
+      return 'The configured storage does not support status pages managed through the web.'
     default:
       return describeAdminError(error)
   }
@@ -96,16 +96,16 @@ export function describeStatusPageError(error) {
 export function describeAdminError(error) {
   switch (error && error.status) {
     case 401:
-      return 'Autenticação necessária.'
+      return 'Authentication required.'
     case 403:
-      return 'Sem permissão de administrador.'
+      return 'Administrator permission required.'
     case 412:
-      return 'O endpoint foi alterado por outra pessoa desde que você o abriu.'
+      return 'The endpoint was changed by someone else since you opened it.'
     case 429:
-      return 'Muitos testes em andamento. Tente novamente em instantes.'
+      return 'Too many endpoint tests in progress. Try again in a moment.'
     case 503:
-      return 'O Gatus está iniciando ou recarregando a configuração. Tente novamente em instantes.'
+      return 'Gatus is starting or reloading its configuration. Try again in a moment.'
     default:
-      return (error && error.message) || 'Erro inesperado.'
+      return (error && error.message) || 'Unexpected error.'
   }
 }

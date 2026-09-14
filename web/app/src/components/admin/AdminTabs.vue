@@ -1,5 +1,5 @@
 <template>
-  <nav class="mb-6 flex border-b dark:border-gray-700" aria-label="Seções da administração" data-testid="admin-tabs">
+  <nav class="mb-6 flex border-b dark:border-gray-700" aria-label="Administration sections" data-testid="admin-tabs">
     <router-link
       v-for="tab in tabs"
       :key="tab.id"

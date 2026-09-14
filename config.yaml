@@ -1,9 +1,9 @@
-# Configuração padrão do fork jniltinho/gatus: grupos de exemplo e páginas de status públicas.
-# Na imagem Docker ela fica em /config/config.yaml; monte o seu arquivo nesse caminho para substituí-la.
-# Documentação da seção status-pages: docs/status-pages.md
+# Default configuration of the jniltinho/gatus fork: example groups and public status pages.
+# In the Docker image it is at /config/config.yaml; mount your own file at that path to replace it.
+# Documentation of the status-pages section: docs/status-pages.md
 
 endpoints:
-  # Grupo "sites"
+  # Group "sites"
   - name: google
     group: sites
     url: "https://www.google.com"
@@ -27,7 +27,7 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
 
-  # Grupo "apis"
+  # Group "apis"
   - name: github-api
     group: apis
     url: "https://api.github.com"
@@ -49,7 +49,7 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
 
-  # Grupo "dns"
+  # Group "dns"
   - name: cloudflare
     group: dns
     url: "1.1.1.1"
@@ -72,7 +72,7 @@ endpoints:
       - "[BODY] == pat(*.*.*.*)"
       - "[DNS_RCODE] == NOERROR"
 
-  # Grupo "gatus"
+  # Group "gatus"
   - name: health
     group: gatus
     url: "http://127.0.0.1:8080/health"
@@ -81,18 +81,18 @@ endpoints:
       - "[STATUS] == 200"
       - "[BODY].status == UP"
 
-# Páginas de status públicas, abertas sem login em /status/<slug>
+# Public status pages, open without login at /status/<slug>
 status-pages:
-  # Atrás de um proxy reverso (nginx), informe o IP de onde ele conecta no Gatus, por exemplo o gateway
-  # da rede Docker, para o limite de requisições ser contado por visitante:
+  # Behind a reverse proxy (nginx), set the IP address from which it connects to Gatus, for example the gateway of the
+  # Docker network, so that the rate limit is counted per visitor:
   # trusted-proxies: ["172.30.0.1/32"]
   pages:
-    - slug: servicos
-      title: "Serviços"
-      description: "Sites e APIs externos acompanhados por este Gatus"
+    - slug: services
+      title: "Services"
+      description: "External websites and APIs monitored by this Gatus"
       groups: [sites, apis]
 
-    - slug: infraestrutura
-      title: "Infraestrutura"
-      description: "Resolução de DNS e saúde do próprio Gatus"
+    - slug: infrastructure
+      title: "Infrastructure"
+      description: "DNS resolution and the health of Gatus itself"
       groups: [dns, gatus]

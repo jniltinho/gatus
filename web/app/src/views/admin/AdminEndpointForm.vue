@@ -4,27 +4,27 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-foreground dark:text-gray-100">{{ title }}</h1>
         <p v-if="isEdit" class="mt-1 font-mono text-sm text-muted-foreground dark:text-gray-400">
-          {{ endpointKey }}<span v-if="version"> · versão {{ version }}</span>
+          {{ endpointKey }}<span v-if="version"> · version {{ version }}</span>
         </p>
       </div>
-      <Button variant="outline" data-testid="admin-back" @click="goBack">Voltar</Button>
+      <Button variant="outline" data-testid="admin-back" @click="goBack">Back</Button>
     </div>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
     <template v-else>
       <div v-if="error" role="alert" data-testid="admin-error" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
         <p class="whitespace-pre-line">{{ error }}</p>
-        <Button v-if="versionConflict" variant="outline" size="sm" class="mt-2" data-testid="admin-reload" @click="reloadCurrentVersion">Recarregar versão atual</Button>
+        <Button v-if="versionConflict" variant="outline" size="sm" class="mt-2" data-testid="admin-reload" @click="reloadCurrentVersion">Reload current version</Button>
       </div>
       <div v-if="success" role="status" data-testid="admin-success" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ success }}</div>
       <div v-if="readOnly" class="mb-4 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-        Este endpoint é definido no arquivo de configuração e só pode ser visualizado.
+        This endpoint is defined in the configuration file and can only be viewed.
       </div>
       <div v-if="exposure.length" role="status" data-testid="admin-endpoint-exposure" class="mb-4 border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-100">
-        Este endpoint aparecerá publicamente {{ exposure.length === 1 ? 'na status page' : 'nas status pages' }}:
+        This endpoint will be publicly visible on the {{ exposure.length === 1 ? 'status page' : 'status pages' }}:
         <template v-for="(page, index) in exposure" :key="`${page.origin}-${page.slug}`">
           <a :href="`/status/${page.slug}`" target="_blank" rel="noopener" class="font-medium underline">{{ page.title }}</a>
-          ({{ page.published ? 'publicada' : 'não publicada' }}, {{ page.reason === 'group' ? 'pelo grupo' : 'pela chave' }}){{ index < exposure.length - 1 ? ', ' : '' }}
+          ({{ page.published ? 'published' : 'not published' }}, {{ page.reason === 'group' ? 'by group' : 'by key' }}){{ index < exposure.length - 1 ? ', ' : '' }}
         </template>
       </div>
 
@@ -43,71 +43,71 @@
 
       <div v-if="mode === 'form' && !readOnly" class="space-y-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
         <div class="grid gap-4 sm:grid-cols-2">
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Nome
+          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Name
             <Input v-model="form.name" :disabled="isEdit" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
           </label>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Grupo
+          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Group
             <Input v-model="form.group" :disabled="isEdit" class="mt-1 dark:border-gray-700" data-testid="admin-field-group" />
           </label>
           <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
-            <Input v-model="form.url" placeholder="https://exemplo.com/health" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
+            <Input v-model="form.url" placeholder="https://example.com/health" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
           </label>
-          <div class="text-sm font-medium text-foreground dark:text-gray-200">Método
-            <Select v-model="form.method" :options="methodOptions" placeholder="GET (padrão)" class="mt-1" />
+          <div class="text-sm font-medium text-foreground dark:text-gray-200">Method
+            <Select v-model="form.method" :options="methodOptions" placeholder="GET (default)" class="mt-1" />
           </div>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Intervalo
-            <Input v-model="form.interval" placeholder="1m (padrão)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
+          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Interval
+            <Input v-model="form.interval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
           </label>
           <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200 sm:col-span-2">
             <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
-            Habilitado
+            Enabled
           </label>
         </div>
 
         <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Condições</h2>
+          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Conditions</h2>
           <div v-for="(condition, index) in form.conditions" :key="`condition-${index}`" class="mb-2 flex gap-2">
             <Input v-model="form.conditions[index]" placeholder="[STATUS] == 200" class="font-mono dark:border-gray-700" :data-testid="`admin-field-condition-${index}`" />
-            <Button variant="ghost" size="sm" aria-label="Remover condição" @click="form.conditions.splice(index, 1)">✕</Button>
+            <Button variant="ghost" size="sm" aria-label="Remove condition" @click="form.conditions.splice(index, 1)">✕</Button>
           </div>
-          <Button variant="outline" size="sm" data-testid="admin-add-condition" @click="form.conditions.push('')">Adicionar condição</Button>
+          <Button variant="outline" size="sm" data-testid="admin-add-condition" @click="form.conditions.push('')">Add condition</Button>
         </section>
 
         <section>
           <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Headers</h2>
           <div v-for="(header, index) in form.headers" :key="`header-${index}`" class="mb-2 grid grid-cols-[1fr_2fr_auto] gap-2">
-            <Input v-model="header.name" placeholder="Nome" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
-            <Input v-model="header.value" placeholder="Valor" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
-            <Button variant="ghost" size="sm" aria-label="Remover header" @click="form.headers.splice(index, 1)">✕</Button>
+            <Input v-model="header.name" placeholder="Name" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
+            <Input v-model="header.value" placeholder="Value" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
+            <Button variant="ghost" size="sm" aria-label="Remove header" @click="form.headers.splice(index, 1)">✕</Button>
           </div>
-          <Button variant="outline" size="sm" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Adicionar header</Button>
+          <Button variant="outline" size="sm" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Add header</Button>
         </section>
 
         <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Alertas</h2>
-          <p v-if="alertTypeOptions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">Nenhum provedor de alerta configurado.</p>
+          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Alerts</h2>
+          <p v-if="alertTypeOptions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No alerting provider configured.</p>
           <div v-for="(alert, index) in form.alerts" :key="`alert-${index}`" class="mb-3 grid gap-2 border p-3 sm:grid-cols-2 dark:border-gray-700">
-            <div class="text-sm text-foreground dark:text-gray-200">Tipo
-              <Select v-model="alert.type" :options="alertTypeOptions" placeholder="Selecione" class="mt-1" />
+            <div class="text-sm text-foreground dark:text-gray-200">Type
+              <Select v-model="alert.type" :options="alertTypeOptions" placeholder="Select" class="mt-1" />
             </div>
-            <label class="block text-sm text-foreground dark:text-gray-200">Descrição
+            <label class="block text-sm text-foreground dark:text-gray-200">Description
               <Input v-model="alert.description" class="mt-1 dark:border-gray-700" />
             </label>
-            <label class="block text-sm text-foreground dark:text-gray-200">Falhas para disparar
-              <Input v-model="alert.failureThreshold" type="number" min="1" placeholder="padrão do provedor" class="mt-1 dark:border-gray-700" />
+            <label class="block text-sm text-foreground dark:text-gray-200">Failure threshold
+              <Input v-model="alert.failureThreshold" type="number" min="1" placeholder="provider default" class="mt-1 dark:border-gray-700" />
             </label>
-            <label class="block text-sm text-foreground dark:text-gray-200">Sucessos para resolver
-              <Input v-model="alert.successThreshold" type="number" min="1" placeholder="padrão do provedor" class="mt-1 dark:border-gray-700" />
+            <label class="block text-sm text-foreground dark:text-gray-200">Success threshold
+              <Input v-model="alert.successThreshold" type="number" min="1" placeholder="provider default" class="mt-1 dark:border-gray-700" />
             </label>
             <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
               <input v-model="alert.sendOnResolved" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" />
-              Notificar resolução
+              Send on resolved
             </label>
             <div class="text-right">
-              <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" @click="form.alerts.splice(index, 1)">Remover alerta</Button>
+              <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" @click="form.alerts.splice(index, 1)">Remove alert</Button>
             </div>
           </div>
-          <Button v-if="alertTypeOptions.length > 0" variant="outline" size="sm" data-testid="admin-add-alert" @click="addAlert">Adicionar alerta</Button>
+          <Button v-if="alertTypeOptions.length > 0" variant="outline" size="sm" data-testid="admin-add-alert" @click="addAlert">Add alert</Button>
         </section>
       </div>
 
@@ -122,18 +122,18 @@
       </div>
 
       <div v-if="!readOnly" class="mt-6 flex flex-wrap gap-2">
-        <Button variant="outline" :disabled="busy" data-testid="admin-validate" @click="validate">Validar</Button>
-        <Button variant="secondary" :disabled="busy" data-testid="admin-test" @click="test">Testar</Button>
-        <Button :disabled="busy" data-testid="admin-save" @click="save">Salvar</Button>
+        <Button variant="outline" :disabled="busy" data-testid="admin-validate" @click="validate">Validate</Button>
+        <Button variant="secondary" :disabled="busy" data-testid="admin-test" @click="test">Test</Button>
+        <Button :disabled="busy" data-testid="admin-save" @click="save">Save</Button>
       </div>
 
       <div v-if="testResult" data-testid="admin-test-result" class="mt-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
         <h2 class="mb-1 text-lg font-semibold text-foreground dark:text-gray-100">
-          Resultado do teste:
-          <span :class="testResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">{{ testResult.success ? 'sucesso' : 'falha' }}</span>
+          Test result:
+          <span :class="testResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">{{ testResult.success ? 'success' : 'failure' }}</span>
         </h2>
         <p class="mb-3 text-sm text-muted-foreground dark:text-gray-400">
-          Duração: {{ testResult.durationMs }} ms<span v-if="testResult.status"> · HTTP {{ testResult.status }}</span>
+          Duration: {{ testResult.durationMs }} ms<span v-if="testResult.status"> · HTTP {{ testResult.status }}</span>
         </p>
         <ul class="space-y-1 font-mono text-sm">
           <li
@@ -169,7 +169,7 @@ const router = useRouter()
 
 const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => ({ label: method, value: method }))
 const tabs = [
-  { label: 'Formulário', value: 'form' },
+  { label: 'Form', value: 'form' },
   { label: 'YAML', value: 'yaml' },
 ]
 
@@ -205,9 +205,9 @@ const isEdit = computed(() => props.endpointKey !== '')
 const readOnly = computed(() => source.value === 'config')
 const title = computed(() => {
   if (!isEdit.value) {
-    return 'Novo endpoint'
+    return 'New endpoint'
   }
-  return readOnly.value ? 'Endpoint do arquivo de configuração' : 'Editar endpoint'
+  return readOnly.value ? 'Endpoint from the configuration file' : 'Edit endpoint'
 })
 const alertTypeOptions = computed(() => alertTypes.value.map((type) => ({ label: type, value: type })))
 
@@ -325,7 +325,7 @@ const validate = async () => {
   busy.value = true
   try {
     await adminApi.validate(currentPayload(), props.endpointKey)
-    success.value = 'Definição válida.'
+    success.value = 'Valid definition.'
   } catch (e) {
     error.value = describeAdminError(e)
   } finally {
@@ -369,7 +369,7 @@ const reloadCurrentVersion = async () => {
   clearMessages()
   try {
     await loadDetail()
-    success.value = 'Versão atual carregada.'
+    success.value = 'Current version loaded.'
   } catch (e) {
     error.value = describeAdminError(e)
   }

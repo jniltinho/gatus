@@ -33,5 +33,5 @@ const dotClass = computed(() => ({
   down: 'bg-red-500'
 }[props.status] || 'bg-gray-400'))
 
-const updatedLabel = computed(() => `Atualizado ${relativeTimeLabel(props.updatedAt, props.now)}`)
+const updatedLabel = computed(() => `Updated ${relativeTimeLabel(props.updatedAt, props.now)}`)
 </script>

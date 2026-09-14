@@ -1,90 +1,91 @@
-# Status pages públicas
+# Public status pages
 
-> Funcionalidade exclusiva do fork [jniltinho/gatus](https://github.com/jniltinho/gatus). No Gatus original, o pedido de
-> páginas de status públicas foi fechado como *not planned* ([TwiN/gatus#1311](https://github.com/TwiN/gatus/issues/1311)).
+> Feature exclusive to the [jniltinho/gatus](https://github.com/jniltinho/gatus) fork. In the original Gatus, the
+> request for public status pages was closed as *not planned* ([TwiN/gatus#1311](https://github.com/TwiN/gatus/issues/1311)).
 
-Uma status page é uma página pública, aberta **sem login** em `/status/<slug>`, que mostra só os grupos e endpoints
-escolhidos, como os *Status Pages* do Uptime Kuma. O dashboard, a administração e a API de status continuam protegidos
-por `security.basic` ou `security.oidc`.
+A status page is a public page, open **without login** at `/status/<slug>`, that only shows the selected groups and
+endpoints, like the *Status Pages* of Uptime Kuma. The dashboard, the administration and the status API stay protected
+by `security.basic` or `security.oidc`.
 
-Cada endpoint aparece com nome, estado atual, barras das últimas verificações e uptime de 24 horas, 7 dias e 30 dias.
+Each endpoint is shown with its name, current status, bars of the latest checks and uptime over 24 hours, 7 days and
+30 days.
 
-## Configuração
+## Configuration
 
 ```yaml
 status-pages:
-  enabled: true                          # padrão true; false despublica todas as páginas
-  trusted-proxies: ["172.30.0.1/32"]     # veja "Atrás de proxy reverso"
-  rate-limit: 120                        # respostas 404 por minuto por IP; 0 desliga
+  enabled: true                          # defaults to true; false unpublishes every page
+  trusted-proxies: ["172.30.0.1/32"]     # see "Behind a reverse proxy"
+  rate-limit: 120                        # 404 responses per minute per IP; 0 disables it
   pages:
-    - slug: servicos
-      title: "Serviços"
-      description: "Sites e APIs externos"
+    - slug: services
+      title: "Services"
+      description: "External websites and APIs"
       groups: [sites, apis]
-    - slug: infraestrutura
-      title: "Infraestrutura"
+    - slug: infrastructure
+      title: "Infrastructure"
       groups: [dns]
-      endpoints: [core_banco-de-dados]  # chaves de endpoints avulsos (grupo_nome)
-      enabled: false                     # páginas do arquivo são publicadas por padrão
+      endpoints: [core_database]         # keys of individual endpoints (group_name)
+      enabled: false                     # pages of the file are published by default
 ```
 
-| Campo | Regra |
-|-------|-------|
-| `slug` | 1 a 64 caracteres: letras minúsculas, números e hífens, sem hífen no início ou no fim. Único. `new`, `options`, `preview`, `validate` e `exposure` são reservados. |
-| `title` | Obrigatório, até 100 caracteres. |
-| `description` | Opcional, até 1000 caracteres, texto puro (sem markdown ou HTML). |
-| `groups` | Até 50 grupos. Todos os endpoints habilitados do grupo aparecem, inclusive os criados depois. |
-| `endpoints` | Até 200 chaves no formato `grupo_nome` (a mesma chave dos badges). |
-| `enabled` | Páginas do arquivo: padrão `true`. Páginas cadastradas pela web: padrão `false`. |
+| Field | Rule |
+|-------|------|
+| `slug` | 1 to 64 characters: lowercase letters, digits and hyphens, not starting or ending with a hyphen. Unique. `new`, `options`, `preview`, `validate` and `exposure` are reserved. |
+| `title` | Required, up to 100 characters. |
+| `description` | Optional, up to 1000 characters, plain text (no markdown or HTML). |
+| `groups` | Up to 50 groups. Every enabled endpoint of the group is shown, including the ones created later. |
+| `endpoints` | Up to 200 keys in the `group_name` format (the same key as the badges). |
+| `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
-A página precisa selecionar ao menos um grupo ou um endpoint. Um grupo ou chave que ainda não existe não invalida a
-página: a carga registra um aviso no log e a administração mostra o aviso na validação.
+A page must select at least one group or endpoint. A group or key that does not exist yet does not invalidate the page:
+the load logs a warning and the administration shows the warning when validating.
 
-O `config.yaml` padrão do fork (imagem Docker e tarballs das releases) já traz as páginas `/status/servicos` e
-`/status/infraestrutura` com endpoints de exemplo.
+The default `config.yaml` of the fork (Docker image and release tarballs) already ships the `/status/services` and
+`/status/infrastructure` pages with example endpoints.
 
-## Páginas cadastradas pela web
+## Pages managed through the web
 
-Com a [administração](admin-endpoints.md) habilitada, a aba **Status pages** em `/admin/status-pages` permite criar,
-editar, pré-visualizar, publicar, despublicar e remover páginas. Elas ficam na tabela `managed_status_pages` do mesmo
-banco dos endpoints (SQLite ou PostgreSQL).
+With the [administration](admin-endpoints.md) enabled, the **Status pages** tab at `/admin/status-pages` lets you create,
+edit, preview, publish, unpublish and remove pages. They are stored in the `managed_status_pages` table of the same
+database as the endpoints (SQLite or PostgreSQL).
 
-- Uma página nova nasce **desabilitada**, também pela API: confira a pré-visualização e marque **Publicada**.
-- As páginas do arquivo de configuração aparecem na lista só para consulta.
-- Se o arquivo de configuração passar a usar o slug de uma página cadastrada pela web, o arquivo prevalece: a página da
-  web fica marcada como em conflito e não é publicada até o arquivo deixar de usar o slug.
-- Desligar `admin.enabled` **não** despublica as páginas cadastradas pela web (só some a administração). Para tirar
-  todas as páginas do ar, use `status-pages.enabled: false`.
-- O formulário de endpoints avisa em quais status pages o endpoint vai aparecer, pelo grupo ou pela chave.
+- A new page is created **disabled**, also through the API: check the preview and tick **Published**.
+- The pages of the configuration file are shown in the list for reference only.
+- If the configuration file starts using the slug of a page managed through the web, the file wins: the web page is
+  marked as in conflict and is not published until the file stops using the slug.
+- Turning `admin.enabled` off does **not** unpublish the pages managed through the web (only the administration goes
+  away). To take every page down, use `status-pages.enabled: false`.
+- The endpoint form warns on which status pages the endpoint will be shown, by group or by key.
 
-## O que a página mostra
+## What the page shows
 
-- Seções na ordem de `groups`, depois os grupos alcançados só por `endpoints` (em ordem alfabética) e, por último,
-  **Outros serviços** com os endpoints sem grupo. Dentro de cada seção, endpoints em ordem de nome.
-- Endpoints do arquivo, external endpoints e endpoints cadastrados pela web, desde que habilitados. Suites e instâncias
-  `remote` ficam de fora.
-- No máximo 200 endpoints por página; acima disso, a página avisa que mostra só os primeiros.
-- Os últimos 50 resultados de cada endpoint (ou `storage.maximum-number-of-results`, se for menor).
+- Sections in the order of `groups`, then the groups only reached through `endpoints` (in alphabetical order) and, last,
+  **Other services** with the endpoints without group. Within each section, endpoints are sorted by name.
+- Endpoints of the file, external endpoints and endpoints managed through the web, as long as they are enabled. Suites
+  and `remote` instances are left out.
+- At most 200 endpoints per page; above that, the page says that it only shows the first ones.
+- The latest 50 results of each endpoint (or `storage.maximum-number-of-results`, if lower).
 
-Estados:
+Statuses:
 
-| Estado | Endpoint | Grupo e página |
+| Status | Endpoint | Group and page |
 |--------|----------|----------------|
-| Operacional / No ar | último resultado com sucesso | todos os endpoints com resultado estão no ar |
-| Degradação parcial | — | há endpoints no ar e fora do ar |
-| Indisponível / Fora do ar | último resultado com falha | todos os endpoints com resultado estão fora do ar |
-| Sem dados | nenhum resultado ainda | nenhum endpoint tem resultado |
+| Operational / Up | last result succeeded | every endpoint with results is up |
+| Partial outage | — | some endpoints are up and others are down |
+| Major outage / Down | last result failed | every endpoint with results is down |
+| No data | no result yet | no endpoint has results |
 
-O uptime aparece como "—" quando não houve verificação no período. Com SQLite e PostgreSQL, o histórico com mais de
-48 horas é agregado por dia, então as bordas de 7 e 30 dias são aproximadas, como nos badges.
+The uptime is shown as "—" when there was no check during the period. With SQLite and PostgreSQL, the history older
+than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods are approximate, as in the badges.
 
-## API pública
+## Public API
 
-`GET /api/v1/status-pages/<slug>` responde sem autenticação:
+`GET /api/v1/status-pages/<slug>` responds without authentication:
 
 ```json
 {
-  "slug": "servicos", "title": "Serviços", "description": "Sites e APIs externos",
+  "slug": "services", "title": "Services", "description": "External websites and APIs",
   "status": "degraded", "updatedAt": "2026-09-14T19:30:00Z", "truncated": false,
   "groups": [{
     "name": "apis", "status": "degraded",
@@ -97,46 +98,48 @@ O uptime aparece como "—" quando não houve verificação no período. Com SQL
 }
 ```
 
-**Nunca são publicados:** chave, URL, hostname, IP, porta, código HTTP, erros, condições, eventos, expiração de
-certificado ou domínio, alertas e `extra-labels`.
+**Never published:** key, URL, hostname, IP, port, HTTP status, errors, conditions, events, certificate or domain
+expiration, alerts and `extra-labels`.
 
-- Página inexistente, desabilitada, em conflito, slug inválido ou qualquer outro caminho em `/api/v1/status-pages`
-  respondem o mesmo `404 {"error":"status page not found"}`, com os mesmos cabeçalhos.
-- `503 {"error":"status page temporarily unavailable"}` quando o banco não pôde ser lido; o erro fica só no log.
-- A rota HTML `/status/<qualquer-coisa>` responde sempre 200 com a aplicação, que consulta a API e mostra
-  "Página não encontrada" quando for o caso.
-- Cabeçalhos: `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: strict-origin-when-cross-origin`, `Cache-Control: no-cache` (200) e `no-store` (404, 429 e 503).
-- A página pode ser embutida em iframe (por exemplo, numa TV de monitoramento). A API pública não envia CORS.
+- A missing, disabled or conflicting page, an invalid slug and any other path under `/api/v1/status-pages` all respond
+  the same `404 {"error":"status page not found"}`, with the same headers.
+- `503 {"error":"status page temporarily unavailable"}` when the database could not be read; the error only goes to
+  the log.
+- The HTML route `/status/<anything>` always responds 200 with the application, which queries the API and shows
+  "Page not found" when needed.
+- Headers: `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `Cache-Control: no-cache` (200) and `no-store` (404, 429 and 503).
+- The page can be embedded in an iframe (for example, on a monitoring TV). The public API does not send CORS headers.
 
-## Cache e custo
+## Cache and cost
 
-- Cada página é montada no máximo uma vez a cada 30 segundos, por mais visitantes que tenha: as requisições simultâneas
-  compartilham a mesma montagem. Uma alteração pela administração vale na próxima requisição.
-- A montagem lê o banco numa transação com três consultas, qualquer que seja o número de endpoints, e no máximo 4
-  páginas são montadas ao mesmo tempo.
-- Se o banco falhar, o erro fica em cache por 5 segundos para não sobrecarregá-lo.
-- A página no navegador se atualiza a cada 60 segundos e pausa quando a aba fica oculta.
+- Each page is assembled at most once every 30 seconds, however many visitors it has: concurrent requests share the
+  same assembly. A change made through the administration takes effect on the next request.
+- The assembly reads the database in one transaction with three queries, whatever the number of endpoints, and at most
+  4 pages are assembled at the same time.
+- If the database fails, the error is cached for 5 seconds so as not to overload it.
+- The page in the browser refreshes every 60 seconds and pauses while the tab is hidden.
 
-## Limite de requisições
+## Rate limit
 
-- Só as respostas **404** contam no limite (`rate-limit` por minuto por IP; IPv6 agregado por /64). Uma página
-  publicada nunca é bloqueada: o custo dela já é limitado pelo cache.
-- Ao exceder o limite: `429 {"error":"too many requests"}` com `Retry-After`.
+- Only **404** responses count towards the limit (`rate-limit` per minute per IP; IPv6 aggregated by /64). A published
+  page is never blocked: its cost is already limited by the cache.
+- When the limit is exceeded: `429 {"error":"too many requests"}` with `Retry-After`.
 
-## Atrás de proxy reverso
+## Behind a reverse proxy
 
-Sem configuração, o IP do visitante é o IP da conexão. Atrás de um nginx, todos os visitantes chegariam com o mesmo IP
-e dividiriam o mesmo limite. Informe em `trusted-proxies` de onde o proxy conecta no Gatus: o `X-Forwarded-For` só é
-lido dessas conexões, da direita para a esquerda, e o primeiro IP que não é um proxy confiável identifica o visitante.
+Without configuration, the IP of the visitor is the IP of the connection. Behind nginx, every visitor would arrive with
+the same IP and share the same limit. Set in `trusted-proxies` where the proxy connects to Gatus from: `X-Forwarded-For`
+is only read from those connections, from right to left, and the first IP that is not a trusted proxy identifies the
+visitor.
 
-Quando uma conexão de IP privado ou local não confiável traz `X-Forwarded-For`, o Gatus registra um aviso no log (uma
-vez por carga) com o IP a colocar em `trusted-proxies`, e a lista de status pages da administração mostra o mesmo aviso.
+When a connection from an untrusted private or local IP brings `X-Forwarded-For`, Gatus logs a warning (once per load)
+with the IP to add to `trusted-proxies`, and the status page list of the administration shows the same warning.
 
-### Docker com nginx no host
+### Docker with nginx on the host
 
-Com a porta publicada só em `127.0.0.1`, o Gatus vê as conexões vindas do **gateway da rede do Docker**, não de
-`127.0.0.1`. Fixe a sub-rede da rede do compose para o gateway ter um IP conhecido:
+With the port published on `127.0.0.1` only, Gatus sees connections coming from the **gateway of the Docker network**,
+not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway has a known IP:
 
 ```yaml
 services:
@@ -162,7 +165,7 @@ status-pages:
   trusted-proxies: ["172.30.0.1/32"]
 ```
 
-O vhost do nginx precisa enviar o `X-Forwarded-For`:
+The nginx vhost must send `X-Forwarded-For`:
 
 ```nginx
 location / {
@@ -173,56 +176,56 @@ location / {
 }
 ```
 
-Alternativas: `network_mode: host` com `web.address: 127.0.0.1`, ou o binário direto no host; nos dois casos, use
-`trusted-proxies: ["127.0.0.1/32", "::1/128"]`.
+Alternatives: `network_mode: host` with `web.address: 127.0.0.1`, or the binary directly on the host; in both cases,
+use `trusted-proxies: ["127.0.0.1/32", "::1/128"]`.
 
-## Segurança
+## Security
 
-- **O slug não é controle de acesso.** Qualquer pessoa com o endereço vê a página; não publique nomes de serviços que
-  não podem ser vistos por terceiros.
-- Os nomes dos endpoints e dos grupos ficam públicos. Como a seleção por grupo inclui endpoints novos automaticamente,
-  confira o aviso de exposição no formulário de endpoints.
-- Os badges, uptimes e tempos de resposta por chave (`/api/v1/endpoints/<chave>/...`) já são públicos no Gatus original
-  e continuam assim.
+- **The slug is not access control.** Anyone with the address can see the page; do not publish names of services that
+  must not be seen by third parties.
+- The names of the endpoints and groups become public. Since selecting a group automatically includes new endpoints,
+  check the exposure warning in the endpoint form.
+- The badges, uptimes and response times by key (`/api/v1/endpoints/<key>/...`) are already public in the original
+  Gatus and stay that way.
 
-## API de administração
+## Administration API
 
-Rotas em `/api/v1/admin`, com as mesmas exigências da [administração de endpoints](admin-endpoints.md#api)
-(autenticação, permissão, proteção CSRF, corpo de até 256 KB em JSON ou YAML):
+Routes under `/api/v1/admin`, with the same requirements as the [endpoint administration](admin-endpoints.md#api)
+(authentication, permission, CSRF protection, body of up to 256 KB in JSON or YAML):
 
-| Método e rota | Função |
-|---------------|--------|
-| `GET /status-pages` | Lista as páginas, com `publicationEnabled`, `managedUnavailable` e `sharedRateLimitWarning` |
-| `GET /status-pages/options` | Grupos e endpoints que podem ser selecionados |
-| `GET /status-pages/exposure?group=<g>&key=<k>` | Páginas em que um endpoint apareceria |
-| `POST /status-pages/validate` | Valida uma definição e devolve avisos (`?slug=` para validar uma alteração) |
-| `POST /status-pages` | Cria (201 com `ETag`) |
-| `GET /status-pages/<slug>` | Obtém (com `ETag`) |
-| `PUT /status-pages/<slug>` | Altera (exige `If-Match`) |
-| `POST /status-pages/<slug>/enable` e `/disable` | Publica ou despublica (exige `If-Match`) |
-| `DELETE /status-pages/<slug>` | Remove (exige `If-Match`) |
-| `GET /status-pages/<slug>/preview` | Payload público de qualquer página, inclusive desabilitada, sem cache |
+| Method and route | Purpose |
+|------------------|---------|
+| `GET /status-pages` | Lists the pages, with `publicationEnabled`, `managedUnavailable` and `sharedRateLimitWarning` |
+| `GET /status-pages/options` | Groups and endpoints that can be selected |
+| `GET /status-pages/exposure?group=<g>&key=<k>` | Pages on which an endpoint would be shown |
+| `POST /status-pages/validate` | Validates a definition and returns warnings (`?slug=` to validate a change) |
+| `POST /status-pages` | Creates (201 with `ETag`) |
+| `GET /status-pages/<slug>` | Gets (with `ETag`) |
+| `PUT /status-pages/<slug>` | Changes (requires `If-Match`) |
+| `POST /status-pages/<slug>/enable` and `/disable` | Publishes or unpublishes (requires `If-Match`) |
+| `DELETE /status-pages/<slug>` | Removes (requires `If-Match`) |
+| `GET /status-pages/<slug>/preview` | Public payload of any page, including disabled ones, without cache |
 
-Erros: 400 (definição inválida, slug reservado ou alterado), 404, 409 (slug em uso ou página do arquivo), 412 (versão
-desatualizada), 428 (sem `If-Match`), 501 (storage sem suporte) e 503 (partida ou recarga em andamento).
+Errors: 400 (invalid definition, reserved or changed slug), 404, 409 (slug in use or page of the file), 412 (outdated
+version), 428 (missing `If-Match`), 501 (storage without support) and 503 (startup or reload in progress).
 
-## Várias instâncias com o mesmo PostgreSQL
+## Multiple instances with the same PostgreSQL
 
-Uma página cadastrada pela web numa instância só aparece nas outras depois que elas recarregam a configuração ou
-reiniciam. Atrás de um balanceador, isso faz o visitante alternar entre a página e "Página não encontrada" até todas as
-instâncias recarregarem.
+A page created through the web on one instance only shows up on the others after they reload their configuration or
+restart. Behind a load balancer, visitors alternate between the page and "Page not found" until every instance
+reloads.
 
-## Voltar para o Gatus original
+## Going back to the original Gatus
 
-A seção `status-pages` e a tabela `managed_status_pages` são ignoradas pelo Gatus original, e as páginas deixam de
-existir. Faça backup do banco antes de trocar de versão.
+The `status-pages` section and the `managed_status_pages` table are ignored by the original Gatus, and the pages stop
+existing. Back up the database before switching versions.
 
-## Testes ponta a ponta
+## End-to-end tests
 
 ```bash
 test/e2e/status-pages.sh
 ```
 
-Sobe o Gatus com SQLite temporário, basic auth e administração, percorre a página pública sem credenciais (temas claro
-e escuro, 390 px, página não encontrada, OIDC simulado) e as telas de administração, com capturas em
-`dist/prints/status-pages/`.
+Starts Gatus with a temporary SQLite database, basic auth and the administration, goes through the public page without
+credentials (light and dark modes, 390 px, page not found, simulated OIDC) and the administration screens, with
+screenshots in `dist/prints/status-pages/`.

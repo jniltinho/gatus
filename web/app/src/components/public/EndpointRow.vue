@@ -18,7 +18,7 @@
       class="mt-2 flex gap-px outline-none focus-visible:ring-2 focus-visible:ring-ring"
       role="group"
       tabindex="0"
-      :aria-label="`Histórico de verificações de ${endpoint.name}. Use as setas para percorrer.`"
+      :aria-label="`Check history of ${endpoint.name}. Use the arrow keys to browse it.`"
       @keydown="handleKeydown"
       @mouseleave="hoveredIndex = null"
       @blur="selectedIndex = null"
@@ -34,7 +34,7 @@
     </div>
     <p class="mt-1 min-h-[1rem] text-xs text-muted-foreground" aria-live="polite" data-testid="status-endpoint-detail">
       <template v-if="activeResult">
-        {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Sucesso' : 'Falha' }} · {{ activeResult.durationMs }} ms
+        {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : 'Failure' }} · {{ activeResult.durationMs }} ms
       </template>
     </p>
   </li>
@@ -78,7 +78,7 @@ const statusTextClass = computed(() => ({
 const accessibleSummary = computed(() => {
   const results = props.endpoint.results || []
   const successes = results.filter((result) => result.success).length
-  return `${props.endpoint.name}: ${statusLabel.value}, ${successes} de ${results.length} verificações com sucesso, uptime de 24 horas ${formatUptime(props.endpoint.uptime['24h'])}`
+  return `${props.endpoint.name}: ${statusLabel.value}, ${successes} of ${results.length} checks successful, 24-hour uptime ${formatUptime(props.endpoint.uptime['24h'])}`
 })
 
 const barClass = (result, index) => {

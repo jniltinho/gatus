@@ -116,19 +116,19 @@ agent-browser fill "$(testid admin-field-url)" "$BASE/health" >/dev/null
 agent-browser fill "$(testid admin-field-interval)" "1m" >/dev/null
 agent-browser click "$(testid admin-add-header)" >/dev/null
 agent-browser fill "$(testid admin-field-header-name-0)" "Authorization" >/dev/null
-agent-browser fill "$(testid admin-field-header-value-0)" "Bearer e2e-segredo" >/dev/null
+agent-browser fill "$(testid admin-field-header-value-0)" "Bearer e2e-secret" >/dev/null
 agent-browser click "$(testid admin-validate)" >/dev/null
-wait_text "Definição válida"
+wait_text "Valid definition"
 agent-browser click "$(testid admin-test)" >/dev/null
 wait_for "$(testid admin-test-result)"
 shot 04-formulario-testado
 agent-browser click "$(testid admin-mode-yaml)" >/dev/null
 wait_for "$(testid admin-yaml)"
-agent-browser get value "$(testid admin-yaml)" | grep -q "Bearer e2e-segredo" || fail "o YAML gerado não contém o header digitado"
+agent-browser get value "$(testid admin-yaml)" | grep -q "Bearer e2e-secret" || fail "o YAML gerado não contém o header digitado"
 shot 05-modo-yaml
 agent-browser click "$(testid admin-mode-form)" >/dev/null
 wait_for "$(testid admin-field-header-value-0)"
-[ "$(agent-browser get value "$(testid admin-field-header-value-0)")" = "Bearer e2e-segredo" ] || fail "o segredo digitado mudou ao voltar para o formulário"
+[ "$(agent-browser get value "$(testid admin-field-header-value-0)")" = "Bearer e2e-secret" ] || fail "o segredo digitado mudou ao voltar para o formulário"
 agent-browser click "$(testid admin-save)" >/dev/null
 wait_for "$(testid admin-row-web_site)"
 shot 06-lista-com-endpoint
@@ -148,14 +148,14 @@ echo "$DEFINITION" | grep -q '"version":2' || fail "esperada a versão 2 depois 
 
 step "Desabilitar e habilitar"
 agent-browser click "$(testid admin-toggle-web_site)" >/dev/null
-wait_text "web_site desabilitado"
+wait_text "web_site disabled"
 shot 08-desabilitado
 agent-browser click "$(testid admin-toggle-web_site)" >/dev/null
-wait_text "web_site habilitado"
+wait_text "web_site enabled"
 
 step "Endpoint do arquivo de configuração somente leitura"
 agent-browser click "$(testid admin-open-core_health)" >/dev/null
-wait_text "só pode ser visualizado"
+wait_text "can only be viewed"
 shot 09-yaml-somente-leitura
 
 step "Tema escuro"
@@ -183,7 +183,7 @@ wait_for "$(testid admin-row-web_site)"
 agent-browser click "$(testid admin-remove-web_site)" >/dev/null
 wait_for "$(testid confirm-accept)"
 agent-browser click "$(testid confirm-accept)" >/dev/null
-wait_text "web_site removido"
+wait_text "web_site removed"
 shot 13-removido
 [ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/web_site")" = 404 ] || fail "o endpoint removido ainda existe"
 
