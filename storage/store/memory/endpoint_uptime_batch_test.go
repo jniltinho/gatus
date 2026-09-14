@@ -29,7 +29,7 @@ func TestStore_GetUptimesByKeys(t *testing.T) {
 			t.Fatalf("failed to insert result: %v", err)
 		}
 	}
-	uptimes, err := store.GetUptimesByKeys([]string{withResults.Key(), onlyOld.Key(), "core_missing"}, now)
+	uptimes, err := store.GetUptimesByKeys([]string{withResults.Key(), onlyOld.Key(), withResults.Key(), "core_missing"}, now)
 	if err != nil {
 		t.Fatalf("failed to get uptimes: %v", err)
 	}

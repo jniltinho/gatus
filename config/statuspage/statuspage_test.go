@@ -28,6 +28,7 @@ func TestValidateSlug(t *testing.T) {
 		{slug: "validate", expectedErr: ErrReservedSlug},
 		{slug: "new", expectedErr: ErrReservedSlug},
 		{slug: "preview", expectedErr: ErrReservedSlug},
+		{slug: "exposure", expectedErr: ErrReservedSlug},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.slug, func(t *testing.T) {

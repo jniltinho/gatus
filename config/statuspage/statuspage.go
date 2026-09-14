@@ -71,7 +71,7 @@ var (
 	slugPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
 
 	// reservedSlugs collide with the static segments of the administration routes (/api/v1/admin/status-pages/<segment>)
-	reservedSlugs = map[string]struct{}{"new": {}, "options": {}, "preview": {}, "validate": {}}
+	reservedSlugs = map[string]struct{}{"exposure": {}, "new": {}, "options": {}, "preview": {}, "validate": {}}
 )
 
 // Config is the configuration of the public status pages
