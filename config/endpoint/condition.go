@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/gontext"
-	"github.com/TwiN/gatus/v5/pattern"
+	"gatus/v5/config/gontext"
+	"gatus/v5/pattern"
 )
 
 const (

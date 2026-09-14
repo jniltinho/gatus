@@ -3,7 +3,7 @@ package suite
 import (
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/config/endpoint"
 )
 
 // Result represents the result of a suite execution

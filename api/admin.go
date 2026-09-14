@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/managedendpoint"
-	"github.com/TwiN/gatus/v5/security"
-	"github.com/TwiN/gatus/v5/storage/store/common"
+	"gatus/v5/config"
+	"gatus/v5/managedendpoint"
+	"gatus/v5/security"
+	"gatus/v5/storage/store/common"
 	"github.com/TwiN/logr"
 	"github.com/gofiber/fiber/v2"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/gontext"
+	"gatus/v5/config/gontext"
 )
 
 func TestCondition_Validate(t *testing.T) {

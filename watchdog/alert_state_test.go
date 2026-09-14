@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/storage"
-	"github.com/TwiN/gatus/v5/storage/store"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/storage"
+	"gatus/v5/storage/store"
 )
 
 func newAlertStateTestEndpoint(alertEnabled bool) *endpoint.Endpoint {

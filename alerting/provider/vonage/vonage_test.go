@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/client"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/test"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/client"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/test"
 )
 
 func TestVonageAlertProvider_IsValid(t *testing.T) {
@@ -543,4 +543,3 @@ func TestAlertProvider_GetConfig(t *testing.T) {
 		})
 	}
 }
-

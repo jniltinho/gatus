@@ -17,6 +17,10 @@ Em qualquer tarefa com Go, carregue `golang-how-to`, que seleciona as demais ski
 
 `UPSTREAM_BASE` (no `Makefile`) é o commit do upstream em que o fork está baseado.
 
+## Módulo Go
+
+O caminho do módulo do fork é `gatus/v5` (no upstream, `github.com/TwiN/gatus/v5`). Imports internos usam sempre `gatus/v5/...`; nunca reintroduza `github.com/TwiN/gatus/v5`. O fork não é instalável com `go install`/`go get`: gere o binário com `make build` ou use os tarballs e a imagem das releases.
+
 ## Dependências
 
 - Depois de adicionar ou atualizar uma dependência Go, execute `go mod tidy`.
@@ -54,7 +58,13 @@ Mudança em andamento: `openspec/changes/add-admin-endpoint-management/` (leia `
 ```bash
 git fetch upstream --tags
 git merge upstream/master
+# Código novo do upstream chega com o caminho de módulo antigo
+grep -rl --include='*.go' 'github.com/TwiN/gatus/v5' . | xargs -r sed -i 's#github.com/TwiN/gatus/v5#gatus/v5#g'
+gofmt -w $(git diff --name-only -- '*.go')
 ```
+
+- Conflitos em imports (quase todo arquivo Go difere do upstream só pelo caminho do módulo): resolva mantendo o conteúdo do upstream e aplique a troca acima; confira com `grep -rn 'github.com/TwiN/gatus/v5' --include='*.go' .` (sem resultados) e `go build ./...`.
+- `go.mod`: mantenha `module gatus/v5`.
 
 - Conflito em `web/static/`: aceite qualquer lado e regenere com `make frontend-install && make frontend-build`.
 - Workflows removidos pelo fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): mantenha removidos.

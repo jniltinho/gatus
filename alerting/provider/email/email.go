@@ -7,9 +7,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/client"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/client"
+	"gatus/v5/config/endpoint"
 	gomail "gopkg.in/mail.v2"
 	"gopkg.in/yaml.v3"
 )

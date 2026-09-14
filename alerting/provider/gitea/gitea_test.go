@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"code.gitea.io/sdk/gitea"
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/client"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/test"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/client"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/test"
 )
 
 // isIgnorableTestError checks if an error is expected during testing when making API calls with dummy credentials

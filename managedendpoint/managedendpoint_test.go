@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/alerting"
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/alerting/provider/custom"
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/config/suite"
+	"gatus/v5/alerting"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/alerting/provider/custom"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/config/suite"
 )
 
 func newTestContext() Context {

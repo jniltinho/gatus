@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint"
 	"github.com/google/go-github/v48/github"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"

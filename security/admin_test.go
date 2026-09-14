@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/admin"
+	"gatus/v5/config/admin"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )

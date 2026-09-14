@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/TwiN/gatus/v5/config"
+	"gatus/v5/config"
 	"github.com/TwiN/logr"
 )
 

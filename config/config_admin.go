@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/client"
-	"github.com/TwiN/gatus/v5/storage"
+	"gatus/v5/client"
+	"gatus/v5/storage"
 	"github.com/TwiN/logr"
 )
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint"
 )
 
 // generateDeduplicationKey generates a unique deduplication_key for incident.io

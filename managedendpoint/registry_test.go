@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/maintenance"
-	"github.com/TwiN/gatus/v5/storage"
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/storage/store/common"
-	"github.com/TwiN/gatus/v5/watchdog"
+	"gatus/v5/config/maintenance"
+	"gatus/v5/storage"
+	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common"
+	"gatus/v5/watchdog"
 )
 
 func initializeSQLiteStore(t *testing.T) store.ManagedEndpointStore {

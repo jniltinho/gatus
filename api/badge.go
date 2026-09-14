@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint/ui"
-	"github.com/TwiN/gatus/v5/managedendpoint"
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/storage/store/common"
-	"github.com/TwiN/gatus/v5/storage/store/common/paging"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint/ui"
+	"gatus/v5/managedendpoint"
+	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common/paging"
 	"github.com/gofiber/fiber/v2"
 )
 

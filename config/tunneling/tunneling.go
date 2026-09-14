@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/TwiN/gatus/v5/config/tunneling/sshtunnel"
+	"gatus/v5/config/tunneling/sshtunnel"
 )
 
 // Config represents the tunneling configuration

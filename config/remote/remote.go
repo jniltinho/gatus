@@ -1,7 +1,7 @@
 package remote
 
 import (
-	"github.com/TwiN/gatus/v5/client"
+	"gatus/v5/client"
 	"github.com/TwiN/logr"
 )
 
