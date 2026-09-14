@@ -45,7 +45,8 @@ stored in SQLite or PostgreSQL, without restarting Gatus. Configuration, usage, 
 `jniltinho/gatus` image on Docker Hub.
 
 It also adds **public status pages**: pages open without login at `/status/<slug>`, with the selected groups and
-endpoints, defined in the configuration file or managed through the web, while the dashboard stays protected.
+endpoints, defined in the configuration file or managed through the web, while the dashboard stays protected. Each
+endpoint of a page opens a public details page with its response time chart and events.
 Configuration, reverse proxy, API and security in [docs/status-pages.md](docs/status-pages.md).
 
 The Go module of the fork is named `gatus/v5` and does not depend on the original repository: build the binary with

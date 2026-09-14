@@ -3,6 +3,7 @@ package statuspage
 import (
 	"time"
 
+	"gatus/v5/config/endpoint"
 	pageconfig "gatus/v5/config/statuspage"
 	"gatus/v5/storage/store/common"
 )
@@ -52,12 +53,8 @@ type FeaturedEndpointPayload struct {
 
 // EndpointPayload is the public representation of an endpoint
 type EndpointPayload struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-
-	// Chart is whether the endpoint shows a response time chart, whose points are served by the response-times route
-	Chart bool `json:"chart"`
-
+	Name         string              `json:"name"`
+	Status       string              `json:"status"`
 	Uptime       UptimePayload       `json:"uptime"`
 	ResponseTime ResponseTimePayload `json:"responseTime"`
 	Results      []ResultPayload     `json:"results"`
@@ -85,6 +82,29 @@ type ResultPayload struct {
 	DurationMs int64     `json:"durationMs"`
 }
 
+// EndpointDetailsPayload is the public representation of an endpoint of a status page on its details page. Like
+// Payload, it has no key, URL, hostname, IP address, HTTP status, error or condition; its events only have a type and a
+// timestamp.
+type EndpointDetailsPayload struct {
+	Page PageReferencePayload `json:"page"`
+	EndpointPayload
+	Group     string         `json:"group"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	Events    []EventPayload `json:"events"`
+}
+
+// PageReferencePayload identifies the status page of an endpoint details page
+type PageReferencePayload struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+}
+
+// EventPayload is the public representation of an event: START, HEALTHY or UNHEALTHY
+type EventPayload struct {
+	Type      string    `json:"type"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 // BuildPayload builds the public representation of a page from its selection and the summaries of its endpoints. An
 // endpoint without summary (not in the store yet) is unknown.
 func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[string]*common.EndpointSummary, now time.Time) *Payload {
@@ -97,13 +117,9 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 		Featured:    make([]FeaturedEndpointPayload, 0, len(selection.Featured)),
 		Groups:      make([]GroupPayload, 0, len(selection.Sections)),
 	}
-	charts := make(map[string]struct{}, len(page.Charts))
-	for _, key := range page.Charts {
-		charts[key] = struct{}{}
-	}
 	var pageStatuses []string
 	for _, ref := range selection.Featured {
-		endpointPayload := buildEndpointPayload(ref, summaries[ref.Key], charts)
+		endpointPayload := buildEndpointPayload(ref, summaries[ref.Key])
 		payload.Featured = append(payload.Featured, FeaturedEndpointPayload{EndpointPayload: endpointPayload, Group: ref.Group})
 		pageStatuses = append(pageStatuses, endpointPayload.Status)
 	}
@@ -111,7 +127,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 		group := GroupPayload{Name: section.Group, Endpoints: make([]EndpointPayload, 0, len(section.Endpoints))}
 		groupStatuses := make([]string, 0, len(section.Endpoints))
 		for _, ref := range section.Endpoints {
-			endpointPayload := buildEndpointPayload(ref, summaries[ref.Key], charts)
+			endpointPayload := buildEndpointPayload(ref, summaries[ref.Key])
 			group.Endpoints = append(group.Endpoints, endpointPayload)
 			groupStatuses = append(groupStatuses, endpointPayload.Status)
 		}
@@ -123,9 +139,27 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 	return payload
 }
 
-func buildEndpointPayload(ref EndpointRef, summary *common.EndpointSummary, charts map[string]struct{}) EndpointPayload {
-	_, chart := charts[ref.Key]
-	endpointPayload := EndpointPayload{Name: ref.Name, Status: StatusUnknown, Chart: chart, Results: []ResultPayload{}}
+// BuildEndpointDetailsPayload builds the public representation of an endpoint of a page for its details page, from its
+// summary and its events, from the oldest to the most recent. Events of an unknown type are left out.
+func BuildEndpointDetailsPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, events []*endpoint.Event, now time.Time) *EndpointDetailsPayload {
+	payload := &EndpointDetailsPayload{
+		Page:            PageReferencePayload{Slug: page.Slug, Title: page.Title},
+		EndpointPayload: buildEndpointPayload(ref, summary),
+		Group:           ref.Group,
+		UpdatedAt:       now.UTC(),
+		Events:          make([]EventPayload, 0, len(events)),
+	}
+	for _, event := range events {
+		switch event.Type {
+		case endpoint.EventStart, endpoint.EventHealthy, endpoint.EventUnhealthy:
+			payload.Events = append(payload.Events, EventPayload{Type: string(event.Type), Timestamp: event.Timestamp.UTC()})
+		}
+	}
+	return payload
+}
+
+func buildEndpointPayload(ref EndpointRef, summary *common.EndpointSummary) EndpointPayload {
+	endpointPayload := EndpointPayload{Name: ref.Name, Status: StatusUnknown, Results: []ResultPayload{}}
 	if summary == nil {
 		return endpointPayload
 	}

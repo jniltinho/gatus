@@ -271,6 +271,10 @@ func logPublished(snap *snapshot) {
 		}
 		published[state.Origin] = append(published[state.Origin], state.Slug)
 		for _, warning := range selectionWarnings(state.Page, refs) {
+			if warning.Type == warningTypeCharts {
+				logr.Warnf("[statuspage.Load] Status page with slug=%s has charts, which is deprecated and ignored: every endpoint of the page has a details page with its response time chart", state.Slug)
+				continue
+			}
 			logr.Warnf("[statuspage.Load] Status page with slug=%s selects %s=%s, which has no match", state.Slug, warning.Type, warning.Value)
 		}
 	}

@@ -23,32 +23,38 @@ Cada endpoint do payload público MUST ter `responseTime` com as médias de temp
 - **WHEN** um endpoint teve execuções de 100 ms e 300 ms nas últimas 24 horas
 - **THEN** `responseTime["24h"]` é 200
 
-### Requirement: Gráficos de tempo de resposta escolhidos por endpoint
-Cada página MUST aceitar `charts`, uma lista de até 10 chaves de endpoints. Só os endpoints presentes na página (em destaque, por grupo ou por chave) e listados em `charts` MUST ter `chart: true` no payload; uma chave de `charts` fora da página MUST gerar aviso e ser ignorada.
+### Requirement: API pública de detalhes do endpoint
+A rota pública `GET /api/v1/status-pages/:slug/endpoints/:key` MUST responder sem autenticação, para um endpoint mostrado pela página publicada, `{"page": {"slug", "title"}, "name", "group", "status", "updatedAt", "uptime", "responseTime", "results", "events"}`, com os resultados e o uptime iguais aos da página e os eventos `START`, `HEALTHY` e `UNHEALTHY` mais recentes (no máximo 50, em ordem cronológica, só com `type` e `timestamp`), sem chave, URL, hostname, erros ou condições. Página não publicada, chave de endpoint fora da página ou caminho desconhecido MUST responder o 404 idêntico das status pages, contando no limitador e sem ler o storage. A resposta MUST ficar em cache por 30 segundos por slug, revisão, geração e chave, com `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 segundos para erro de leitura. Um endpoint da página ainda sem registro no storage MUST sair com estado `unknown` e sem eventos.
 
-A rota pública `GET /api/v1/status-pages/:slug/response-times/:duration`, com `duration` em `24h`, `7d` ou `30d`, MUST responder sem autenticação `{"duration": ..., "endpoints": [{"name", "group", "points": [{"timestamp", "ms"}]}]}` com as médias horárias de tempo de resposta dos endpoints com gráfico, na ordem da página, sem chave, URL, hostname ou erros. Página não publicada, duração inválida ou caminho desconhecido MUST responder o 404 idêntico das status pages, contando no limitador. A resposta MUST ficar em cache por 5 minutos por slug, revisão, geração e duração, com `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 segundos para erro de leitura.
+#### Scenario: Detalhes de um endpoint da página
+- **WHEN** a página publicada `infra` mostra `api` do grupo `core`, que teve uma execução com sucesso e depois uma falha
+- **THEN** `GET /api/v1/status-pages/infra/endpoints/core_api` responde 200 com `name` `api`, `status` `down` e eventos de `START` a `UNHEALTHY`
+- **AND** a resposta não contém a chave `core_api`, o hostname nem os erros
 
-#### Scenario: Série de um endpoint com gráfico
-- **WHEN** a página publicada `infra` tem `charts: [core_api]` e `api` teve execuções na última hora
-- **THEN** `GET /api/v1/status-pages/infra/response-times/24h` responde 200 com `api` e ao menos um ponto
-- **AND** a resposta não contém a chave `core_api`
+#### Scenario: Endpoint fora da página
+- **WHEN** um visitante pede `GET /api/v1/status-pages/infra/endpoints/database_pg` e `database_pg` não está na página `infra`
+- **THEN** a resposta é o 404 idêntico, sem `WWW-Authenticate` e sem leitura do storage
 
-#### Scenario: Duração inválida
-- **WHEN** um visitante pede `GET /api/v1/status-pages/infra/response-times/1y`
-- **THEN** a resposta é o 404 idêntico, sem `WWW-Authenticate`
+#### Scenario: Rota antiga de gráficos
+- **WHEN** um visitante pede `GET /api/v1/status-pages/infra/response-times/24h`
+- **THEN** a resposta é o 404 idêntico
 
-#### Scenario: Página sem gráficos
-- **WHEN** a página publicada não tem `charts`
-- **THEN** a rota responde 200 com `endpoints` vazio, sem consultar as médias horárias
+### Requirement: Campo charts obsoleto
+O campo `charts` MUST continuar aceito no YAML e nas definições gerenciadas gravadas por versões anteriores, com os mesmos limites, mas MUST ser ignorado: o payload não tem `chart`, a carga MUST registrar aviso de campo obsoleto e a validação da administração MUST devolver aviso `type: "charts"`. O formulário da administração MUST NOT enviar `charts`, de modo que salvar a página remove o campo.
 
-### Requirement: Destaques e gráficos nas telas
-A página pública MUST mostrar os destaques no topo, em cartões com nome, grupo, estado, uptime e tempo médio de resposta de 24h, 7d e 30d, último tempo de resposta e barras, e MUST mostrar o gráfico de tempo de resposta dos endpoints com `chart: true` no mesmo formato do gráfico da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`), com um seletor de período (24h, 7d, 30d) em cada gráfico; nas linhas das seções, o gráfico MUST abrir por um botão acessível por teclado, e nos cartões em destaque MUST aparecer aberto. O formulário da administração MUST permitir marcar, para os endpoints resolvidos pela seleção atual, "em destaque" e "gráfico", respeitando os limites de 10.
+#### Scenario: Página gravada com charts
+- **WHEN** uma página gerenciada gravada pelo `v5.36.0-fork.2` tem `charts: [core_api]`
+- **THEN** a página continua publicada, sem gráfico embutido, e a validação devolve o aviso `charts`
 
-#### Scenario: Visitante troca o período de um gráfico
-- **WHEN** o visitante abre o gráfico de `api` e escolhe `7d` no seletor dele
-- **THEN** a página busca `/api/v1/status-pages/<slug>/response-times/7d` e redesenha o gráfico, sem chamar `/api/v1/config` e sem 401
+### Requirement: Destaques e página de detalhes nas telas
+A página pública MUST mostrar os destaques no topo, em cartões com nome, grupo, estado, uptime e tempo médio de resposta de 24h, 7d e 30d, último tempo de resposta, barras e um link "View details", e MUST NOT mostrar gráfico embutido. O nome de cada endpoint MUST levar à página pública `/status/<slug>/endpoints/<chave>`, que MUST seguir o layout da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`): cartões de estado, tempo médio, faixa de tempo de resposta e última verificação, barras, gráfico Response Time Trend com o mesmo componente do dashboard e seletor 24h/7d/30d, badges de tempo de resposta, uptime e saúde, e eventos, com link de volta à status page, sem chamar `/api/v1/config` e sem 401. O formulário da administração MUST permitir marcar "em destaque", respeitando o limite de 10, e o cabeçalho da edição MUST ter o endereço público como link que abre em nova aba.
 
-#### Scenario: Administrador marca destaque e gráfico
-- **WHEN** o administrador marca `api` como destaque e com gráfico e salva
-- **THEN** a definição salva tem `featured: [core_api]` e `charts: [core_api]`
+#### Scenario: Visitante abre os detalhes de um endpoint
+- **WHEN** o visitante clica no nome de `panel` na status page `services`
+- **THEN** a página `/status/services/endpoints/_panel` mostra o gráfico de tempo de resposta e os eventos
+- **AND** ao escolher `7d` no seletor, o gráfico busca `/api/v1/endpoints/_panel/response-times/7d/history`, sem chamar `/api/v1/config` e sem 401
+
+#### Scenario: Administrador marca destaque
+- **WHEN** o administrador marca `api` como destaque e salva
+- **THEN** a definição salva tem `featured: [core_api]` e não tem `charts`
 - **AND** a pré-visualização mostra `api` em destaque

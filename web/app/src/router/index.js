@@ -7,6 +7,7 @@ import AdminEndpointForm from '@/views/admin/AdminEndpointForm';
 import AdminStatusPages from '@/views/admin/AdminStatusPages';
 import AdminStatusPageForm from '@/views/admin/AdminStatusPageForm';
 import StatusPage from '@/views/public/StatusPage';
+import StatusPageEndpoint from '@/views/public/StatusPageEndpoint';
 
 const routes = [
     {
@@ -63,6 +64,12 @@ const routes = [
         path: '/status/:slug([a-z0-9-]{1,64})',
         name: 'PublicStatusPage',
         component: StatusPage,
+        meta: { public: true }
+    },
+    {
+        path: '/status/:slug([a-z0-9-]{1,64})/endpoints/:key',
+        name: 'PublicStatusPageEndpoint',
+        component: StatusPageEndpoint,
         meta: { public: true }
     },
     {

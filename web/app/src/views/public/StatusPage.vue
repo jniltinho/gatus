@@ -37,6 +37,7 @@
               :endpoint="endpoint"
               :group="endpoint.group"
               :bars="bars"
+              :slug="slug"
               featured
             />
           </ul>
@@ -54,7 +55,7 @@
             <span :class="['text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
           </div>
           <ul class="divide-y dark:divide-gray-800">
-            <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" />
+            <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" :slug="slug" />
           </ul>
         </section>
       </template>
@@ -63,12 +64,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Loading from '@/components/Loading.vue'
 import StatusSummary from '@/components/public/StatusSummary.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
-import { createResponseTimesLoader, SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
+import { SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
 
 const REFRESH_INTERVAL_MS = 60000
 const CLOCK_INTERVAL_MS = 10000
@@ -177,15 +178,10 @@ const handleScreenChange = (event) => {
 
 const featuredEndpoints = computed(() => (page.value && page.value.featured) || [])
 
-// The charts of the page share one request per duration, reset when the slug changes
-let responseTimesLoader = createResponseTimesLoader(slug.value)
-provide('loadResponseTimes', (duration) => responseTimesLoader(duration))
-
 watch(slug, () => {
   page.value = null
   errorMessage.value = ''
   state.value = 'loading'
-  responseTimesLoader = createResponseTimesLoader(slug.value)
   load()
 })
 

@@ -13,6 +13,7 @@ import (
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common/paging"
 )
 
 func TestSelect_Featured(t *testing.T) {
@@ -37,7 +38,7 @@ func TestSelect_Featured(t *testing.T) {
 	}
 }
 
-func TestBuildPayload_FeaturedChartsAndResponseTimes(t *testing.T) {
+func TestBuildPayload_FeaturedAndResponseTimes(t *testing.T) {
 	now := time.Now()
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}, Featured: []string{"core_api"}, Charts: []string{"core_api"}}
 	selection := Selection{
@@ -50,52 +51,52 @@ func TestBuildPayload_FeaturedChartsAndResponseTimes(t *testing.T) {
 		"core_web": {Results: []common.ResultSummary{{Timestamp: now, Success: true}}},
 	}
 	payload := BuildPayload(page, selection, summaries, now)
-	if len(payload.Featured) != 1 || payload.Featured[0].Name != "api" || payload.Featured[0].Group != "core" || !payload.Featured[0].Chart {
-		t.Fatalf("expected api featured with its group and a chart, got %+v", payload.Featured)
+	if len(payload.Featured) != 1 || payload.Featured[0].Name != "api" || payload.Featured[0].Group != "core" {
+		t.Fatalf("expected api featured with its group, got %+v", payload.Featured)
 	}
 	if *payload.Featured[0].ResponseTime.Last24Hours != 120 || payload.Featured[0].ResponseTime.Last7Days != nil {
 		t.Errorf("expected the average response times of the summary, got %+v", payload.Featured[0].ResponseTime)
-	}
-	if payload.Groups[0].Endpoints[0].Chart {
-		t.Error("expected web not to have a chart")
 	}
 	if payload.Status != StatusDegraded {
 		t.Errorf("expected the page status to include the featured endpoints, got %s", payload.Status)
 	}
 	body, _ := json.Marshal(payload)
-	if !strings.Contains(string(body), `"featured":[{"name":"api"`) || !strings.Contains(string(body), `"group":"core"`) || strings.Contains(string(body), "core_api") {
+	if !strings.Contains(string(body), `"featured":[{"name":"api"`) || !strings.Contains(string(body), `"group":"core"`) || strings.Contains(string(body), "core_api") || strings.Contains(string(body), "chart") {
 		t.Errorf("unexpected JSON of the featured endpoint: %s", body)
 	}
 }
 
-func TestSelectionWarnings_FeaturedAndCharts(t *testing.T) {
+func TestSelectionWarnings_FeaturedAndDeprecatedCharts(t *testing.T) {
 	refs := []EndpointRef{{Key: "core_web", Name: "web", Group: "core"}, {Key: "database_pg", Name: "pg", Group: "database"}}
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}, Featured: []string{"missing_endpoint"}, Charts: []string{"core_web", "database_pg"}}
-	warnings := selectionWarnings(page, refs)
 	var found []string
-	for _, warning := range warnings {
+	for _, warning := range selectionWarnings(page, refs) {
 		found = append(found, warning.Type+"="+warning.Value)
 	}
-	if strings.Join(found, ",") != "featured=missing_endpoint,chart=database_pg" {
-		t.Errorf("expected the missing featured endpoint and the chart outside of the page, got %v", found)
+	if strings.Join(found, ",") != "featured=missing_endpoint,charts=core_web, database_pg" {
+		t.Errorf("expected the missing featured endpoint and the deprecated charts, got %v", found)
+	}
+	page.Charts = nil
+	if warnings := selectionWarnings(page, refs); len(warnings) != 1 {
+		t.Errorf("expected no charts warning without charts, got %+v", warnings)
 	}
 }
 
-// countingResponseTimeReader counts the reads of hourly average response times and can fail
-type countingResponseTimeReader struct {
+// countingEventReader counts the reads of the events and can fail
+type countingEventReader struct {
 	calls atomic.Int32
 	err   error
 }
 
-func (reader *countingResponseTimeReader) GetHourlyAverageResponseTimeByKey(key string, from, to time.Time) (map[int64]int, error) {
+func (reader *countingEventReader) GetEndpointStatusByKey(key string, params *paging.EndpointStatusParams) (*endpoint.Status, error) {
 	reader.calls.Add(1)
 	if reader.err != nil {
 		return nil, reader.err
 	}
-	return store.Get().GetHourlyAverageResponseTimeByKey(key, from, to)
+	return store.Get().GetEndpointStatusByKey(key, params)
 }
 
-const chartsTestConfig = `
+const endpointDetailsTestConfig = `
 endpoints:
   - name: api
     group: core
@@ -105,90 +106,103 @@ endpoints:
     group: core
     url: https://example.org
     conditions: ["[STATUS] == 200"]
+  - name: new
+    group: core
+    url: https://example.org
+    conditions: ["[STATUS] == 200"]
+  - name: pg
+    group: database
+    url: https://example.org
+    conditions: ["[STATUS] == 200"]
 status-pages:
   pages:
     - slug: infra
       title: Infra
       groups: [core]
       featured: [core_api]
-      charts: [core_api, core_web]
-    - slug: plain
-      title: Plain
-      groups: [core]
+      charts: [core_api]
 `
 
-func setupResponseTimesTest(t *testing.T, reader *countingResponseTimeReader) {
+func setupEndpointDetailsTest(t *testing.T, reader *countingEventReader) {
 	t.Helper()
 	if err := store.Initialize(&storage.Config{Type: storage.TypeMemory, MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50}); err != nil {
 		t.Fatal(err)
 	}
-	cfg := loadTestConfig(t, chartsTestConfig)
+	cfg := loadTestConfig(t, endpointDetailsTestConfig)
 	now := time.Now()
 	for _, insert := range []struct {
-		ep       *endpoint.Endpoint
-		age      time.Duration
-		duration time.Duration
+		ep      *endpoint.Endpoint
+		age     time.Duration
+		success bool
 	}{
-		{cfg.Endpoints[0], 2 * time.Hour, 100 * time.Millisecond},
-		{cfg.Endpoints[0], 30 * time.Minute, 300 * time.Millisecond},
-		{cfg.Endpoints[1], 10 * time.Minute, 50 * time.Millisecond},
+		{cfg.Endpoints[0], 2 * time.Hour, true},
+		{cfg.Endpoints[0], 10 * time.Minute, false},
+		{cfg.Endpoints[1], 5 * time.Minute, true},
+		{cfg.Endpoints[3], 5 * time.Minute, true},
 	} {
-		if err := store.Get().InsertEndpointResult(insert.ep, &endpoint.Result{Success: true, Timestamp: now.Add(-insert.age), Duration: insert.duration, Hostname: "10.0.0.5"}); err != nil {
+		result := &endpoint.Result{Success: insert.success, Timestamp: now.Add(-insert.age), Duration: 100 * time.Millisecond, Hostname: "10.0.0.5", Errors: []string{"secret-error"}}
+		if err := store.Get().InsertEndpointResult(insert.ep, result); err != nil {
 			t.Fatal(err)
 		}
 	}
 	Load(cfg)
-	previousReader := getResponseTimeReader
-	getResponseTimeReader = func() (responseTimeReader, bool) { return reader, true }
+	previousReader := getEventReader
+	getEventReader = func() (eventReader, bool) { return reader, true }
 	t.Cleanup(func() {
-		getResponseTimeReader = previousReader
+		getEventReader = previousReader
 		publicCache.Clear()
 	})
 }
 
-func TestPublicResponseTimes(t *testing.T) {
-	reader := &countingResponseTimeReader{}
-	setupResponseTimesTest(t, reader)
-	body, err := PublicResponseTimes("infra", "24h")
+func TestPublicEndpointDetails(t *testing.T) {
+	reader := &countingEventReader{}
+	setupEndpointDetailsTest(t, reader)
+	body, err := PublicEndpointDetails("infra", "core_api")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var payload ResponseTimesPayload
+	var payload EndpointDetailsPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.Duration != "24h" || len(payload.Endpoints) != 2 || payload.Endpoints[0].Name != "api" || payload.Endpoints[1].Name != "web" {
-		t.Fatalf("expected the series of api (featured) then web, got %s", body)
+	if payload.Page.Slug != "infra" || payload.Page.Title != "Infra" || payload.Name != "api" || payload.Group != "core" || payload.Status != StatusDown || len(payload.Results) != 2 {
+		t.Fatalf("unexpected details of api: %s", body)
 	}
-	if api := payload.Endpoints[0]; api.Group != "core" || len(api.Points) != 2 || !api.Points[0].Timestamp.Before(api.Points[1].Timestamp) || api.Points[0].Milliseconds != 100 {
-		t.Errorf("expected two hourly points of api in chronological order, got %+v", api)
+	// The memory store dates the START event with the time of the insertion, so only the order of the types is checked
+	if events := payload.Events; len(events) < 2 || events[0].Type != string(endpoint.EventStart) || events[len(events)-1].Type != string(endpoint.EventUnhealthy) {
+		t.Errorf("expected the events from START to UNHEALTHY, got %+v", payload.Events)
 	}
-	if strings.Contains(string(body), "core_api") || strings.Contains(string(body), "10.0.0.5") {
-		t.Errorf("expected no key nor hostname in the response times, got %s", body)
+	for _, sensitive := range []string{"core_api", "10.0.0.5", "secret-error", "example.org"} {
+		if strings.Contains(string(body), sensitive) {
+			t.Errorf("expected %q not to be published, got %s", sensitive, body)
+		}
 	}
 	calls := reader.calls.Load()
-	if _, err := PublicResponseTimes("infra", "24h"); err != nil || reader.calls.Load() != calls {
+	if _, err := PublicEndpointDetails("infra", "core_api"); err != nil || reader.calls.Load() != calls {
 		t.Errorf("expected the second request to be served from the cache, got %d reads (err=%v)", reader.calls.Load(), err)
 	}
-	if body, err := PublicResponseTimes("infra", "7d"); err != nil || !strings.Contains(string(body), `"duration":"7d"`) {
-		t.Errorf("expected the 7d response times, got %s (err=%v)", body, err)
+	if body, err := PublicEndpointDetails("infra", "core_web"); err != nil || !strings.Contains(string(body), `"name":"web"`) || !strings.Contains(string(body), `"status":"up"`) {
+		t.Errorf("expected the details of web, got %s (err=%v)", body, err)
 	}
-	for _, scenario := range []struct{ slug, duration string }{{"infra", "1y"}, {"infra", ""}, {"missing", "24h"}} {
-		if _, err := PublicResponseTimes(scenario.slug, scenario.duration); !errors.Is(err, ErrPageNotFound) {
+	if body, err := PublicEndpointDetails("infra", "core_new"); err != nil || !strings.Contains(string(body), `"status":"unknown"`) || !strings.Contains(string(body), `"events":[]`) {
+		t.Errorf("expected an endpoint without results to be unknown without events, got %s (err=%v)", body, err)
+	}
+	calls = reader.calls.Load()
+	for _, scenario := range []struct{ slug, key string }{{"infra", "database_pg"}, {"infra", "missing_endpoint"}, {"infra", ""}, {"infra", strings.Repeat("a", 401)}, {"missing", "core_api"}} {
+		if _, err := PublicEndpointDetails(scenario.slug, scenario.key); !errors.Is(err, ErrPageNotFound) {
 			t.Errorf("expected ErrPageNotFound for %+v, got %v", scenario, err)
 		}
 	}
-	calls = reader.calls.Load()
-	if body, err := PublicResponseTimes("plain", "24h"); err != nil || !strings.Contains(string(body), `"endpoints":[]`) || reader.calls.Load() != calls {
-		t.Errorf("expected no series and no read for a page without charts, got %s (reads %d → %d, err=%v)", body, calls, reader.calls.Load(), err)
+	if reader.calls.Load() != calls {
+		t.Errorf("expected no read for an endpoint that is not on a published page, got %d reads", reader.calls.Load()-calls)
 	}
 }
 
-func TestPublicResponseTimes_Unavailable(t *testing.T) {
-	reader := &countingResponseTimeReader{err: errors.New("database is locked")}
-	setupResponseTimesTest(t, reader)
+func TestPublicEndpointDetails_Unavailable(t *testing.T) {
+	reader := &countingEventReader{err: errors.New("database is locked")}
+	setupEndpointDetailsTest(t, reader)
 	for i := 0; i < 10; i++ {
-		if _, err := PublicResponseTimes("infra", "30d"); !errors.Is(err, ErrPageUnavailable) {
+		if _, err := PublicEndpointDetails("infra", "core_api"); !errors.Is(err, ErrPageUnavailable) {
 			t.Fatalf("expected ErrPageUnavailable, got %v", err)
 		}
 	}

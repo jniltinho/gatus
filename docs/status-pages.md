@@ -8,7 +8,8 @@ endpoints, like the *Status Pages* of Uptime Kuma. The dashboard, the administra
 by `security.basic` or `security.oidc`.
 
 Each endpoint is shown with its name, current status, bars of the latest checks and uptime over 24 hours, 7 days and
-30 days.
+30 days, and its name opens a public details page with the response time chart, like the endpoint details page of the
+dashboard.
 
 ## Configuration
 
@@ -23,7 +24,6 @@ status-pages:
       description: "External websites and APIs"
       groups: [sites, apis]
       featured: [sites_github]           # shown at the top of the page, with more details
-      charts: [sites_github, apis_github-api]  # response time charts
     - slug: infrastructure
       title: "Infrastructure"
       groups: [dns]
@@ -39,7 +39,7 @@ status-pages:
 | `groups` | Up to 50 groups. Every enabled endpoint of the group is shown, including the ones created later. |
 | `endpoints` | Up to 200 keys in the `group_name` format (the same key as the badges). |
 | `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
-| `charts` | Up to 10 keys of endpoints of the page that show a response time chart, like the one of the endpoint details page of the dashboard. A key of an endpoint that is not on the page is ignored with a warning. |
+| `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
 A page must select at least one group, endpoint or featured endpoint. A group or key that does not exist yet does not invalidate the page:
@@ -65,9 +65,8 @@ database as the endpoints (SQLite or PostgreSQL).
 ## What the page shows
 
 - **Featured** endpoints first, in cards with the uptime and the average response time over 24 hours, 7 days and
-  30 days, the last response time, the check bars and, when the endpoint has a chart, the chart already open.
-- A **Response time** button on the rows of the endpoints with a chart. The chart has the format of the endpoint
-  details page of the dashboard (`/endpoints/<key>`), with its own 24 hours / 7 days / 30 days selector.
+  30 days, the last response time, the check bars and a **View details** link.
+- The name of every endpoint links to its details page (see below).
 - Sections in the order of `groups`, then the groups only reached through `endpoints` (in alphabetical order) and, last,
   **Other services** with the endpoints without group. Within each section, endpoints are sorted by name.
 - Endpoints of the file, external endpoints and endpoints managed through the web, as long as they are enabled. Suites
@@ -87,6 +86,21 @@ Statuses:
 The uptime is shown as "—" when there was no check during the period. With SQLite and PostgreSQL, the history older
 than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods are approximate, as in the badges.
 
+## Endpoint details page
+
+`/status/<slug>/endpoints/<key>` is open without login for every endpoint shown on a published page, and has the layout
+of the endpoint details page of the dashboard (`/endpoints/<key>`):
+
+- current status, average response time and response time range of the latest checks, and time of the last check;
+- the bars of the latest checks;
+- **Response Time Trend**: the same chart as the dashboard, with the 24 hours / 7 days / 30 days selector and the
+  unhealthy periods marked;
+- response time, uptime and health badges;
+- the events (monitoring started, became healthy, was unhealthy for…), the latest 50.
+
+A key of an endpoint that is not on the page, or of a page that is not published, shows "Page not found". The page
+refreshes every 60 seconds and pauses while the tab is hidden.
+
 ## Public API
 
 `GET /api/v1/status-pages/<slug>` responds without authentication:
@@ -96,7 +110,7 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
   "slug": "services", "title": "Services", "description": "External websites and APIs",
   "status": "degraded", "updatedAt": "2026-09-14T19:30:00Z", "truncated": false,
   "featured": [{
-    "name": "github", "group": "sites", "status": "up", "chart": true,
+    "name": "github", "group": "sites", "status": "up",
     "uptime": {"24h": 1, "7d": 0.999, "30d": 0.998},
     "responseTime": {"24h": 180, "7d": 175, "30d": 190},
     "results": [{"timestamp": "2026-09-14T19:29:30Z", "success": true, "durationMs": 171}]
@@ -104,7 +118,7 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
   "groups": [{
     "name": "apis", "status": "degraded",
     "endpoints": [{
-      "name": "github-api", "status": "up", "chart": true,
+      "name": "github-api", "status": "up",
       "uptime": {"24h": 0.9993, "7d": 0.998, "30d": null},
       "responseTime": {"24h": 123, "7d": 130, "30d": null},
       "results": [{"timestamp": "2026-09-14T19:29:00Z", "success": true, "durationMs": 123}]
@@ -113,27 +127,28 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
 }
 ```
 
-`GET /api/v1/status-pages/<slug>/response-times/<24h|7d|30d>` responds, also without authentication, the hourly
-average response times of the endpoints with a chart, in the order of the page, identified by name and group (never by
-key):
+`GET /api/v1/status-pages/<slug>/endpoints/<key>` responds, also without authentication, the details of an endpoint
+shown on the page, with its latest events (type and time only):
 
 ```json
 {
-  "duration": "24h",
-  "endpoints": [{
-    "name": "github", "group": "sites",
-    "points": [{"timestamp": "2026-09-14T18:00:00Z", "ms": 176}, {"timestamp": "2026-09-14T19:00:00Z", "ms": 182}]
-  }]
+  "page": {"slug": "services", "title": "Services"},
+  "name": "github-api", "group": "apis", "status": "up", "updatedAt": "2026-09-14T19:30:00Z",
+  "uptime": {"24h": 0.9993, "7d": 0.998, "30d": null},
+  "responseTime": {"24h": 123, "7d": 130, "30d": null},
+  "results": [{"timestamp": "2026-09-14T19:29:00Z", "success": true, "durationMs": 123}],
+  "events": [{"type": "START", "timestamp": "2026-09-14T10:00:00Z"}, {"type": "HEALTHY", "timestamp": "2026-09-14T10:00:00Z"}]
 }
 ```
 
-An invalid duration responds the same 404 as a missing page.
+The chart and the badges of the details page use the routes by key of the original Gatus
+(`/api/v1/endpoints/<key>/response-times/<duration>/history` and `.../badge.svg`), which are already public.
 
-**Never published:** key, URL, hostname, IP, port, HTTP status, errors, conditions, events, certificate or domain
-expiration, alerts and `extra-labels`.
+**Never published by these routes:** URL, hostname, IP, port, HTTP status, errors, conditions, certificate or domain
+expiration, alerts and `extra-labels`; the page payload has no key and no event.
 
-- A missing, disabled or conflicting page, an invalid slug and any other path under `/api/v1/status-pages` all respond
-  the same `404 {"error":"status page not found"}`, with the same headers.
+- A missing, disabled or conflicting page, an invalid slug, a key of an endpoint that is not on the page and any other
+  path under `/api/v1/status-pages` all respond the same `404 {"error":"status page not found"}`, with the same headers.
 - `503 {"error":"status page temporarily unavailable"}` when the database could not be read; the error only goes to
   the log.
 - The HTML route `/status/<anything>` always responds 200 with the application, which queries the API and shows
@@ -148,8 +163,8 @@ expiration, alerts and `extra-labels`.
   same assembly. A change made through the administration takes effect on the next request.
 - The assembly reads the database in one transaction with three queries, whatever the number of endpoints, and at most
   4 pages are assembled at the same time.
-- The response time charts are assembled at most once every 5 minutes per page and duration, for at most 10 endpoints,
-  and a page without charts does not read them at all.
+- The details of an endpoint are assembled at most once every 30 seconds per page and endpoint, and a key that is not
+  on the page responds 404 without reading the database.
 - If the database fails, the error is cached for 5 seconds so as not to overload it.
 - The page in the browser refreshes every 60 seconds and pauses while the tab is hidden.
 

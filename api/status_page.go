@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -29,7 +30,7 @@ func registerStatusPageRoutes(app *fiber.App, unprotectedAPIRouter fiber.Router,
 	notFound := statusPageNotFound(cfg.StatusPages.TrustedProxyPrefixes())
 	if cfg.StatusPages.IsEnabled() {
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug", statusPageHandler(notFound))
-		unprotectedAPIRouter.Get("/v1/status-pages/:slug/response-times/:duration", statusPageResponseTimesHandler(notFound))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key", statusPageEndpointHandler(notFound))
 	}
 	unprotectedAPIRouter.All("/v1/status-pages", notFound)
 	unprotectedAPIRouter.All("/v1/status-pages/*", notFound)
@@ -57,11 +58,15 @@ func statusPageHandler(notFound fiber.Handler) fiber.Handler {
 	}
 }
 
-// statusPageResponseTimesHandler serves the response time charts of a published status page, see
-// statuspage.PublicResponseTimes
-func statusPageResponseTimesHandler(notFound fiber.Handler) fiber.Handler {
+// statusPageEndpointHandler serves the details of an endpoint of a published status page, see
+// statuspage.PublicEndpointDetails
+func statusPageEndpointHandler(notFound fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		body, err := statuspage.PublicResponseTimes(c.Params("slug"), c.Params("duration"))
+		key, err := url.QueryUnescape(c.Params("key"))
+		if err != nil {
+			return notFound(c)
+		}
+		body, err := statuspage.PublicEndpointDetails(c.Params("slug"), key)
 		switch {
 		case err == nil:
 			setPublicAPIHeaders(c)

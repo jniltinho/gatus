@@ -1,5 +1,7 @@
 // Helpers of the public status pages (fork)
 
+import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
+
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 
 const sanitizeKeyPart = (value) => (value || '').toLowerCase().trim().replace(/[/_., #+&]/g, '-')
@@ -49,30 +51,27 @@ export const RESPONSE_TIME_DURATIONS = [
   { value: '30d', label: '30 days' }
 ]
 
-// The server caches the response time charts for 5 minutes
-const RESPONSE_TIMES_TTL_MS = 5 * 60 * 1000
-
 // formatMilliseconds formats a response time, or a dash without execution
 export const formatMilliseconds = (milliseconds) => (milliseconds === null || milliseconds === undefined ? '—' : `${milliseconds} ms`)
 
-// createResponseTimesLoader returns a function that loads the response time charts of a status page for a duration,
-// sharing one request per duration between all the charts of the page
-export const createResponseTimesLoader = (slug) => {
-  const requests = new Map()
-  return (duration) => {
-    const cached = requests.get(duration)
-    if (cached && Date.now() - cached.time < RESPONSE_TIMES_TTL_MS) {
-      return cached.promise
+// describeEvents returns the events, from the most recent to the oldest, with the texts of the endpoint details page of
+// the dashboard
+export const describeEvents = (events) => {
+  const described = []
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
+    const nextEvent = events[i + 1]
+    let text
+    if (event.type === 'START') {
+      text = 'Monitoring started'
+    } else if (event.type === 'HEALTHY') {
+      text = nextEvent ? 'Endpoint became healthy' : 'Endpoint is healthy'
+    } else if (event.type === 'UNHEALTHY') {
+      text = nextEvent ? `Endpoint was unhealthy for ${generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp)}` : 'Endpoint is unhealthy'
+    } else {
+      continue
     }
-    const promise = fetch(`/api/v1/status-pages/${encodeURIComponent(slug)}/response-times/${encodeURIComponent(duration)}`, { credentials: 'omit' })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`unexpected status ${response.status}`)
-        }
-        return response.json()
-      })
-    promise.catch(() => requests.delete(duration))
-    requests.set(duration, { promise, time: Date.now() })
-    return promise
+    described.push({ ...event, text, timeAgo: generatePrettyTimeAgo(event.timestamp) })
   }
+  return described
 }

@@ -93,8 +93,7 @@ status-pages:
       groups: [sites, apis]
       # Shown at the top of the page, with more details
       featured: [sites_github]
-      # Response time charts, like the endpoint details page of the dashboard
-      charts: [sites_github, apis_github-api]
+      # Every endpoint of a page opens a public details page (/status/<slug>/endpoints/<key>) with its response time chart
 
     - slug: infrastructure
       title: "Infrastructure"
