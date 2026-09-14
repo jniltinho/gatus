@@ -149,7 +149,11 @@ func (s *Service) Get(key string) (*Detail, error) {
 		return adminDetail(state)
 	}
 	if ep := s.cfg.GetEndpointByKey(key); ep != nil {
-		definition, err := endpointDefinition(ep)
+		effective := configDefinition(ep.Key())
+		if effective == nil {
+			effective = []byte("{}")
+		}
+		definition, err := maskedDefinition(effective)
 		if err != nil {
 			return nil, err
 		}
@@ -194,6 +198,11 @@ func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 		return nil, err
 	}
 	key := prepared.Endpoint.Key()
+	// Generated before the endpoint starts being monitored (see State.Effective)
+	effective, err := Effective(prepared.Endpoint)
+	if err != nil {
+		return nil, err
+	}
 	// Uses the storage outside of the transaction, so it must run before it
 	watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
 	stored := &common.ManagedEndpoint{Key: key, Definition: string(prepared.Definition), UpdatedBy: author}
@@ -211,7 +220,7 @@ func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 		}
 		return nil, err
 	}
-	state := &State{Stored: stored, Endpoint: prepared.Endpoint}
+	state := &State{Stored: stored, Endpoint: prepared.Endpoint, Effective: effective}
 	putState(state)
 	logr.Infof("[managedendpoint.Create] Managed endpoint with key=%s created by %s", key, auditAuthor(author))
 	return adminDetail(state)
@@ -286,6 +295,11 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	if err != nil {
 		return nil, err
 	}
+	// Generated before the endpoint starts being monitored (see State.Effective)
+	effective, err := Effective(prepared.Endpoint)
+	if err != nil {
+		return nil, err
+	}
 	previousEndpoint := state.Endpoint
 	wasMonitored := previousEndpoint != nil && watchdog.IsEndpointMonitored(key)
 	// The monitoring is stopped before the transaction: with SQLite, an in-flight execution writing its result would
@@ -315,7 +329,7 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 		return nil, err
 	}
 	metrics.DeleteMetricsForEndpointKey(key)
-	newState := &State{Stored: updated, Endpoint: prepared.Endpoint}
+	newState := &State{Stored: updated, Endpoint: prepared.Endpoint, Effective: effective}
 	putState(newState)
 	logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s %s by %s", key, operation, auditAuthor(author))
 	return adminDetail(newState)
@@ -529,8 +543,8 @@ func adminDetail(state *State) (*Detail, error) {
 		return nil, err
 	}
 	detail := &Detail{Item: *adminItem(state), Definition: definition}
-	if state.Endpoint != nil {
-		if detail.Effective, err = endpointDefinition(state.Endpoint); err != nil {
+	if state.Effective != nil {
+		if detail.Effective, err = maskedDefinition(state.Effective); err != nil {
 			return nil, err
 		}
 	}

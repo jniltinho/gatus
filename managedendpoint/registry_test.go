@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,8 +59,11 @@ func TestLoad(t *testing.T) {
 	if len(keys) != 3 {
 		t.Errorf("expected the keys of every stored managed endpoint, got %v", keys)
 	}
-	if state := Get("web_site"); state == nil || state.Endpoint == nil || state.Endpoint.Interval != time.Minute {
-		t.Errorf("expected web_site to be valid with default values, got %+v", state)
+	if state := Get("web_site"); state == nil || state.Endpoint == nil || state.Endpoint.Interval != time.Minute || !strings.Contains(string(state.Effective), "interval: 1m0s") {
+		t.Errorf("expected web_site to be valid with default values and its effective definition, got %+v", state)
+	}
+	if definition := configDefinition("core_api"); definition == nil {
+		t.Error("expected the effective definition of the endpoint of the configuration file to be generated")
 	}
 	if state := Get("core_api"); state == nil || !state.InConflict() || state.Endpoint != nil {
 		t.Errorf("expected core_api to be in conflict with the configuration file, got %+v", state)

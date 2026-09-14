@@ -29,6 +29,11 @@ type State struct {
 
 	// Err is the validation error, when the managed endpoint is invalid
 	Err error
+
+	// Effective is the YAML definition of Endpoint with its default values, generated before the endpoint started being
+	// monitored. Monitored endpoints must not be serialized: copying their structs races with the watchdog (e.g. the
+	// HTTP client created lazily by the first evaluation).
+	Effective []byte
 }
 
 // InConflict returns whether the key of the managed endpoint is used by the configuration file
@@ -42,6 +47,10 @@ var (
 
 	// statesMutex serializes the changes of the snapshot
 	statesMutex sync.Mutex
+
+	// configDefinitions holds the effective YAML definitions of the endpoints of the configuration file, generated
+	// before they started being monitored (see State.Effective)
+	configDefinitions atomic.Pointer[map[string][]byte]
 )
 
 // Load reads the managed endpoints from the storage, validates them against cfg and publishes their state, replacing
@@ -52,6 +61,13 @@ var (
 func Load(cfg *config.Config) ([]string, error) {
 	statesMutex.Lock()
 	defer statesMutex.Unlock()
+	definitions := make(map[string][]byte, len(cfg.Endpoints))
+	for _, ep := range cfg.Endpoints {
+		if effective, err := Effective(ep); err == nil {
+			definitions[ep.Key()] = effective
+		}
+	}
+	configDefinitions.Store(&definitions)
 	managedEndpointStore, ok := store.GetManagedEndpointStore()
 	if !ok {
 		publish(map[string]*State{})
@@ -89,12 +105,16 @@ func newState(stored *common.ManagedEndpoint, cfg *config.Config, managedKeys, a
 	if err == nil && prepared.Endpoint.Key() != stored.Key {
 		err = fmt.Errorf("%w: the key of the definition (%s) does not match the stored key", ErrInvalidDefinition, prepared.Endpoint.Key())
 	}
+	var effective []byte
+	if err == nil {
+		effective, err = Effective(prepared.Endpoint)
+	}
 	if err != nil {
 		state.Err = err
 		logr.Errorf("[managedendpoint.Load] Managed endpoint with key=%s is not monitored because it is invalid: %s", stored.Key, err.Error())
 		return state
 	}
-	state.Endpoint = prepared.Endpoint
+	state.Endpoint, state.Effective = prepared.Endpoint, effective
 	watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
 	return state
 }
@@ -156,6 +176,14 @@ func Keys() []string {
 		keys = append(keys, state.Stored.Key)
 	}
 	return keys
+}
+
+// configDefinition returns the effective YAML definition of an endpoint of the configuration file, or nil
+func configDefinition(key string) []byte {
+	if definitions := configDefinitions.Load(); definitions != nil {
+		return (*definitions)[key]
+	}
+	return nil
 }
 
 func publish(snapshot map[string]*State) {
