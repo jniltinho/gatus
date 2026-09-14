@@ -37,7 +37,7 @@ Estado do código (master `7f3873d0`, após a v5.36.0), conferido na revisão de
 ## Decisions
 
 ### D1. Persistência no storage
-Tabela `managed_endpoints` com colunas explícitas por dialeto: `endpoint_key` único, `definition` (texto YAML), `version` (inteiro, começa em 1), `created_at`, `updated_at`, `updated_by`; sem chave estrangeira para `endpoints`. O `CREATE TABLE` retorna erro (ao contrário dos `ALTER` silenciosos existentes). Interface `ManagedEndpointStore` implementada pelo store SQL; violações de unicidade viram erro de conflito. A remoção apaga definição e dados da chave na mesma transação.
+Tabela `managed_endpoints` com colunas explícitas por dialeto: `endpoint_key` único, `definition` (texto YAML), `version` (inteiro, começa em 1), `created_at`, `updated_at`, `updated_by`; sem chave estrangeira para `endpoints`. A tabela é criada com `CREATE TABLE IF NOT EXISTS`, e um erro nesse comando interrompe a inicialização (ao contrário dos `ALTER` silenciosos existentes). Interface `ManagedEndpointStore` implementada pelo store SQL; violações de unicidade viram erro de conflito. A remoção apaga definição e dados da chave na mesma transação.
 
 Alternativas: reescrever o YAML (perde comentários e `${VAR}`, falha com arquivo somente leitura e dispara o hot-reload global); arquivo JSON separado (mais um estado em disco).
 
@@ -61,10 +61,10 @@ Sem expansão de env porque a API é acessada pela web e `${VAR}` permitiria env
 ### D4. Ciclo de vida por endpoint no watchdog
 Registro em arquivo novo do `watchdog`, com entrada por chave contendo origem (`config`/`admin`), contexto próprio, função de cancelamento e canal `done`:
 - `executeEndpoint` recebe o contexto do endpoint: usa-o no `Acquire` do semáforo e confere `ctx.Err()` depois de `EvaluateHealth()`, antes de métricas, store e alertas. Resultado de execução cancelada é descartado.
-- `StopEndpoint` cancela, chama `ep.Close()` e espera `done` por até `client.timeout` + 5 s; mesmo que o prazo estoure, a checagem de `ctx.Err()` impede gravações posteriores.
+- `StopEndpoint` cancela, espera `done` por até `client.timeout` + 5 s e só então chama `ep.Close()` (fechar as conexões enquanto a execução cria o client HTTP sob demanda é uma data race). Mesmo que o prazo estoure, a checagem de `ctx.Err()` impede gravações posteriores. A verificação em andamento não é interrompida, porque o client HTTP não recebe contexto: ela termina no próprio timeout e o resultado é descartado.
 - `RestartEndpoint` = `StopEndpoint` síncrono + `StartEndpoint` com o objeto novo.
-- O registro tem estado `closed` depois de `Shutdown`; `StartEndpoint` falha nesse estado.
-- `Monitor` inicia pelo registro e, antes de cada partida, confere se a entrada desejada ainda existe e na mesma versão.
+- O registro tem estado `closed` depois de `Shutdown`; `StartEndpoint` falha nesse estado. `Shutdown` espera as goroutines do registro por até 5 s, para que execuções antigas não usem o estado do ciclo seguinte.
+- `Monitor` inicia os endpoints pelo registro. Como as escritas da administração ficam bloqueadas durante todo o ciclo (D6), não há alteração concorrente a conferir durante a partida.
 - Operações de parada só atuam em entradas da origem pedida (um gerenciado em conflito nunca para o endpoint do YAML).
 
 Alternativa: disparar o hot-reload completo a cada alteração. Rejeitada por derrubar HTTP e todo o monitoramento.
@@ -78,7 +78,7 @@ Alternativa: mutex dentro de `config.Config` e gerenciados em `cfg.Endpoints`. R
 - Com storage SQL, `initializeStorage` sempre lê `managed_endpoints`, **independentemente de `admin.enabled`**: valida cada definição contra a configuração carregada, monitora as válidas e preserva as chaves de todas na limpeza. Com `admin` desligado, os gerenciados continuam monitorados; só a API e as telas ficam indisponíveis.
 - Conflito de chave com o YAML: o YAML prevalece; o gerenciado fica marcado como em conflito e não é monitorado. Remover um gerenciado em conflito apaga só a definição. Se o YAML deixar de definir a chave, o gerenciado volta a ser monitorado herdando o histórico da chave (comportamento documentado).
 - Um serviço de administração com mutex serializa validar → gravar → aplicar.
-- Um lock de ciclo de vida é mantido em modo exclusivo pelo hot-reload de `stop` até `start` e pela carga inicial; as escritas da administração pegam o modo compartilhado sem esperar e respondem 503 se o ciclo estiver em andamento.
+- Um lock de ciclo de vida (pacote `lifecycle`) é mantido em modo exclusivo da carga inicial até o fim do `Monitor` e, no hot-reload, de antes do `stop` até o fim do `Monitor` seguinte. As escritas da administração tentam o modo compartilhado **antes** de validar ou gravar qualquer coisa e respondem 503 se não conseguirem, então um 503 nunca deixa nada gravado. Isso inclui a partida inicial: escritas feitas enquanto o `Monitor` ainda inicia endpoints recebem 503.
 - `parseAndValidateConfigBytes` valida os pré-requisitos do `admin` e só então dispensa endpoints ou suites quando `admin.enabled` é verdadeiro.
 
 ### D7. Labels Prometheus congeladas por ciclo
@@ -89,14 +89,14 @@ Pacote `config/admin` (`enabled`, `allowed-subjects`, `allowed-origins`). Pré-r
 - com OIDC (que tem prioridade sobre basic, como hoje), o `subject` da sessão (claim `sub`) precisa estar em `admin.allowed-subjects`, com comparação sem diferenciar maiúsculas; aviso no log se um subject do admin não estiver em `security.oidc.allowed-subjects` quando essa lista existir;
 - só com basic, o usuário basic é administrador; o autor vem de `Locals`.
 
-`GET /api/v1/config` passa a devolver `admin: {enabled, authorized}`. Com basic, a rota não recebe credenciais, então o frontend mostra o link quando `enabled` e a API pede autenticação. O 401 do middleware de autenticação mantém o formato atual (texto).
+`GET /api/v1/config` passa a devolver `admin: {enabled, authorized}`. Com apenas basic, a rota não recebe credenciais, mas o único usuário basic é sempre administrador, então `authorized` é `true` sempre que `enabled`; o frontend usa `enabled && authorized` em todos os casos, e a API pede as credenciais. O 401 do middleware de autenticação mantém o formato atual (texto).
 
 Alternativa: credenciais separadas de admin no basic. Rejeitada porque o navegador guarda um único par basic por origem.
 
 ### D9. CSRF
 O vetor principal é o basic (o navegador reenvia credenciais em requisições de outros sites); o cookie OIDC já é `SameSite=Strict`. Para `POST`, `PUT` e `DELETE`:
 - `Sec-Fetch-Site: cross-site` → 403;
-- `Origin` (ou `Referer`, se não houver `Origin`) precisa casar com `admin.allowed-origins`, se definido, ou com a origem derivada de `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-Port` e `Host`; caso contrário, 403;
+- `Origin` (ou `Referer`, se não houver `Origin`) precisa casar com `admin.allowed-origins`, se definido, ou com a origem derivada do header `Host` e do esquema (TLS da conexão ou `X-Forwarded-Proto`); caso contrário, 403. `X-Forwarded-Host` e `X-Forwarded-Port` não são usados, nem os helpers `Hostname()`/`Protocol()` do Fiber, que confiam em qualquer `X-Forwarded-*` porque `EnableTrustedProxyCheck` está desligado. Páginas não conseguem definir `Host`, `Origin` nem `Sec-Fetch-*`, e um header como `X-Forwarded-Proto` numa requisição vinda de outro site exige preflight de CORS, que o Gatus não autoriza; por isso a derivação é segura contra CSRF. Atrás de proxy que publique uma porta diferente da repassada no `Host`, use `admin.allowed-origins`;
 - requisições sem `Origin` e sem `Referer` são aceitas (clientes que não são navegador);
 - requisições com corpo exigem um dos tipos de mídia de D2, senão 415;
 - com `ENVIRONMENT=dev`, `http://localhost:8081` é aceito (servidor de desenvolvimento do Vue).
@@ -105,11 +105,11 @@ O vetor principal é o basic (o navegador reenvia credenciais em requisições d
 - **Concorrência otimista:** `GET` devolve `ETag` com a versão; `PUT`, `DELETE`, `enable` e `disable` exigem `If-Match` (428 sem ele, 412 com versão antiga).
 - **Alteração:** validar → gravar (versão + 1) → `RestartEndpoint`. O bloco de restauração de alertas disparados de `initializeStorage` é extraído para uma função reutilizável e aplicado ao objeto novo, preservando `Triggered`, `ResolveKey` e contadores dos alertas cujo checksum não mudou; os demais são limpos pela rotina existente.
 - **Remoção:** `StopEndpoint` → transação que apaga definição, status, resultados, eventos e alertas disparados → invalidação do `writeThroughCache` da chave e do cache de status da API → remoção das séries Prometheus. Nenhum resolve é enviado aos provedores; a resposta informa quantos alertas estavam disparados, e a tela avisa antes de confirmar.
-- **Falha ao aplicar:** se a gravação der certo e a partida falhar (ex.: ciclo encerrando), a API responde 503 e o endpoint entra no próximo ciclo.
+- **Falha ao aplicar:** a transação no banco só é confirmada depois de aplicar a mudança no watchdog. Com o lock de ciclo obtido antes de gravar (D6), o registro não pode ser fechado durante a escrita; se ainda assim a aplicação falhar, a transação é desfeita e a API responde 500.
 - **Chave imutável:** qualquer mudança no texto de `name` ou `group` é rejeitada. O servidor aplica `url.PathUnescape` à chave, e o frontend usa `encodeURIComponent`.
 
 ### D11. Segredos mascarados
-Toda resposta com definição (origem `config` ou `admin`) substitui por `********`: valores de headers cujo nome contém `authorization`, `cookie`, `token`, `secret`, `password` ou `key` (sem diferenciar maiúsculas); a senha do userinfo da URL; `client.oauth2.client-secret`; `ssh.password`; `ssh.private-key`; e os valores de `alerts[].provider-override`. Em `PUT` e `validate`, um valor igual à máscara mantém o valor armazenado. Os logs de auditoria nunca incluem esses valores.
+Toda resposta com definição (origem `config` ou `admin`) substitui por `********`: valores de headers cujo nome contém `authorization`, `cookie`, `token`, `secret`, `password` ou `key` (sem diferenciar maiúsculas); a senha do userinfo da URL; os valores de parâmetros de query da URL cujo nome contém `token`, `secret`, `password`, `key` ou `authorization`; `client.oauth2.client-secret`; `ssh.password`; `ssh.private-key`; e os valores de `alerts[].provider-override`. Em `PUT` e `validate`, um valor igual à máscara mantém o valor armazenado. Os logs de auditoria nunca incluem esses valores.
 
 ### D12. Teste de endpoint com limites
 `POST /test` valida e executa `EvaluateHealth()` numa cópia, fora do watchdog, sem gravar, alertar ou publicar métricas; timeout de `min(client.timeout, 10 s)`; no máximo 2 testes simultâneos (429 além disso); `CloseIdleConnections` ao final; valores resolvidos das condições truncados em 512 caracteres. Rotas admin limitadas a 256 KB de corpo (413).
@@ -153,10 +153,19 @@ As perguntas levantadas na revisão foram decididas assim (podem ser revistas pe
 8. Indicadores circulares continuam redondos; sufixo `-fork.N` mantido com a ordenação documentada.
 9. `v5.36.0-fork.1` é publicado ao fim do marco 1, antes do admin.
 
+### Ajustes após a validação do grok
+1. O lock de ciclo é obtido antes de validar ou gravar: 503 nunca deixa nada gravado; falha ao aplicar desfaz a transação e responde 500 (D6, D10).
+2. A origem derivada para CSRF usa só `Host` e o esquema, sem `X-Forwarded-Host`/`X-Forwarded-Port` (D9).
+3. Com apenas basic, `authorized` é `true` sempre que o admin está habilitado (D8).
+4. Escritas durante a partida inicial recebem 503; o `Monitor` não precisa conferir alterações concorrentes (D4, D6).
+5. Parâmetros de query sensíveis na URL também são mascarados (D11).
+6. `CREATE TABLE IF NOT EXISTS`, falhando só em erro real (D1).
+
 ## Risks / Trade-offs
 
 - [Divergência do upstream] → código novo em arquivos novos; alterações mínimas em `main.go`, `watchdog/endpoint.go`, `api/api.go`, `metrics/metrics.go` e `storage/store/sql`; procedimento de sincronização em `AGENTS.fork.md`.
-- [Execução lenta atrasa `StopEndpoint`] → espera limitada a `client.timeout` + 5 s e descarte por `ctx.Err()`.
+- [Execução lenta atrasa `StopEndpoint`] a verificação em andamento não é interrompida → espera limitada a `client.timeout` + 5 s e descarte por `ctx.Err()`; interromper a requisição exigiria um client HTTP com contexto, fora do escopo.
+- [`Shutdown` mais lento] espera de até 5 s pelas goroutines do registro no desligamento e no hot-reload → evita que execuções antigas usem o estado do ciclo seguinte.
 - [Data race em estruturas compartilhadas] → objetos imutáveis, registro copy-on-write e `-race` no CI.
 - [Várias instâncias no mesmo PostgreSQL] uma instância pode recriar a linha de um endpoint removido em outra e continuar alertando → documentado; aviso no log na partida quando o storage é PostgreSQL e `admin` está ativo.
 - [Segredos no banco] ficam em texto, como no YAML → mascarados na API, fora dos logs; proteger backups.

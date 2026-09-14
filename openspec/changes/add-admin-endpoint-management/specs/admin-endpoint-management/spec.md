@@ -86,7 +86,7 @@ O sistema MUST expor as operações abaixo, respondendo em JSON com erros no for
 - `POST /api/v1/admin/endpoints/test`: valida e executa uma verificação única;
 - `GET /api/v1/admin/metadata`: tipos de alerta configurados, túneis disponíveis e labels Prometheus permitidas.
 
-Operações que alteram um endpoint existente MUST exigir `If-Match` com a versão atual, respondendo 428 sem o header e 412 com versão diferente. Corpos acima de 256 KB MUST ser rejeitados com 413. Enquanto um ciclo de partida ou recarga estiver em andamento, as escritas MUST responder 503.
+Operações que alteram um endpoint existente MUST exigir `If-Match` com a versão atual, respondendo 428 sem o header e 412 com versão diferente. Corpos acima de 256 KB MUST ser rejeitados com 413. Enquanto um ciclo de partida ou recarga estiver em andamento (incluindo a partida inicial dos endpoints), as escritas MUST responder 503 sem validar nem gravar nada.
 
 #### Scenario: Listagem indica a origem
 - **WHEN** o YAML define 2 endpoints e existe 1 endpoint gerenciado
@@ -111,11 +111,15 @@ Operações que alteram um endpoint existente MUST exigir `If-Match` com a vers�
 - **THEN** a API responde 503 e nada é persistido
 
 ### Requirement: Segredos mascarados
-Toda resposta que contenha definições de endpoints MUST substituir por `********`: valores de headers cujo nome contenha `authorization`, `cookie`, `token`, `secret`, `password` ou `key` (sem diferenciar maiúsculas), a senha do userinfo da URL, `client.oauth2.client-secret`, `ssh.password`, `ssh.private-key` e os valores de `alerts[].provider-override`. Em `PUT` e `validate`, um valor igual à máscara MUST manter o valor armazenado.
+Toda resposta que contenha definições de endpoints MUST substituir por `********`: valores de headers cujo nome contenha `authorization`, `cookie`, `token`, `secret`, `password` ou `key` (sem diferenciar maiúsculas), a senha do userinfo da URL, os valores de parâmetros de query da URL cujo nome contenha `token`, `secret`, `password`, `key` ou `authorization`, `client.oauth2.client-secret`, `ssh.password`, `ssh.private-key` e os valores de `alerts[].provider-override`. Em `PUT` e `validate`, um valor igual à máscara MUST manter o valor armazenado.
 
 #### Scenario: Header sensível mascarado
 - **WHEN** um endpoint gerenciado tem o header `Authorization: Bearer abc123` e um administrador o consulta
 - **THEN** a resposta mostra `Authorization: ********`
+
+#### Scenario: Token na query string
+- **WHEN** um endpoint gerenciado tem a URL `https://api.exemplo.com/health?api_key=abc123` e um administrador o consulta
+- **THEN** a resposta mostra a URL com `api_key=********`
 
 #### Scenario: Máscara reenviada mantém o valor
 - **WHEN** um administrador altera a URL de um endpoint reenviando `Authorization: ********`
@@ -231,8 +235,17 @@ Com `admin.enabled: true`, o sistema MUST validar os pré-requisitos da administ
 - **AND** um administrador consegue criar o primeiro endpoint
 
 ### Requirement: Escritas serializadas com a partida
-As escritas da administração MUST ser serializadas entre si e com a partida do monitoramento, de forma que um endpoint removido ou alterado durante a partida inicial não seja iniciado com a definição antiga.
+As escritas da administração MUST ser serializadas entre si, e MUST ser recusadas com 503, sem nenhuma gravação, enquanto a partida do monitoramento ou uma recarga estiver em andamento.
 
 #### Scenario: Remoção durante a partida
-- **WHEN** um administrador remove um endpoint gerenciado enquanto o monitoramento inicial ainda está iniciando os endpoints
-- **THEN** o endpoint removido não é iniciado
+- **WHEN** um administrador tenta remover um endpoint gerenciado enquanto o monitoramento inicial ainda está iniciando os endpoints
+- **THEN** a API responde 503
+- **AND** o endpoint continua armazenado e é iniciado normalmente
+
+### Requirement: Gravação confirmada só após aplicar
+Uma escrita da administração MUST ser confirmada no banco apenas depois de aplicada no monitoramento. Se a aplicação falhar, a API MUST responder 500 e o banco MUST permanecer como estava antes da requisição.
+
+#### Scenario: Falha ao aplicar
+- **WHEN** a gravação de uma alteração é feita, mas aplicá-la no monitoramento falha
+- **THEN** a API responde 500
+- **AND** a definição armazenada continua sendo a anterior

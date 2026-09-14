@@ -45,7 +45,7 @@ Toda requisição a `/api/v1/admin/*` MUST exigir autenticação e autorização
 ### Requirement: Proteção contra CSRF
 Para requisições `POST`, `PUT` e `DELETE` a `/api/v1/admin/*`, o sistema MUST:
 - rejeitar com 403 requisições com `Sec-Fetch-Site: cross-site`;
-- rejeitar com 403 requisições cujo `Origin` (ou `Referer`, na falta de `Origin`) não case com `admin.allowed-origins`, quando definido, ou com a origem derivada de `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-Port` e `Host`;
+- rejeitar com 403 requisições cujo `Origin` (ou `Referer`, na falta de `Origin`) não case com `admin.allowed-origins`, quando definido, ou com a origem derivada do header `Host` e do esquema (TLS da conexão ou `X-Forwarded-Proto`), sem considerar `X-Forwarded-Host` nem `X-Forwarded-Port`;
 - aceitar requisições sem `Origin` e sem `Referer`;
 - rejeitar com 415 requisições com corpo cujo tipo de mídia não seja `application/json`, `application/yaml`, `application/x-yaml` ou `text/yaml`, aceitando parâmetros como `charset`;
 - aceitar a origem `http://localhost:8081` quando `ENVIRONMENT=dev`.
@@ -71,6 +71,10 @@ Para requisições `POST`, `PUT` e `DELETE` a `/api/v1/admin/*`, o sistema MUST:
 - **WHEN** o proxy envia `Host: status.exemplo.com` e `X-Forwarded-Proto: https`, e o navegador envia `Origin: https://status.exemplo.com`
 - **THEN** a requisição é aceita
 
+#### Scenario: X-Forwarded-Host ignorado
+- **WHEN** chega uma requisição com `Host: status.exemplo.com`, `X-Forwarded-Host: site-malicioso.exemplo` e `Origin: https://site-malicioso.exemplo`
+- **THEN** a API responde 403
+
 #### Scenario: Porta não padrão com origem configurada
 - **WHEN** `admin.allowed-origins` contém `https://status.exemplo.com:8443` e o navegador envia essa origem
 - **THEN** a requisição é aceita
@@ -88,8 +92,12 @@ Toda criação, alteração, remoção, habilitação e desabilitação de endpo
 - **AND** a linha não contém valores de headers do endpoint
 
 ### Requirement: Estado de administração exposto ao frontend
-`GET /api/v1/config` MUST incluir o objeto `admin` com `enabled` e `authorized`, onde `authorized` indica se a requisição atual pode usar a administração. Com apenas `security.basic`, o frontend MUST mostrar o link de administração sempre que `enabled` for verdadeiro, deixando a autenticação para a API.
+`GET /api/v1/config` MUST incluir o objeto `admin` com `enabled` e `authorized`, onde `authorized` indica se a requisição atual pode usar a administração. Com apenas `security.basic`, `authorized` MUST ser `true` sempre que `enabled` for verdadeiro, pois o único usuário basic é administrador; a autenticação fica a cargo da API.
 
 #### Scenario: Usuário OIDC sem permissão
 - **WHEN** um usuário com subject fora de `admin.allowed-subjects` consulta `GET /api/v1/config`
 - **THEN** a resposta contém `"admin": {"enabled": true, "authorized": false}`
+
+#### Scenario: Apenas basic auth
+- **WHEN** a configuração usa apenas `security.basic`, com `admin.enabled: true`, e `GET /api/v1/config` é consultado sem credenciais
+- **THEN** a resposta contém `"admin": {"enabled": true, "authorized": true}`
