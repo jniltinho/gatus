@@ -12,6 +12,7 @@ import (
 	"gatus/v5/lifecycle"
 	"gatus/v5/managedendpoint"
 	"gatus/v5/metrics"
+	"gatus/v5/statuspage"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
 	"github.com/TwiN/logr"
@@ -143,6 +144,8 @@ func initializeStorage(cfg *config.Config) {
 	} else if numberOfEndpointStatusesDeleted := store.Get().DeleteAllEndpointStatusesNotInKeys(keys); numberOfEndpointStatusesDeleted > 0 {
 		logr.Infof("[main.initializeStorage] Deleted %d endpoint statuses because their matching endpoints no longer existed", numberOfEndpointStatusesDeleted)
 	}
+	// Public status pages, after the managed endpoints that they can select
+	statuspage.Load(cfg)
 	// Clean up the triggered alerts from the storage provider and load valid triggered endpoint alerts
 	numberOfPersistedTriggeredAlertsLoaded := 0
 	for _, ep := range cfg.Endpoints {
