@@ -120,4 +120,5 @@ jobs:
           go-version-file: go.mod
 
       - name: Test
-        run: go test ./storage/... ./statuspage/... ./managedendpoint/... ./config/... -race
+        # Only the packages that use the storage: ./config/... would include the ICMP tests, which require sudo
+        run: go test ./storage/... ./statuspage/... ./managedendpoint/... ./config -race
