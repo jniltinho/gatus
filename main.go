@@ -228,21 +228,14 @@ func listenToConfigurationFileChanges(cfg *config.Config) {
 		time.Sleep(30 * time.Second)
 		if cfg.HasLoadedConfigurationBeenModified() {
 			logr.Info("[main.listenToConfigurationFileChanges] Configuration file has been modified")
+			// The new configuration is validated before anything is stopped (see main_reload.go)
+			updatedConfig, ok := loadUpdatedConfiguration(cfg, loadConfiguration)
+			if !ok {
+				continue
+			}
 			stop(cfg)
 			time.Sleep(time.Second) // Wait a bit to make sure everything is done.
 			save()
-			updatedConfig, err := loadConfiguration()
-			if err != nil {
-				if cfg.SkipInvalidConfigUpdate {
-					logr.Errorf("[main.listenToConfigurationFileChanges] Failed to load new configuration: %s", err.Error())
-					logr.Error("[main.listenToConfigurationFileChanges] The configuration file was updated, but it is not valid. The old configuration will continue being used.")
-					// Update the last file modification time to avoid trying to process the same invalid configuration again
-					cfg.UpdateLastFileModTime()
-					continue
-				} else {
-					panic(err)
-				}
-			}
 			store.Get().Close()
 			initializeStorage(updatedConfig)
 			start(updatedConfig)

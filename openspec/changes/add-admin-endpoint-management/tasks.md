@@ -23,7 +23,7 @@
 
 ## 3. Marco 3 — Fundação: hot-reload, watchdog e métricas
 
-- [ ] 3.1 Hot-reload: carregar e validar o YAML novo antes de `stop()`; com `skip-invalid-config-update: true`, manter tudo rodando se for inválido; testes
+- [x] 3.1 Hot-reload: carregar e validar o YAML novo antes de `stop()`; com `skip-invalid-config-update: true`, manter tudo rodando se for inválido; testes
 - [ ] 3.2 Registro por endpoint no `watchdog` (origem, contexto, cancelamento, `done`, estado `closed`) com `StartEndpoint`, `StopEndpoint` e `RestartEndpoint`; `Monitor` e `Shutdown` sobre o registro sem mudar o comportamento para o YAML
 - [ ] 3.3 `executeEndpoint` com o contexto do endpoint no semáforo e descarte de resultados após cancelamento (sem métricas, store ou alertas)
 - [ ] 3.4 `metrics`: expor a lista de labels registrada no ciclo e usá-la no watchdog e em `api/external_endpoint.go`; função para apagar as séries de uma chave com `DeletePartialMatch`
