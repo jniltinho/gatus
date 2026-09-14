@@ -11,41 +11,83 @@ import (
 // given keys. Like GetUptimeByKey, the hour in which each period starts is fully counted.
 func (s *Store) GetUptimesByKeys(keys []string, now time.Time) (map[string]*common.EndpointUptimes, error) {
 	uptimes := make(map[string]*common.EndpointUptimes, len(keys))
+	s.RLock()
+	defer s.RUnlock()
+	for _, key := range keys {
+		endpointStatus, ok := s.endpointCache.GetValue(key).(*endpoint.Status)
+		if !ok {
+			continue
+		}
+		if endpointUptimes := uptimesOf(endpointStatus, now); endpointUptimes != nil {
+			uptimes[key] = endpointUptimes
+		}
+	}
+	return uptimes, nil
+}
+
+// GetEndpointSummaries returns the latest maximumResults results and the uptimes of the endpoints with the given keys
+func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time.Time) (map[string]*common.EndpointSummary, error) {
+	summaries := make(map[string]*common.EndpointSummary, len(keys))
+	s.RLock()
+	defer s.RUnlock()
+	for _, key := range keys {
+		if _, done := summaries[key]; done {
+			continue
+		}
+		endpointStatus, ok := s.endpointCache.GetValue(key).(*endpoint.Status)
+		if !ok {
+			continue
+		}
+		results := endpointStatus.Results
+		if maximumResults <= 0 {
+			results = nil
+		} else if len(results) > maximumResults {
+			results = results[len(results)-maximumResults:]
+		}
+		summary := &common.EndpointSummary{Results: make([]common.ResultSummary, 0, len(results))}
+		for _, result := range results {
+			summary.Results = append(summary.Results, common.ResultSummary{Timestamp: result.Timestamp, Success: result.Success, Duration: result.Duration})
+		}
+		if endpointUptimes := uptimesOf(endpointStatus, now); endpointUptimes != nil {
+			summary.Uptimes = *endpointUptimes
+		}
+		summaries[key] = summary
+	}
+	return summaries, nil
+}
+
+// uptimesOf returns the uptimes of an endpoint status, or nil if it has no execution in the last 30 days. The store
+// must be locked.
+func uptimesOf(endpointStatus *endpoint.Status, now time.Time) *common.EndpointUptimes {
+	if endpointStatus.Uptime == nil {
+		return nil
+	}
 	periodStarts := [3]int64{
 		now.Add(-24 * time.Hour).Truncate(time.Hour).Unix(),
 		now.Add(-7 * 24 * time.Hour).Truncate(time.Hour).Unix(),
 		now.Add(-30 * 24 * time.Hour).Truncate(time.Hour).Unix(),
 	}
 	end := now.Unix()
-	s.RLock()
-	defer s.RUnlock()
-	for _, key := range keys {
-		endpointStatus, ok := s.endpointCache.GetValue(key).(*endpoint.Status)
-		if !ok || endpointStatus.Uptime == nil {
+	var totalExecutions, successfulExecutions [3]uint64
+	for hourlyUnixTimestamp, hourlyStats := range endpointStatus.Uptime.HourlyStatistics {
+		if hourlyStats == nil || hourlyUnixTimestamp > end {
 			continue
 		}
-		var totalExecutions, successfulExecutions [3]uint64
-		for hourlyUnixTimestamp, hourlyStats := range endpointStatus.Uptime.HourlyStatistics {
-			if hourlyStats == nil || hourlyUnixTimestamp > end {
-				continue
+		for i, periodStart := range periodStarts {
+			if hourlyUnixTimestamp >= periodStart {
+				totalExecutions[i] += hourlyStats.TotalExecutions
+				successfulExecutions[i] += hourlyStats.SuccessfulExecutions
 			}
-			for i, periodStart := range periodStarts {
-				if hourlyUnixTimestamp >= periodStart {
-					totalExecutions[i] += hourlyStats.TotalExecutions
-					successfulExecutions[i] += hourlyStats.SuccessfulExecutions
-				}
-			}
-		}
-		if totalExecutions[2] == 0 {
-			continue
-		}
-		uptimes[key] = &common.EndpointUptimes{
-			Last24Hours: uptimeRatio(successfulExecutions[0], totalExecutions[0]),
-			Last7Days:   uptimeRatio(successfulExecutions[1], totalExecutions[1]),
-			Last30Days:  uptimeRatio(successfulExecutions[2], totalExecutions[2]),
 		}
 	}
-	return uptimes, nil
+	if totalExecutions[2] == 0 {
+		return nil
+	}
+	return &common.EndpointUptimes{
+		Last24Hours: uptimeRatio(successfulExecutions[0], totalExecutions[0]),
+		Last7Days:   uptimeRatio(successfulExecutions[1], totalExecutions[1]),
+		Last30Days:  uptimeRatio(successfulExecutions[2], totalExecutions[2]),
+	}
 }
 
 func uptimeRatio(successfulExecutions, totalExecutions uint64) *float64 {

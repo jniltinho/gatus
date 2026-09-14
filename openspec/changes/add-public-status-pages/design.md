@@ -275,16 +275,17 @@ Alternativa: incluir a chave para ligar a página aos badges. Rejeitada pelo pri
   GetEndpointSummaries(keys []string, maximumResults int, now time.Time) (map[string]*common.EndpointSummary, error)
   ```
   com `common.EndpointSummary{Results []common.ResultSummary, Uptimes common.EndpointUptimes}` e `common.ResultSummary{Timestamp time.Time, Success bool, Duration time.Duration}`. Chaves sem registro ficam fora do mapa (→ `unknown`); qualquer outro erro é devolvido. A presença no mapa é decidida pela existência do endpoint no store (status ou resultados), nunca pelo uptime: um endpoint com resultados e sem execuções no período vem com uptimes `nil`. (`GetUptimesByKeys` omite chaves sem execuções em 30 dias; `GetEndpointSummaries` não pode herdar essa regra.)
-- **SQL:** uma transação de leitura por montagem, com duas consultas:
+- **SQL:** uma transação de leitura por montagem (sempre desfeita com `Rollback`, nada é gravado), com três consultas:
+  - ids das chaves existentes em `endpoints`, que decidem a presença no mapa;
   - resultados, só com `success`, `duration` e `timestamp`, por `ROW_NUMBER() OVER (PARTITION BY endpoint_id ORDER BY endpoint_result_id DESC)` com `rn <= maximumResults` e `endpoint_key IN (...)` (window functions existem no SQLite embutido do `modernc.org/sqlite` e no PostgreSQL);
   - uptime, a mesma consulta `SUM(CASE ...)` de `GetUptimesByKeys`, extraída para um helper que recebe a transação.
-- **Memória:** sob `RLock`, copia os últimos resultados resumidos e soma `HourlyStatistics` (reaproveita `GetUptimesByKeys`).
+- **Memória:** sob um único `RLock`, copia os últimos resultados resumidos e soma `HourlyStatistics` pelo helper `uptimesOf`, compartilhado com `GetUptimesByKeys` (sem `RLock` recursivo).
 - `EndpointUptimeBatchReader` continua (já implementado) e é usado nos testes que comparam com `GetUptimeByKey` **no mesmo store**, com as mesmas bordas (`>= now-Δ` e `<= now` no SQL; hora truncada na memória).
 - 200 chaves ficam abaixo do limite de parâmetros do SQLite e do PostgreSQL.
 - A pré-visualização da administração usa um semáforo próprio de 1 vaga, com o mesmo timeout e sem cache, para não tirar vagas da página pública.
 
 **Custo e cabeçalhos:**
-- No máximo uma montagem por revisão de página a cada 30 s, qualquer que seja o número de visitantes; duas consultas por montagem no SQL.
+- No máximo uma montagem por revisão de página a cada 30 s, qualquer que seja o número de visitantes; três consultas numa transação por montagem no SQL.
 - Com página publicada: `Cache-Control: no-cache`. O cache é do servidor; um cache HTTP no navegador ou num proxy não pode manter no ar, por até 30 s, uma página que acabou de ser desabilitada.
 - Em 404, 429 e 503: `Cache-Control: no-store`.
 
@@ -500,7 +501,7 @@ Relatório: 23 achados (1 crítico, 4 altos, 12 médios e 6 baixos). O que mudou
 | 2 (alto) 401 fora do handler | D5: catch-all sempre registrado; rotas de frontend com regex e catch-all público; validação e `encodeURIComponent` na view |
 | 3 (alto) Publicar antes do commit | D9: publicação depois do commit; D4 e D7: revisão em memória no lugar da versão do banco |
 | 4 (alto) `singleflight` só por slug | D7: captura única e chave `slug|revisão|geração` |
-| 5 (alto) Custo real no SQL | D7: `EndpointSummaryBatchReader` com uma transação e duas consultas; menção ao `writeThroughCache` removida; preview no semáforo |
+| 5 (alto) Custo real no SQL | D7: `EndpointSummaryBatchReader` com uma transação e três consultas; menção ao `writeThroughCache` removida; preview no semáforo |
 | 6 (médio) Uptime `null` na memória | Leitor em lote na memória (já implementado); D6 documenta as bordas diárias; testes no mesmo store |
 | 7 (médio) Erros engolidos | D6: ausência → `unknown`, outros erros → 503; D7: cache negativo de 5 s |
 | 8 (médio) `limiter` do Fiber | D8: limitador próprio sem goroutine, com teto, /64 e só `Retry-After`; D14 define os cabeçalhos comparados |
