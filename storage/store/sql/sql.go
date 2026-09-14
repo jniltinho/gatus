@@ -116,7 +116,11 @@ func (s *Store) createSchema() error {
 		return err
 	}
 	// Endpoints managed through the administration API (see managed_endpoints.go)
-	return s.createManagedEndpointsSchema()
+	if err = s.createManagedEndpointsSchema(); err != nil {
+		return err
+	}
+	// Public status pages managed through the administration API (see managed_status_pages.go)
+	return s.createManagedStatusPagesSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status
