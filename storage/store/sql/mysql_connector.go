@@ -59,6 +59,12 @@ func (connector *mysqlConnector) Connect(ctx context.Context) (driver.Conn, erro
 		_ = conn.Close()
 		return nil, errMySQLConnUnsupported
 	}
+	// READ COMMITTED, the default of PostgreSQL: with the REPEATABLE READ default of InnoDB, the gap locks taken by the
+	// concurrent insertions of results of different endpoints deadlock each other
+	if _, err := inner.ExecContext(ctx, "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED", nil); err != nil {
+		_ = inner.Close()
+		return nil, err
+	}
 	return &mysqlConn{inner: inner}, nil
 }
 

@@ -2,6 +2,8 @@ package sql
 
 import (
 	"errors"
+	"math/rand/v2"
+	"time"
 
 	"gatus/v5/config/endpoint"
 	"gatus/v5/config/suite"
@@ -14,6 +16,16 @@ const (
 	mysqlErrorDuplicateEntry  = 1062
 	mysqlErrorLockWaitTimeout = 1205
 	mysqlErrorDeadlock        = 1213
+)
+
+const (
+	// mysqlMaximumAttempts is the number of attempts of an insertion of results that fails with a deadlock or a lock wait
+	// timeout
+	mysqlMaximumAttempts = 3
+
+	// mysqlRetryDelay is the base of the delay between two attempts, multiplied by the number of attempts and increased by
+	// a random delay of up to mysqlRetryDelay, so that the transactions that deadlocked do not retry at the same time
+	mysqlRetryDelay = 20 * time.Millisecond
 )
 
 // SQL of the upstream queries that MySQL and MariaDB do not support as written for PostgreSQL and SQLite (fork). The
@@ -111,12 +123,15 @@ func (s *Store) InsertSuiteResult(su *suite.Suite, result *suite.Result) error {
 	})
 }
 
-// retryOnTransientMySQLError runs attempt, and runs it once more with MySQL and MariaDB when it fails with a deadlock or
-// a lock wait timeout. Each attempt is a whole transaction, fully rolled back when it fails.
+// retryOnTransientMySQLError runs attempt and, with MySQL and MariaDB, runs it again while it fails with a deadlock or a
+// lock wait timeout, up to mysqlMaximumAttempts attempts, waiting a growing and random delay between them. Each attempt
+// is a whole transaction, fully rolled back when it fails.
 func (s *Store) retryOnTransientMySQLError(operation string, attempt func() error) error {
 	err := attempt()
-	if s.driver == driverMySQL && isTransientMySQLError(err) {
-		logr.Warnf("[sql.%s] Retrying once after a transient MySQL error: %s", operation, err.Error())
+	for attempts := 1; attempts < mysqlMaximumAttempts && s.driver == driverMySQL && isTransientMySQLError(err); attempts++ {
+		delay := time.Duration(attempts)*mysqlRetryDelay + time.Duration(rand.Int64N(int64(mysqlRetryDelay)))
+		logr.Warnf("[sql.%s] Retrying in %s after a transient MySQL error (attempt %d of %d): %s", operation, delay, attempts+1, mysqlMaximumAttempts, err.Error())
+		time.Sleep(delay)
 		err = attempt()
 	}
 	return err

@@ -72,7 +72,7 @@ Com `mysql`, as operações do store MUST produzir os mesmos resultados observá
 - **THEN** os mesmos cenários passam nos quatro bancos
 
 ### Requirement: Transações com erro e retry
-Com `mysql`, qualquer comando que falhe dentro de uma transação MUST invalidar a transação: os comandos seguintes MUST falhar sem executar e o `Commit` MUST desfazer tudo e devolver o erro, como no PostgreSQL. A gravação de um resultado de endpoint e a de um resultado de suite MUST repetir a operação inteira uma única vez quando falharem por deadlock, espera de lock esgotada ou conflito no `COMMIT`, e MUST NOT repetir outros erros.
+Com `mysql`, qualquer comando que falhe dentro de uma transação MUST invalidar a transação: os comandos seguintes MUST falhar sem executar e o `Commit` MUST desfazer tudo e devolver o erro, como no PostgreSQL. As conexões MUST usar o isolamento `READ COMMITTED`, como o padrão do PostgreSQL. A gravação de um resultado de endpoint e a de um resultado de suite MUST repetir a operação inteira, até completar 3 tentativas, quando falharem por deadlock, espera de lock esgotada ou conflito no `COMMIT`, e MUST NOT repetir outros erros.
 
 #### Scenario: Falha no meio da gravação
 - **WHEN** um comando da gravação de um resultado falha depois de o resultado ter sido inserido na mesma transação

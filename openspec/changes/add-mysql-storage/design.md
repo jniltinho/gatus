@@ -165,16 +165,22 @@
 - **Alternativa:** coluna gerada com `SHA2(chave)` indexada, sem limite. Rejeitada por agora: mais esquema, e chaves de 768 caracteres não existem na prática; fica registrada se surgir demanda.
 
 ### D6. Transações, concorrência e retry
-- InnoDB usa `REPEATABLE READ` por padrão.
-  - As leituras em lote das status pages ganham um snapshot consistente dentro da transação de leitura.
-  - A escrita otimista das tabelas gerenciadas continua segura com `ClientFoundRows` (D1).
-- As inserções concorrentes do watchdog (padrão de 3 simultâneas) podem gerar deadlock (1213) entre a limpeza de excedentes, os upserts de uptime e as inserções de outro endpoint, por causa dos gap e next-key locks.
+- As inserções concorrentes do watchdog (padrão de 3 simultâneas) geram deadlock (1213) com o `REPEATABLE READ` padrão do InnoDB. Os gap e next-key locks da limpeza de excedentes, dos upserts de uptime e das inserções de endpoints diferentes se cruzam.
+  - No marco 3, com a carga de vários pacotes de teste ao mesmo tempo, o MariaDB deu deadlock duas vezes seguidas na mesma gravação.
+- **Isolamento `READ COMMITTED` em toda conexão,** o padrão do PostgreSQL (`SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED` ao conectar, sintaxe aceita nos dois bancos). Paridade com o PostgreSQL:
+  - o InnoDB deixa de pegar gap locks nas leituras com lock e nos `UPDATE`/`DELETE`, e os deadlocks entre endpoints diferentes somem;
+  - as leituras em lote das status pages ficam como no PostgreSQL, sem snapshot único entre as consultas da mesma transação;
+  - a escrita otimista das tabelas gerenciadas continua segura com `ClientFoundRows` (D1).
 - **Retry:**
-  - Só no dialeto MySQL, `InsertEndpointResult` e a inserção de resultado de suite repetem **a chamada inteira** uma única vez quando o erro final é deadlock (1213), lock wait timeout (1205) ou falha de certificação no `COMMIT` (1213 no Galera).
+  - Só no dialeto MySQL, `InsertEndpointResult` e `InsertSuiteResult` repetem **a chamada inteira**, até 3 tentativas, quando o erro final é deadlock (1213), lock wait timeout (1205) ou falha de certificação no `COMMIT` (1213 no Galera).
+  - A espera entre tentativas cresce e tem uma parte aleatória (20 ms × tentativa + até 20 ms), para as transações que travaram entre si não tentarem de novo ao mesmo tempo.
   - Como a transação envenenada faz o `Commit` devolver o erro (D2), o retry sempre enxerga a falha.
   - Nenhum outro erro é repetido.
 - **Teste de deadlock forçado:** duas transações travando linhas em ordem inversa, conferindo que nada foi gravado pela metade e que o retry grava tudo.
-- **Alternativa:** `READ COMMITTED`, com menos gap locks. Fica como ajuste se o teste de concorrência mostrar deadlocks frequentes. Se adotada, vai por `BeginTx` com `sql.TxOptions{Isolation: sql.LevelReadCommitted}`, nunca por variável de sessão (`transaction_isolation` só existe no MariaDB 11.1+).
+- **Alternativas:**
+  - Manter `REPEATABLE READ` só com o retry único: rejeitada depois do teste de concorrência sob carga, que perdeu uma gravação.
+  - Definir o isolamento por `BeginTx` em cada transação: exige mudar as chamadas do upstream e custa um comando a mais por transação.
+  - Variável de sessão `transaction_isolation` na DSN: só existe no MariaDB 11.1+, e o comando `SET SESSION TRANSACTION ISOLATION LEVEL` funciona nos dois bancos.
 
 ### D7. Administração, status pages e configuração
 - `config/config_admin.go`:
@@ -271,7 +277,7 @@
 ## Open Questions
 
 - **Galera e réplicas.** Clusters MariaDB Galera devolvem 1213 no `COMMIT` em conflito de certificação, e o retry de D6 cobre esse caso nas inserções de resultado. Falta validar em cluster real se as escritas da administração (sem retry, respondem erro ao usuário) precisam de tratamento. Hoje ficam sem garantia e sem teste.
-- **`READ COMMITTED`.** Resolvido no marco 2: o teste de concorrência (8 endpoints × 25 resultados com limite de 5 resultados) passou sem erro em MySQL 8.4 e MariaDB 10.11 com o `REPEATABLE READ` padrão, e o isolamento não muda.
+- **`READ COMMITTED`.** Resolvido no marco 3. O teste de concorrência (8 endpoints × 25 resultados com limite de 5) tinha passado no marco 2 com o `REPEATABLE READ` padrão, mas perdeu uma gravação no MariaDB com a carga de vários pacotes ao mesmo tempo. As conexões passam a usar `READ COMMITTED`, e o retry vai a até 3 tentativas (D6).
 
 ## Ajustes da revisão de QA
 

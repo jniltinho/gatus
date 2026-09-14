@@ -9,6 +9,10 @@ import (
 const (
 	DefaultMaximumNumberOfResults = 100
 	DefaultMaximumNumberOfEvents  = 50
+
+	// MySQLMaximumKeyLength is the maximum number of characters of an endpoint or suite key with the mysql storage: the
+	// longest VARCHAR that fits in an InnoDB index in utf8mb4 (3072 bytes)
+	MySQLMaximumKeyLength = 768
 )
 
 var (

@@ -10,6 +10,7 @@ import (
 
 func TestStore_RetryOnTransientMySQLError(t *testing.T) {
 	deadlock := fmt.Errorf("%w: %w", errTransactionAborted, &mysql.MySQLError{Number: mysqlErrorDeadlock, Message: "Deadlock found"})
+	lockWaitTimeout := &mysql.MySQLError{Number: mysqlErrorLockWaitTimeout}
 	scenarios := []struct {
 		name             string
 		driver           string
@@ -19,7 +20,8 @@ func TestStore_RetryOnTransientMySQLError(t *testing.T) {
 	}{
 		{name: "mysql-success", driver: driverMySQL, errors: []error{nil}, expectedAttempts: 1},
 		{name: "mysql-deadlock-then-success", driver: driverMySQL, errors: []error{deadlock, nil}, expectedAttempts: 2},
-		{name: "mysql-lock-wait-timeout-twice", driver: driverMySQL, errors: []error{&mysql.MySQLError{Number: mysqlErrorLockWaitTimeout}, &mysql.MySQLError{Number: mysqlErrorLockWaitTimeout}}, expectedAttempts: 2, expectedErr: &mysql.MySQLError{Number: mysqlErrorLockWaitTimeout}},
+		{name: "mysql-deadlock-twice-then-success", driver: driverMySQL, errors: []error{deadlock, lockWaitTimeout, nil}, expectedAttempts: 3},
+		{name: "mysql-lock-wait-timeout-on-every-attempt", driver: driverMySQL, errors: []error{lockWaitTimeout, lockWaitTimeout, lockWaitTimeout}, expectedAttempts: mysqlMaximumAttempts, expectedErr: lockWaitTimeout},
 		{name: "mysql-duplicate-entry", driver: driverMySQL, errors: []error{&mysql.MySQLError{Number: mysqlErrorDuplicateEntry}}, expectedAttempts: 1, expectedErr: &mysql.MySQLError{Number: mysqlErrorDuplicateEntry}},
 		{name: "mysql-other-error", driver: driverMySQL, errors: []error{errNoRowsReturned}, expectedAttempts: 1, expectedErr: errNoRowsReturned},
 		{name: "postgres-deadlock-is-not-retried", driver: "postgres", errors: []error{deadlock}, expectedAttempts: 1, expectedErr: deadlock},

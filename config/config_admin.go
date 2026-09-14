@@ -14,7 +14,7 @@ var (
 	ErrAdminRequiresSecurity = errors.New("admin requires security.basic or security.oidc to be configured")
 
 	// ErrAdminRequiresPersistentStorage is returned when the administration is enabled with the memory storage
-	ErrAdminRequiresPersistentStorage = errors.New("admin requires storage.type to be sqlite or postgres")
+	ErrAdminRequiresPersistentStorage = errors.New("admin requires storage.type to be sqlite, postgres or mysql")
 
 	// ErrAdminRequiresAllowedSubjects is returned when the administration is enabled with OIDC and no allowed subject
 	ErrAdminRequiresAllowedSubjects = errors.New("admin.allowed-subjects is required when security.oidc is configured")
@@ -33,7 +33,7 @@ func ValidateAdminConfig(config *Config) error {
 	if config.Security == nil || (config.Security.Basic == nil && config.Security.OIDC == nil) {
 		return ErrAdminRequiresSecurity
 	}
-	if config.Storage == nil || (config.Storage.Type != storage.TypeSQLite && config.Storage.Type != storage.TypePostgres) {
+	if config.Storage == nil || (config.Storage.Type != storage.TypeSQLite && config.Storage.Type != storage.TypePostgres && config.Storage.Type != storage.TypeMySQL) {
 		return ErrAdminRequiresPersistentStorage
 	}
 	if oidc := config.Security.OIDC; oidc != nil {
@@ -48,8 +48,8 @@ func ValidateAdminConfig(config *Config) error {
 			}
 		}
 	}
-	if config.Storage.Type == storage.TypePostgres {
-		logr.Warn("[config.ValidateAdminConfig] With multiple Gatus instances sharing the same PostgreSQL database, endpoint changes made through the administration only apply to the other instances after they restart or reload their configuration")
+	if config.Storage.Type == storage.TypePostgres || config.Storage.Type == storage.TypeMySQL {
+		logr.Warn("[config.ValidateAdminConfig] With multiple Gatus instances sharing the same PostgreSQL, MySQL or MariaDB database, endpoint changes made through the administration only apply to the other instances after they restart or reload their configuration")
 	}
 	return nil
 }

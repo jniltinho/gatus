@@ -18,20 +18,20 @@
 - [x] 2.2 Dialeto MySQL para os 3 upserts (`ON DUPLICATE KEY UPDATE` com `VALUES()` e as mesmas expressões do upstream): alertas disparados e consolidação diária substituem (`col = VALUES(col)`), uptime horário acumula (`col = col + VALUES(col)`)
 - [x] 2.3 Dialeto MySQL para as 3 exclusões de excedentes com corte `<=` por identificador em tabela derivada e o mesmo N do upstream
 - [x] 2.4 `"condition"` citado nas consultas do upstream (SQLite, PostgreSQL e MySQL com `ANSI_QUOTES`); conferir que nenhuma consulta usa aspas duplas para literal de texto
-- [x] 2.5 Retry único da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL
+- [x] 2.5 Retry da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL (até 3 tentativas com espera crescente e aleatória desde o marco 3)
 - [x] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
-- [x] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado (mantido `REPEATABLE READ`: 8 endpoints × 25 resultados concorrentes sem erro nos dois bancos)
+- [x] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado (adotado no marco 3, depois de uma gravação perdida no MariaDB sob carga com `REPEATABLE READ`)
 - [x] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar (mantido ligado: MySQL 8.4 ~6,4 ms contra ~8,3 ms e MariaDB 10.11 ~4,1 ms contra ~6,2 ms por gravação)
 - [ ] 2.9 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
 
 ## 3. Marco 3 — Tabelas do fork, administração e status pages
 
-- [ ] 3.1 Escrita otimista de `managed_endpoints` e `managed_status_pages` em MySQL e MariaDB (`ClientFoundRows`), inclusive atualização sem mudança de valores
-- [ ] 3.2 `isUniqueViolation` com `*mysql.MySQLError` número 1062; testes de chave e slug duplicados (409) com rollback da transação
-- [ ] 3.3 Leituras em lote (`GetUptimesByKeys` e `GetEndpointSummaries`) em MySQL e MariaDB comparadas com `GetUptimeByKey` e `GetEndpointStatusByKey`, inclusive conjunto vazio
-- [ ] 3.4 Limite de 768 caracteres (`utf8.RuneCountInString`) com `storage.type: mysql` na validação de endpoints, external-endpoints, suites, endpoints de suite e da administração; testes com `mysql`, com chave multibyte e sem o limite nos outros tipos
-- [ ] 3.5 `config/config_admin.go` aceitando `mysql`, com a mensagem de tipo atualizada e o aviso de várias instâncias; testes
-- [ ] 3.6 Helpers de teste do fork (`managedEndpointTestStores` e similares) usando o helper comum com os quatro bancos
+- [x] 3.1 Escrita otimista de `managed_endpoints` e `managed_status_pages` em MySQL e MariaDB (`ClientFoundRows`), inclusive atualização sem mudança de valores (testes do fork nos quatro bancos e `TestMySQLConnector_FoundRows`)
+- [x] 3.2 `isUniqueViolation` com `*mysql.MySQLError` número 1062; testes de chave e slug duplicados (409) com rollback da transação
+- [x] 3.3 Leituras em lote (`GetUptimesByKeys` e `GetEndpointSummaries`) em MySQL e MariaDB comparadas com `GetUptimeByKey` e `GetEndpointStatusByKey`, inclusive conjunto vazio
+- [x] 3.4 Limite de 768 caracteres (`utf8.RuneCountInString`) com `storage.type: mysql` na validação de endpoints, external-endpoints, suites, endpoints de suite e da administração; testes com `mysql`, com chave multibyte e sem o limite nos outros tipos
+- [x] 3.5 `config/config_admin.go` aceitando `mysql`, com a mensagem de tipo atualizada e o aviso de várias instâncias; testes
+- [x] 3.6 Helpers de teste do fork (`managedEndpointTestStores` e similares) usando o helper comum com os quatro bancos
 - [ ] 3.7 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
 
 ## 4. Marco 4 — Documentação, deploy e release

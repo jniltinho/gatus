@@ -246,6 +246,24 @@ func TestMySQLConnector_AbortedTransaction(t *testing.T) {
 	})
 }
 
+func TestMySQLConnector_FoundRows(t *testing.T) {
+	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
+		db := openMySQLForTest(t, dsn)
+		if _, err := db.Exec(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3)`, 7, "unchanged", time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		// Without clientFoundRows, MySQL counts only the rows whose values changed, and an optimistic update with the
+		// same values would be taken as a version conflict
+		result, err := db.Exec(`UPDATE items SET amount = $1 WHERE label = $2`, 7, "unchanged")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rowsAffected, err := result.RowsAffected(); err != nil || rowsAffected != 1 {
+			t.Errorf("expected the matched row to be counted, got %d (err=%v)", rowsAffected, err)
+		}
+	})
+}
+
 func TestMySQLConnector_SessionAndTimes(t *testing.T) {
 	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
 		cfg, err := mysql.ParseDSN(dsn)
@@ -267,6 +285,16 @@ func TestMySQLConnector_SessionAndTimes(t *testing.T) {
 		slices.Sort(expectedModes)
 		if timeZone != "+00:00" || !slices.Equal(modes, expectedModes) || lockWaitTimeout != mysqlLockWaitTimeout {
 			t.Errorf("expected the fixed session variables, got time_zone=%s sql_mode=%s innodb_lock_wait_timeout=%d", timeZone, sqlMode, lockWaitTimeout)
+		}
+		// transaction_isolation only exists in MySQL and MariaDB 11.1+, tx_isolation in MariaDB
+		var isolation string
+		if err := db.QueryRow(`SELECT @@session.transaction_isolation`).Scan(&isolation); err != nil {
+			if err := db.QueryRow(`SELECT @@session.tx_isolation`).Scan(&isolation); err != nil {
+				t.Fatalf("failed to read the isolation level: %v", err)
+			}
+		}
+		if isolation != "READ-COMMITTED" {
+			t.Errorf("expected the READ-COMMITTED isolation level, got %s", isolation)
 		}
 		noon := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 		for label, value := range map[string]time.Time{"noon": noon, "noon-local": noon.In(cfg.Loc), "zero": {}} {

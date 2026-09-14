@@ -16,7 +16,7 @@ O fork só grava em SQLite ou PostgreSQL. Onde já existe um servidor MariaDB ou
 - Camada de dialeto no store SQL, com as consultas do upstream quase intactas:
   - conector próprio que traduz os placeholders `$N` para `?` e invalida a transação no primeiro erro, como o PostgreSQL faz;
   - SQL próprio só para o que não é portável: `RETURNING`, `ON CONFLICT`, exclusões com `LIMIT` em subconsulta, chaves estrangeiras, criação de índices e detecção de chave duplicada;
-  - retry único da gravação de resultados de endpoint e de suite em deadlock, espera de lock esgotada ou conflito no `COMMIT` (Galera).
+  - isolamento `READ COMMITTED`, como no PostgreSQL, e até 3 tentativas da gravação de resultados de endpoint e de suite em deadlock, espera de lock esgotada ou conflito no `COMMIT` (Galera).
 - Com `mysql`, chaves de endpoint e de suite acima do limite indexável (768 caracteres) são rejeitadas na validação, com mensagem clara, em vez de falhar na gravação.
 - `admin.enabled` passa a aceitar `mysql`, e o aviso de várias instâncias do PostgreSQL vale também para MySQL.
 - Testes do store SQL também em MySQL e MariaDB quando `GATUS_TEST_MYSQL_URL` e `GATUS_TEST_MARIADB_URL` estiverem definidos, cada teste num banco próprio.
