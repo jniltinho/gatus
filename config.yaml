@@ -1,53 +1,98 @@
+# Configuração padrão do fork jniltinho/gatus: grupos de exemplo e páginas de status públicas.
+# Na imagem Docker ela fica em /config/config.yaml; monte o seu arquivo nesse caminho para substituí-la.
+# Documentação da seção status-pages: docs/status-pages.md
+
 endpoints:
-  - name: front-end
-    group: core
-    url: "https://twin.sh/health"
-    interval: 5m
+  # Grupo "sites"
+  - name: google
+    group: sites
+    url: "https://www.google.com"
+    interval: 1m
     conditions:
       - "[STATUS] == 200"
-      - "[BODY].status == UP"
-      - "[RESPONSE_TIME] < 150"
+      - "[RESPONSE_TIME] < 3000"
 
-  - name: back-end
-    group: core
-    url: "https://example.org/"
-    interval: 5m
+  - name: github
+    group: sites
+    url: "https://github.com"
+    interval: 1m
     conditions:
       - "[STATUS] == 200"
-      - "[CERTIFICATE_EXPIRATION] > 48h"
+      - "[CERTIFICATE_EXPIRATION] > 72h"
 
-  - name: monitoring
-    group: internal
-    url: "https://example.org/"
-    interval: 5m
-    conditions:
-      - "[STATUS] == 200"
-
-  - name: nas
-    group: internal
-    url: "https://example.org/"
-    interval: 5m
+  - name: wikipedia
+    group: sites
+    url: "https://www.wikipedia.org"
+    interval: 2m
     conditions:
       - "[STATUS] == 200"
 
-  - name: example-dns-query
-    url: "8.8.8.8" # Address of the DNS server to use
+  # Grupo "apis"
+  - name: github-api
+    group: apis
+    url: "https://api.github.com"
+    interval: 2m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: npm-registry
+    group: apis
+    url: "https://registry.npmjs.org"
     interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: go-proxy
+    group: apis
+    url: "https://proxy.golang.org"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+
+  # Grupo "dns"
+  - name: cloudflare
+    group: dns
+    url: "1.1.1.1"
+    interval: 2m
     dns:
       query-name: "example.com"
       query-type: "A"
     conditions:
-      - "[BODY] == pat(*.*.*.*)"  # Matches any IPv4 address
+      - "[BODY] == pat(*.*.*.*)"
       - "[DNS_RCODE] == NOERROR"
 
-  - name: icmp-ping
-    url: "icmp://example.org"
-    interval: 1m
+  - name: google-dns
+    group: dns
+    url: "8.8.8.8"
+    interval: 2m
+    dns:
+      query-name: "example.com"
+      query-type: "A"
     conditions:
-      - "[CONNECTED] == true"
+      - "[BODY] == pat(*.*.*.*)"
+      - "[DNS_RCODE] == NOERROR"
 
-  - name: check-domain-expiration
-    url: "https://example.org/"
-    interval: 1h
+  # Grupo "gatus"
+  - name: health
+    group: gatus
+    url: "http://127.0.0.1:8080/health"
+    interval: 30s
     conditions:
-      - "[DOMAIN_EXPIRATION] > 720h"
+      - "[STATUS] == 200"
+      - "[BODY].status == UP"
+
+# Páginas de status públicas, abertas sem login em /status/<slug>
+status-pages:
+  # Atrás de um proxy reverso (nginx), informe o IP de onde ele conecta no Gatus, por exemplo o gateway
+  # da rede Docker, para o limite de requisições ser contado por visitante:
+  # trusted-proxies: ["172.30.0.1/32"]
+  pages:
+    - slug: servicos
+      title: "Serviços"
+      description: "Sites e APIs externos acompanhados por este Gatus"
+      groups: [sites, apis]
+
+    - slug: infraestrutura
+      title: "Infraestrutura"
+      description: "Resolução de DNS e saúde do próprio Gatus"
+      groups: [dns, gatus]

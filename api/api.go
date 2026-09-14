@@ -87,6 +87,8 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	unprotectedAPIRouter.Get("/v1/endpoints/:key/response-times/:duration/history", ResponseTimeHistory)
 	// This endpoint requires authz with bearer token, so technically it is protected
 	unprotectedAPIRouter.Post("/v1/endpoints/:key/external", CreateExternalEndpointResult(cfg))
+	// Public status pages (fork): API, catch-all and SPA routes, see api/status_page.go
+	registerStatusPageRoutes(app, unprotectedAPIRouter, cfg)
 	// SPA
 	app.Get("/", SinglePageApplication(cfg.UI))
 	app.Get("/endpoints/:key", SinglePageApplication(cfg.UI))
