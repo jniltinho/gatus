@@ -52,7 +52,7 @@ The default `config.yaml` of the fork (Docker image and release tarballs) alread
 
 With the [administration](admin-endpoints.md) enabled, the **Status pages** tab at `/admin/status-pages` lets you create,
 edit, preview, publish, unpublish and remove pages. They are stored in the `managed_status_pages` table of the same
-database as the endpoints (SQLite or PostgreSQL).
+database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
 
 - A new page is created **disabled**, also through the API: check the preview and tick **Published**.
 - The pages of the configuration file are shown in the list for reference only.
@@ -83,7 +83,7 @@ Statuses:
 | Major outage / Down | last result failed | every endpoint with results is down |
 | No data | no result yet | no endpoint has results |
 
-The uptime is shown as "—" when there was no check during the period. With SQLite and PostgreSQL, the history older
+The uptime is shown as "—" when there was no check during the period. With SQLite, PostgreSQL and MySQL, the history older
 than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods are approximate, as in the badges.
 
 ## Endpoint details page
@@ -257,7 +257,7 @@ Routes under `/api/v1/admin`, with the same requirements as the [endpoint admini
 Errors: 400 (invalid definition, reserved or changed slug), 404, 409 (slug in use or page of the file), 412 (outdated
 version), 428 (missing `If-Match`), 501 (storage without support) and 503 (startup or reload in progress).
 
-## Multiple instances with the same PostgreSQL
+## Multiple instances with the same PostgreSQL, MySQL or MariaDB
 
 A page created through the web on one instance only shows up on the others after they reload their configuration or
 restart. Behind a load balancer, visitors alternate between the page and "Page not found" until every instance

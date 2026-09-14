@@ -22,6 +22,11 @@ PASSWORD_HASH='JDJhJDEwJHo1LnE5empYYkN5Vm1Vd1RmNXZPMS5SeWRCdlc3UlMxMXBHdmpwcDBUU
 command -v agent-browser >/dev/null || { echo "agent-browser not found"; exit 1; }
 mkdir -p "$PRINTS"
 
+# Storage: temporary SQLite by default. E2E_STORAGE_TYPE and E2E_STORAGE_PATH run the script with another database,
+# which must be empty (e.g. E2E_STORAGE_TYPE=mysql E2E_STORAGE_PATH='root:password@tcp(127.0.0.1:53307)/gatus_e2e')
+STORAGE_TYPE=${E2E_STORAGE_TYPE:-sqlite}
+STORAGE_PATH=${E2E_STORAGE_PATH:-$WORK/gatus.db}
+
 echo "==> Building"
 make -s build
 
@@ -30,8 +35,8 @@ web:
   address: 127.0.0.1
   port: $PORT
 storage:
-  type: sqlite
-  path: $WORK/gatus.db
+  type: $STORAGE_TYPE
+  path: "$STORAGE_PATH"
 security:
   basic:
     username: $USERNAME

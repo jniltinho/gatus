@@ -1,0 +1,29 @@
+storage:
+  type: mysql
+  path: "${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(mariadb:3306)/${MARIADB_DATABASE}"
+  caching: true
+
+endpoints:
+  - name: back-end
+    group: core
+    url: "https://example.org/"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[CERTIFICATE_EXPIRATION] > 48h"
+
+  - name: monitoring
+    group: internal
+    url: "https://example.org/"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: example-dns-query
+    url: "8.8.8.8" # Address of the DNS server to use
+    interval: 5m
+    dns:
+      query-name: "example.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"

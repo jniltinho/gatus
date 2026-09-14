@@ -189,7 +189,9 @@ const validAddress = computed(() => SLUG_PATTERN.test(slug.value) && key.value.l
 const results = computed(() => (details.value && details.value.results) || [])
 const lastResult = computed(() => (results.value.length > 0 ? results.value[results.value.length - 1] : null))
 const events = computed(() => (details.value ? describeEvents(details.value.events || []) : []))
-const hasResponseTimes = computed(() => results.value.some((result) => result.durationMs > 0))
+// Like the dashboard, which shows the chart as soon as a result has a duration: results faster than 1 ms have a
+// durationMs of 0 in the public payload, but still have points in the chart
+const hasResponseTimes = computed(() => results.value.length > 0)
 
 const healthStatus = computed(() => ({ up: 'healthy', down: 'unhealthy' }[details.value?.status] || 'unknown'))
 

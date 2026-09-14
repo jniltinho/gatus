@@ -10,7 +10,7 @@
 - [x] 1.8 `specific_mysql.go` (D4 e D5): InnoDB, `utf8mb4_bin`, `BIGINT AUTO_INCREMENT`, `DATETIME(6)`, `MEDIUMTEXT` nos textos livres, índices dentro do `CREATE TABLE`, chaves estrangeiras no nível da tabela com cascata, sem `UNIQUE(name, group)`, tabelas do fork incluídas e ramo `mysql` em `managed_*.go`; testes de criação, reinício idempotente e `information_schema.REFERENTIAL_CONSTRAINTS`
 - [x] 1.9 Helper de testes com `GATUS_TEST_MYSQL_URL` e `GATUS_TEST_MARIADB_URL` e banco próprio por teste (`CREATE DATABASE` e remoção no `t.Cleanup`), em `mysql_connector_test.go`; a junção com SQLite e PostgreSQL nos helpers do fork fica na tarefa 3.6
 - [x] 1.10 `.github/workflows/ci.yml`: serviços `mysql:8.4.11` (porta 3306) e `mariadb:10.11.19` (porta 3307) com healthchecks e variáveis no job principal, e job `storage-latest` com `mysql:9.7.2` e `mariadb:12.3.3`
-- [ ] 1.11 `make lint`, `go test ./... -race` com PostgreSQL, MySQL e MariaDB locais; pull request no `jniltinho/gatus`, CI verde e merge
+- [x] 1.11 `make lint`, `go test ./... -race` com PostgreSQL, MySQL e MariaDB locais; pull request no `jniltinho/gatus`, CI verde e merge (PR #8)
 
 ## 2. Marco 2 — Paridade do store do upstream
 
@@ -36,9 +36,9 @@
 
 ## 4. Marco 4 — Documentação, deploy e release
 
-- [ ] 4.1 `test/e2e/admin.sh` e `test/e2e/status-pages.sh` com `E2E_STORAGE_TYPE` e `E2E_STORAGE_PATH`; rodar os dois com MariaDB 11.4.13 e com SQLite
-- [ ] 4.2 `docs/storage-mysql.md` (DSN, parâmetros sobrepostos, criação de banco e usuário, versões, página de 16K, limite de chave, pool de 25 conexões, backup, várias instâncias, sem migração, volta ao upstream), seção de storage no `README.md`, `docs/admin-endpoints.md` e `docs/status-pages.md`
-- [ ] 4.3 Exemplo `.examples/docker-compose-mariadb-storage/` com `jniltinho/gatus` e `mariadb:11.4.13` em tags fixas
-- [ ] 4.4 `AGENTS.fork.md` (containers de teste, variáveis e passo de sincronização com o upstream) e contexto do `openspec/config.yaml`
-- [ ] 4.5 Pacote de deploy `/home/jnsilva/Projetos/gatus/mariadb` (compose, compose de build, `.env` com versões fixas, config, `gatus.sh`, `Dockerfile`), bind em `127.0.0.1`; subir e conferir dashboard, admin e status page
+- [x] 4.1 `test/e2e/admin.sh` e `test/e2e/status-pages.sh` com `E2E_STORAGE_TYPE` e `E2E_STORAGE_PATH`; rodar os dois com MariaDB e com SQLite (rodados com MariaDB 10.11.19 do container de teste e com SQLite: 9 e 13 etapas; corrigido o gráfico da página pública de detalhes, que sumia com resultados abaixo de 1 ms)
+- [x] 4.2 `docs/storage-mysql.md` (DSN, parâmetros sobrepostos, criação de banco e usuário, versões, página de 16K, limite de chave, pool de 25 conexões, backup, várias instâncias, sem migração, volta ao upstream), seção de storage no `README.md`, `docs/admin-endpoints.md` e `docs/status-pages.md`
+- [x] 4.3 Exemplo `.examples/docker-compose-mariadb-storage/` com `jniltinho/gatus` e `mariadb:11.4.13` em tags fixas
+- [x] 4.4 `AGENTS.fork.md` (containers de teste, variáveis e passo de sincronização com o upstream) e contexto do `openspec/config.yaml`
+- [x] 4.5 Pacote de deploy `/home/jnsilva/Projetos/gatus/mariadb` (compose, compose de build, `.env` com versões fixas, config, `gatus.sh`, `Dockerfile`), bind em `127.0.0.1`; subir e conferir dashboard, admin e status page (pacote conferido com a imagem local da branch: senhas geradas, healthcheck, `status`, API e resultados gravados no MariaDB 11.4.13, segundo `subir` sem baixar imagens; admin e status pages conferidos pelos E2E com MariaDB)
 - [ ] 4.6 `openspec validate add-mysql-storage --strict`, pull request, CI verde e merge; release pela skill `create-release` e atualização do servidor local de validação
