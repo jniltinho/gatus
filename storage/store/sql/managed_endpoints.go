@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gatus/v5/storage/store/common"
+	"github.com/go-sql-driver/mysql"
 )
 
 const managedEndpointColumns = "endpoint_key, definition, version, created_at, updated_at, updated_by"
@@ -208,10 +209,14 @@ func scanManagedEndpoint(row rowScanner) (*common.ManagedEndpoint, error) {
 	return &managedEndpoint, nil
 }
 
-// isUniqueViolation returns whether err is a unique constraint violation, for both SQLite and PostgreSQL
+// isUniqueViolation returns whether err is a unique constraint violation, for SQLite, PostgreSQL, MySQL and MariaDB
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == mysqlErrorDuplicateEntry
 	}
 	message := err.Error()
 	return strings.Contains(message, "UNIQUE constraint failed") || strings.Contains(message, "duplicate key value violates unique constraint")

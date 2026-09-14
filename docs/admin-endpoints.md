@@ -10,8 +10,8 @@ in the administration for reference only.
 ## Requirements
 
 - `security.basic` or `security.oidc` configured. With OIDC, `admin.allowed-subjects` is required.
-- `storage.type` set to `sqlite` or `postgres`: the endpoints managed through the web are stored in the
-  `managed_endpoints` table.
+- `storage.type` set to `sqlite`, `postgres` or `mysql` ([MySQL and MariaDB](storage-mysql.md)): the endpoints managed
+  through the web are stored in the `managed_endpoints` table.
 
 ## Configuration
 
@@ -133,7 +133,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 If the public address uses a port different from the one forwarded in `Host`, list it in `admin.allowed-origins`.
 
-## Multiple instances with the same PostgreSQL
+## Multiple instances with the same PostgreSQL, MySQL or MariaDB
 
 A change made on one instance only takes effect on the others after they restart or reload their configuration. In the
 meantime, an instance that still monitors a removed endpoint may recreate its history.

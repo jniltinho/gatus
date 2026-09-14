@@ -1,0 +1,40 @@
+# Gatus with the MySQL/MariaDB storage of the jniltinho/gatus fork (see docs/storage-mysql.md).
+# The image of the original Gatus (twinproduction/gatus) does not include this storage.
+services:
+  mariadb:
+    image: mariadb:11.4.13
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_bin"]
+    volumes:
+      - ./data/db:/var/lib/mysql
+    environment:
+      - MARIADB_DATABASE=gatus
+      - MARIADB_USER=username
+      - MARIADB_PASSWORD=password
+      - MARIADB_ROOT_PASSWORD=root-password
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - web
+
+  gatus:
+    image: jniltinho/gatus:v5.36.0-fork.4
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - MARIADB_USER=username
+      - MARIADB_PASSWORD=password
+      - MARIADB_DATABASE=gatus
+    volumes:
+      - ./config:/config
+    networks:
+      - web
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+networks:
+  web:

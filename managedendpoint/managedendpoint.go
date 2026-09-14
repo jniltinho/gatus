@@ -166,6 +166,10 @@ func validate(ep *endpoint.Endpoint, ctx Context) error {
 		return fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
 	}
 	endpointKey := ep.Key()
+	// Fork: MySQL and MariaDB cannot index longer keys
+	if err := config.CheckStorageKeyLength(ctx.Config.Storage, "endpoint", endpointKey); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
+	}
 	if origin, used := ConfigKeyOrigin(ctx.Config, endpointKey); used {
 		return fmt.Errorf("%w by %s: %s", ErrKeyConflict, origin, endpointKey)
 	}

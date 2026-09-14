@@ -72,7 +72,7 @@
     - `NO_ZERO_DATE` e `NO_ZERO_IN_DATE` ficam de fora, de propósito: além de obsoletos, rejeitariam o `time.Time` zero (enviado como `'0000-00-00'`), que SQLite e PostgreSQL gravam e leem de volta.
   - **`innodb_lock_wait_timeout=10` por sessão,** para uma espera de lock virar erro tratável (D6) em vez de travar o watchdog por 50 s.
   - As variáveis de sessão vão em `Config.Params` com o valor entre aspas simples (`"'+00:00'"`).
-  - **`InterpolateParams=true`:** a interpolação do driver faz escape seguro com `utf8mb4` (só é proibida em BIG5, CP932, GB2312, GBK e SJIS, que não usamos) e evita prepare + execute + close em cada um dos 10–15 comandos de `InsertEndpointResult`. O benchmark do marco 2 confirma o ganho; se não houver, volta para `false`, sem mudar mais nada, porque o `ErrSkip` é tratado de qualquer jeito (D2).
+  - **`InterpolateParams=true`:** a interpolação do driver faz escape seguro com `utf8mb4` (só é proibida em BIG5, CP932, GB2312, GBK e SJIS, que não usamos) e evita prepare + execute + close em cada um dos 10–15 comandos de `InsertEndpointResult`. O benchmark do marco 2 confirmou o ganho: cada `InsertEndpointResult` levou ~6,4 ms contra ~8,3 ms no MySQL 8.4 e ~4,1 ms contra ~6,2 ms no MariaDB 10.11 (servidores locais, 300 gravações × 3). O `ErrSkip` continua tratado para os casos em que o driver recusa a interpolação (D2).
 - TLS, timeouts, `allowCleartextPasswords` e demais parâmetros da DSN são preservados.
 - **Pool:** `SetMaxOpenConns(25)`, `SetMaxIdleConns(25)`, `SetConnMaxLifetime(3 * time.Minute)` e `SetConnMaxIdleTime(1 * time.Minute)`.
   - O limite evita estourar o `max_connections` padrão (151) com `concurrency: 0`.
@@ -104,7 +104,10 @@
 ### D3. Dialeto para o que não é portável
 - Os desvios usam o campo `driver` que o `Store` já tem, comparado com a constante `driverMySQL`, como o upstream faz com `"sqlite"`. O SQL específico do MySQL fica em `dialect_mysql.go`.
   - **Alternativa:** um tipo `dialect` com métodos por banco. Adiada: com cerca de 10 desvios, a comparação direta muda menos linhas do upstream; o tipo vale a pena se os desvios crescerem.
-- **`RETURNING <id>`** (4 inserções): `Exec` e `LastInsertId()` na mesma transação (mesma conexão, portanto confiável).
+- **`RETURNING <id>`** (4 inserções): emulado no conector, sem mudar as inserções do upstream. Uma consulta `INSERT ... RETURNING <coluna>` é executada como `INSERT` com `Exec`, e o `LastInsertId()` volta como a única linha da consulta.
+  - É confiável porque a conexão não é compartilhada durante o comando e as inserções são de uma linha com chave `AUTO_INCREMENT`.
+  - O MariaDB tem `RETURNING` nativo desde a 10.5, mas a emulação vale para os dois bancos, para o comportamento ser o mesmo.
+  - **Alternativa:** desvio explícito em cada uma das 4 funções, que mudaria mais linhas do upstream.
 - **`ON CONFLICT ... DO UPDATE`** (alertas disparados, `endpoint_uptimes` e consolidação diária): `INSERT ... ON DUPLICATE KEY UPDATE`, reproduzindo a expressão de cada coluna do upstream. As três formas são diferentes:
   - **alertas disparados** (`sql.go:497-499`) substituem: `resolve_key = VALUES(resolve_key)` e `number_of_successes_in_a_row = VALUES(number_of_successes_in_a_row)`;
   - **uptime horário** (`sql.go:686-689`) acumula: `total_executions = total_executions + VALUES(total_executions)`, e o mesmo para as execuções com sucesso e o tempo de resposta;
@@ -162,16 +165,22 @@
 - **Alternativa:** coluna gerada com `SHA2(chave)` indexada, sem limite. Rejeitada por agora: mais esquema, e chaves de 768 caracteres não existem na prática; fica registrada se surgir demanda.
 
 ### D6. Transações, concorrência e retry
-- InnoDB usa `REPEATABLE READ` por padrão.
-  - As leituras em lote das status pages ganham um snapshot consistente dentro da transação de leitura.
-  - A escrita otimista das tabelas gerenciadas continua segura com `ClientFoundRows` (D1).
-- As inserções concorrentes do watchdog (padrão de 3 simultâneas) podem gerar deadlock (1213) entre a limpeza de excedentes, os upserts de uptime e as inserções de outro endpoint, por causa dos gap e next-key locks.
+- As inserções concorrentes do watchdog (padrão de 3 simultâneas) geram deadlock (1213) com o `REPEATABLE READ` padrão do InnoDB. Os gap e next-key locks da limpeza de excedentes, dos upserts de uptime e das inserções de endpoints diferentes se cruzam.
+  - No marco 3, com a carga de vários pacotes de teste ao mesmo tempo, o MariaDB deu deadlock duas vezes seguidas na mesma gravação.
+- **Isolamento `READ COMMITTED` em toda conexão,** o padrão do PostgreSQL (`SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED` ao conectar, sintaxe aceita nos dois bancos). Paridade com o PostgreSQL:
+  - o InnoDB deixa de pegar gap locks nas leituras com lock e nos `UPDATE`/`DELETE`, e os deadlocks entre endpoints diferentes somem;
+  - as leituras em lote das status pages ficam como no PostgreSQL, sem snapshot único entre as consultas da mesma transação;
+  - a escrita otimista das tabelas gerenciadas continua segura com `ClientFoundRows` (D1).
 - **Retry:**
-  - Só no dialeto MySQL, `InsertEndpointResult` e a inserção de resultado de suite repetem **a chamada inteira** uma única vez quando o erro final é deadlock (1213), lock wait timeout (1205) ou falha de certificação no `COMMIT` (1213 no Galera).
+  - Só no dialeto MySQL, `InsertEndpointResult` e `InsertSuiteResult` repetem **a chamada inteira**, até 3 tentativas, quando o erro final é deadlock (1213), lock wait timeout (1205) ou falha de certificação no `COMMIT` (1213 no Galera).
+  - A espera entre tentativas cresce e tem uma parte aleatória (20 ms × tentativa + até 20 ms), para as transações que travaram entre si não tentarem de novo ao mesmo tempo.
   - Como a transação envenenada faz o `Commit` devolver o erro (D2), o retry sempre enxerga a falha.
   - Nenhum outro erro é repetido.
 - **Teste de deadlock forçado:** duas transações travando linhas em ordem inversa, conferindo que nada foi gravado pela metade e que o retry grava tudo.
-- **Alternativa:** `READ COMMITTED`, com menos gap locks. Fica como ajuste se o teste de concorrência mostrar deadlocks frequentes. Se adotada, vai por `BeginTx` com `sql.TxOptions{Isolation: sql.LevelReadCommitted}`, nunca por variável de sessão (`transaction_isolation` só existe no MariaDB 11.1+).
+- **Alternativas:**
+  - Manter `REPEATABLE READ` só com o retry único: rejeitada depois do teste de concorrência sob carga, que perdeu uma gravação.
+  - Definir o isolamento por `BeginTx` em cada transação: exige mudar as chamadas do upstream e custa um comando a mais por transação.
+  - Variável de sessão `transaction_isolation` na DSN: só existe no MariaDB 11.1+, e o comando `SET SESSION TRANSACTION ISOLATION LEVEL` funciona nos dois bancos.
 
 ### D7. Administração, status pages e configuração
 - `config/config_admin.go`:
@@ -231,7 +240,7 @@
 ### D10. Relação com o upstream
 - **Arquivos do upstream alterados:**
   - `storage/type.go`, `storage/config.go` e `storage/store/store.go` (tipo, validação, inicialização);
-  - `sql.go`: campo `dialect`, desvios nas 4 inserções, 3 upserts, 3 exclusões e 2 chamadas com retry, e `"condition"` citado;
+  - `sql.go`: `dialectQuery` nos 3 upserts, desvio no início das 3 exclusões, `InsertEndpointResult` e `InsertSuiteResult` renomeadas para as versões sem retry (o retry fica em `dialect_mysql.go`) e `"condition"` citado;
   - `specific_*.go`: só a seleção do esquema.
 - **Arquivos novos:** `mysql.go` (configuração, pool e checagem do servidor), `mysql_connector.go` (conn, tx, stmt e rows do wrapper), `placeholders.go`, `dialect_mysql.go` e `specific_mysql.go`.
 - O `AGENTS.fork.md` ganha o passo de sincronização: rodar a suíte de conformidade com MySQL e MariaDB e revisar consultas novas do upstream que usem `RETURNING`, `ON CONFLICT`, `LIMIT` em subconsulta, `REFERENCES` na coluna ou palavras reservadas.
@@ -268,7 +277,7 @@
 ## Open Questions
 
 - **Galera e réplicas.** Clusters MariaDB Galera devolvem 1213 no `COMMIT` em conflito de certificação, e o retry de D6 cobre esse caso nas inserções de resultado. Falta validar em cluster real se as escritas da administração (sem retry, respondem erro ao usuário) precisam de tratamento. Hoje ficam sem garantia e sem teste.
-- **`READ COMMITTED`.** Adotar ou não depende do resultado do teste de concorrência do marco 2.
+- **`READ COMMITTED`.** Resolvido no marco 3. O teste de concorrência (8 endpoints × 25 resultados com limite de 5) tinha passado no marco 2 com o `REPEATABLE READ` padrão, mas perdeu uma gravação no MariaDB com a carga de vários pacotes ao mesmo tempo. As conexões passam a usar `READ COMMITTED`, e o retry vai a até 3 tentativas (D6).
 
 ## Ajustes da revisão de QA
 

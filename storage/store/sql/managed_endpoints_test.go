@@ -15,7 +15,9 @@ import (
 
 const managedEndpointTestGroup = "managed-test"
 
-// managedEndpointTestStores returns a SQLite store and, when GATUS_TEST_POSTGRES_URL is set, a PostgreSQL store
+// managedEndpointTestStores returns a SQLite store and, when GATUS_TEST_POSTGRES_URL, GATUS_TEST_MYSQL_URL or
+// GATUS_TEST_MARIADB_URL are set, a PostgreSQL, MySQL or MariaDB store. MySQL and MariaDB stores use a database of their
+// own, removed when the test ends.
 func managedEndpointTestStores(t *testing.T) map[string]*Store {
 	t.Helper()
 	stores := make(map[string]*Store)
@@ -25,22 +27,29 @@ func managedEndpointTestStores(t *testing.T) map[string]*Store {
 	}
 	t.Cleanup(sqliteStore.Close)
 	stores["sqlite"] = sqliteStore
-	postgresURL := os.Getenv("GATUS_TEST_POSTGRES_URL")
-	if postgresURL == "" {
+	if postgresURL := os.Getenv("GATUS_TEST_POSTGRES_URL"); postgresURL == "" {
 		t.Log("GATUS_TEST_POSTGRES_URL is not set, skipping PostgreSQL")
-		return stores
-	}
-	postgresStore, err := NewStore("postgres", postgresURL, true, storage.DefaultMaximumNumberOfResults, storage.DefaultMaximumNumberOfEvents)
-	if err != nil {
-		t.Fatalf("failed to create postgres store: %v", err)
-	}
-	t.Cleanup(postgresStore.Close)
-	for _, query := range []string{"DELETE FROM managed_endpoints", "DELETE FROM endpoints WHERE endpoint_group = '" + managedEndpointTestGroup + "'"} {
-		if _, err := postgresStore.db.Exec(query); err != nil {
-			t.Fatalf("failed to clean postgres database: %v", err)
+	} else {
+		postgresStore, err := NewStore("postgres", postgresURL, true, storage.DefaultMaximumNumberOfResults, storage.DefaultMaximumNumberOfEvents)
+		if err != nil {
+			t.Fatalf("failed to create postgres store: %v", err)
 		}
+		t.Cleanup(postgresStore.Close)
+		for _, query := range []string{"DELETE FROM managed_endpoints", "DELETE FROM endpoints WHERE endpoint_group = '" + managedEndpointTestGroup + "'"} {
+			if _, err := postgresStore.db.Exec(query); err != nil {
+				t.Fatalf("failed to clean postgres database: %v", err)
+			}
+		}
+		stores["postgres"] = postgresStore
 	}
-	stores["postgres"] = postgresStore
+	for name, dsn := range mysqlTestServers() {
+		mysqlStore, err := NewStore(driverMySQL, newMySQLTestDatabase(t, dsn), true, storage.DefaultMaximumNumberOfResults, storage.DefaultMaximumNumberOfEvents)
+		if err != nil {
+			t.Fatalf("failed to create %s store: %v", name, err)
+		}
+		t.Cleanup(mysqlStore.Close)
+		stores[name] = mysqlStore
+	}
 	return stores
 }
 

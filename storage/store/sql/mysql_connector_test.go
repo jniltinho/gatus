@@ -30,7 +30,7 @@ func mysqlTestServers() map[string]string {
 
 // newMySQLTestDatabase creates a database of its own for the test on the server of dsn, removed when the test ends,
 // so that packages tested in parallel never share data, and returns its DSN
-func newMySQLTestDatabase(t *testing.T, dsn string) string {
+func newMySQLTestDatabase(t testing.TB, dsn string) string {
 	t.Helper()
 	cfg, err := mysql.ParseDSN(dsn)
 	if err != nil {
@@ -136,6 +136,53 @@ func TestMySQLConnector_Placeholders(t *testing.T) {
 	})
 }
 
+func TestMySQLConnector_InsertReturning(t *testing.T) {
+	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
+		openMySQLForTest(t, dsn)
+		for dbIndex, db := range []*sql.DB{openMySQLForTestWithoutTable(t, dsn), reopenWithoutInterpolation(t, dsn)} {
+			var ids []int64
+			for i := 0; i < 2; i++ {
+				var id int64
+				label := "returning-" + strconv.Itoa(dbIndex) + "-" + strconv.Itoa(i)
+				if err := db.QueryRow(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3) RETURNING item_id`, i, label, time.Now()).Scan(&id); err != nil {
+					t.Fatalf("insert with RETURNING failed: %v", err)
+				}
+				ids = append(ids, id)
+			}
+			if ids[0] <= 0 || ids[1] != ids[0]+1 {
+				t.Errorf("expected consecutive generated ids, got %v", ids)
+			}
+			var label string
+			if err := db.QueryRow(`SELECT label FROM items WHERE item_id = $1`, ids[1]).Scan(&label); err != nil || label != "returning-"+strconv.Itoa(dbIndex)+"-1" {
+				t.Errorf("expected the returned id to identify the inserted row, got %q (err=%v)", label, err)
+			}
+		}
+		// A failed INSERT ... RETURNING aborts the transaction like any other statement
+		db := openMySQLForTestWithoutTable(t, dsn)
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var id int64
+		if err := tx.QueryRow(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3) RETURNING item_id`, 1, strings.Repeat("x", 30), time.Now()).Scan(&id); err == nil {
+			t.Fatal("expected the insert of a label longer than VARCHAR(20) to fail in strict mode")
+		}
+		if err := tx.Commit(); !errors.Is(err, errTransactionAborted) {
+			t.Errorf("expected Commit to fail after the failed insert, got %v", err)
+		}
+	})
+}
+
+func openMySQLForTestWithoutTable(t *testing.T, dsn string) *sql.DB {
+	t.Helper()
+	db, _, err := openMySQL(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
 func reopenWithoutInterpolation(t *testing.T, dsn string) *sql.DB {
 	t.Helper()
 	cfg, err := newMySQLConfig(dsn)
@@ -199,6 +246,24 @@ func TestMySQLConnector_AbortedTransaction(t *testing.T) {
 	})
 }
 
+func TestMySQLConnector_FoundRows(t *testing.T) {
+	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
+		db := openMySQLForTest(t, dsn)
+		if _, err := db.Exec(`INSERT INTO items (amount, label, created_at) VALUES ($1, $2, $3)`, 7, "unchanged", time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		// Without clientFoundRows, MySQL counts only the rows whose values changed, and an optimistic update with the
+		// same values would be taken as a version conflict
+		result, err := db.Exec(`UPDATE items SET amount = $1 WHERE label = $2`, 7, "unchanged")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rowsAffected, err := result.RowsAffected(); err != nil || rowsAffected != 1 {
+			t.Errorf("expected the matched row to be counted, got %d (err=%v)", rowsAffected, err)
+		}
+	})
+}
+
 func TestMySQLConnector_SessionAndTimes(t *testing.T) {
 	forEachMySQLTestServer(t, func(t *testing.T, dsn string) {
 		cfg, err := mysql.ParseDSN(dsn)
@@ -220,6 +285,16 @@ func TestMySQLConnector_SessionAndTimes(t *testing.T) {
 		slices.Sort(expectedModes)
 		if timeZone != "+00:00" || !slices.Equal(modes, expectedModes) || lockWaitTimeout != mysqlLockWaitTimeout {
 			t.Errorf("expected the fixed session variables, got time_zone=%s sql_mode=%s innodb_lock_wait_timeout=%d", timeZone, sqlMode, lockWaitTimeout)
+		}
+		// transaction_isolation only exists in MySQL and MariaDB 11.1+, tx_isolation in MariaDB
+		var isolation string
+		if err := db.QueryRow(`SELECT @@session.transaction_isolation`).Scan(&isolation); err != nil {
+			if err := db.QueryRow(`SELECT @@session.tx_isolation`).Scan(&isolation); err != nil {
+				t.Fatalf("failed to read the isolation level: %v", err)
+			}
+		}
+		if isolation != "READ-COMMITTED" {
+			t.Errorf("expected the READ-COMMITTED isolation level, got %s", isolation)
 		}
 		noon := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 		for label, value := range map[string]time.Time{"noon": noon, "noon-local": noon.In(cfg.Loc), "zero": {}} {

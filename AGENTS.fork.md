@@ -56,6 +56,16 @@ Change: `openspec/changes/add-public-status-pages/` (read `design.md` before tou
 - In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
 - The interface texts are in English, like the rest of the Gatus UI.
 
+## MySQL and MariaDB storage
+
+Change: `openspec/changes/add-mysql-storage/` (documentation in `docs/storage-mysql.md`).
+
+- The queries of `storage/store/sql` keep the PostgreSQL placeholders (`$N`): `mysql_connector.go` translates them, emulates `INSERT ... RETURNING <column>` and aborts a transaction at its first failed statement, like PostgreSQL. Never write `?` in a query.
+- What MySQL cannot run as written lives in `dialect_mysql.go` (`dialectQuery` for the upserts, early branches for the deletions of old rows). The schema is `specific_mysql.go`: foreign keys as table constraints (MySQL 8.4 ignores `REFERENCES` in a column), `VARCHAR(768)` keys, `MEDIUMTEXT`, `DATETIME(6)`, indexes inside `CREATE TABLE`.
+- Connections use `READ COMMITTED`; `InsertEndpointResult` and `InsertSuiteResult` retry deadlocks and lock wait timeouts up to 3 attempts.
+- Tests: `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL` (a user allowed to create databases: each test uses a database of its own). Local containers: `gatus-test-mysql` (mysql:8.4.11, port 53306) and `gatus-test-mariadb` (mariadb:10.11.19, port 53307). `conformance_test.go` compares every database with SQLite.
+- Do not run two `go test` processes of `storage/store/sql` at the same time with `GATUS_TEST_POSTGRES_URL`: the PostgreSQL database is shared and `Clear` removes the data of the other process.
+
 ## OpenSpec
 
 - Proposals in `openspec/changes/<change>/`; validate with `openspec validate <change> --strict`.
@@ -84,6 +94,7 @@ gofmt -w $(git diff --name-only -- '*.go')
 - Workflows removed by the fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): keep them removed.
 - `AGENTS.md`: accept the upstream version and keep the line pointing to this file.
 - Update `UPSTREAM_BASE` in the `Makefile` to the incorporated upstream commit and run `make lint test`.
+- MySQL storage: run the tests of `storage/store/sql` with `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL`, and review the new upstream queries that use `RETURNING` with more than one column, `ON CONFLICT`, `LIMIT` in a subquery, `REFERENCES` in a column definition, `CREATE INDEX IF NOT EXISTS` or MySQL reserved words (quote them, like `"condition"`).
 - The next release uses the new upstream version as its base (`vX.Y.Z-fork.1`).
 
 ## Commits and PRs

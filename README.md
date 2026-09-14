@@ -612,9 +612,9 @@ If at least one announcement is archived, a **Past Announcements** section will 
 | Parameter                           | Description                                                                                                                                        | Default    |
 |:------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------|:-----------|
 | `storage`                           | Storage configuration                                                                                                                              | `{}`       |
-| `storage.path`                      | Path to persist the data in. Only supported for types `sqlite` and `postgres`.                                                                     | `""`       |
-| `storage.type`                      | Type of storage. Valid types: `memory`, `sqlite`, `postgres`.                                                                                      | `"memory"` |
-| `storage.caching`                   | Whether to use write-through caching. Improves loading time for large dashboards. <br />Only supported if `storage.type` is `sqlite` or `postgres` | `false`    |
+| `storage.path`                      | Path to persist the data in. Only supported for types `sqlite`, `postgres` and `mysql`.                                                            | `""`       |
+| `storage.type`                      | Type of storage. Valid types: `memory`, `sqlite`, `postgres`, `mysql` (fork: MySQL 8.4+ and MariaDB 10.11+).                                       | `"memory"` |
+| `storage.caching`                   | Whether to use write-through caching. Improves loading time for large dashboards. <br />Only supported if `storage.type` is `sqlite`, `postgres` or `mysql` | `false`    |
 | `storage.maximum-number-of-results` | The maximum number of results that an endpoint can have                                                                                            | `100`      |
 | `storage.maximum-number-of-events`  | The maximum number of events that an endpoint can have                                                                                             | `50`       |
 
@@ -645,6 +645,16 @@ storage:
   path: "postgres://user:password@127.0.0.1:5432/gatus?sslmode=disable"
 ```
 See [examples/docker-compose-postgres-storage](.examples/docker-compose-postgres-storage) for an example.
+
+- If `storage.type` is `mysql` (jniltinho/gatus fork, MySQL 8.4+ and MariaDB 10.11+), `storage.path` must be a DSN of
+  [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql#dsn-data-source-name):
+```yaml
+storage:
+  type: mysql
+  path: "gatus:password@tcp(127.0.0.1:3306)/gatus"
+```
+See [docs/storage-mysql.md](docs/storage-mysql.md) for the parameters set by Gatus, the limits and the tests, and
+[examples/docker-compose-mariadb-storage](.examples/docker-compose-mariadb-storage) for an example.
 
 
 ### Client configuration

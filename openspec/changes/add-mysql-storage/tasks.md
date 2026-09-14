@@ -10,35 +10,35 @@
 - [x] 1.8 `specific_mysql.go` (D4 e D5): InnoDB, `utf8mb4_bin`, `BIGINT AUTO_INCREMENT`, `DATETIME(6)`, `MEDIUMTEXT` nos textos livres, índices dentro do `CREATE TABLE`, chaves estrangeiras no nível da tabela com cascata, sem `UNIQUE(name, group)`, tabelas do fork incluídas e ramo `mysql` em `managed_*.go`; testes de criação, reinício idempotente e `information_schema.REFERENTIAL_CONSTRAINTS`
 - [x] 1.9 Helper de testes com `GATUS_TEST_MYSQL_URL` e `GATUS_TEST_MARIADB_URL` e banco próprio por teste (`CREATE DATABASE` e remoção no `t.Cleanup`), em `mysql_connector_test.go`; a junção com SQLite e PostgreSQL nos helpers do fork fica na tarefa 3.6
 - [x] 1.10 `.github/workflows/ci.yml`: serviços `mysql:8.4.11` (porta 3306) e `mariadb:10.11.19` (porta 3307) com healthchecks e variáveis no job principal, e job `storage-latest` com `mysql:9.7.2` e `mariadb:12.3.3`
-- [ ] 1.11 `make lint`, `go test ./... -race` com PostgreSQL, MySQL e MariaDB locais; pull request no `jniltinho/gatus`, CI verde e merge
+- [x] 1.11 `make lint`, `go test ./... -race` com PostgreSQL, MySQL e MariaDB locais; pull request no `jniltinho/gatus`, CI verde e merge (PR #8)
 
 ## 2. Marco 2 — Paridade do store do upstream
 
-- [ ] 2.1 Dialeto MySQL para as 4 inserções com `RETURNING` (`LastInsertId` na mesma transação)
-- [ ] 2.2 Dialeto MySQL para os 3 upserts (`ON DUPLICATE KEY UPDATE` com `VALUES()` e as mesmas expressões do upstream): alertas disparados e consolidação diária substituem (`col = VALUES(col)`), uptime horário acumula (`col = col + VALUES(col)`)
-- [ ] 2.3 Dialeto MySQL para as 3 exclusões de excedentes com corte `<=` por identificador em tabela derivada e o mesmo N do upstream
-- [ ] 2.4 `"condition"` citado nas consultas do upstream (SQLite, PostgreSQL e MySQL com `ANSI_QUOTES`); conferir que nenhuma consulta usa aspas duplas para literal de texto
-- [ ] 2.5 Retry único da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL
-- [ ] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
-- [ ] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado
-- [ ] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar
+- [x] 2.1 `INSERT ... RETURNING <coluna>` emulado no conector com `Exec` e `LastInsertId`, sem mudar as 4 inserções do upstream
+- [x] 2.2 Dialeto MySQL para os 3 upserts (`ON DUPLICATE KEY UPDATE` com `VALUES()` e as mesmas expressões do upstream): alertas disparados e consolidação diária substituem (`col = VALUES(col)`), uptime horário acumula (`col = col + VALUES(col)`)
+- [x] 2.3 Dialeto MySQL para as 3 exclusões de excedentes com corte `<=` por identificador em tabela derivada e o mesmo N do upstream
+- [x] 2.4 `"condition"` citado nas consultas do upstream (SQLite, PostgreSQL e MySQL com `ANSI_QUOTES`); conferir que nenhuma consulta usa aspas duplas para literal de texto
+- [x] 2.5 Retry da chamada inteira de `InsertEndpointResult` e da inserção de resultado de suite em 1213 e 1205, inclusive no `COMMIT`, só no dialeto MySQL (até 3 tentativas com espera crescente e aleatória desde o marco 3)
+- [x] 2.6 `conformance_test.go` em todos os bancos disponíveis: inserção e paginação, limites exatos, uptime horário e diário, médias, alertas disparados, suites, remoção de endpoints com cascata, `Clear`, reinício e horário zero
+- [x] 2.7 Testes de concorrência de inserções com limite baixo e de deadlock forçado (nada gravado pela metade, retry grava tudo); decidir sobre `READ COMMITTED` pelo resultado (adotado no marco 3, depois de uma gravação perdida no MariaDB sob carga com `REPEATABLE READ`)
+- [x] 2.8 Benchmark de `InsertEndpointResult` com `InterpolateParams` ligado e desligado; manter o padrão de D1 ou ajustar (mantido ligado: MySQL 8.4 ~6,4 ms contra ~8,3 ms e MariaDB 10.11 ~4,1 ms contra ~6,2 ms por gravação)
 - [ ] 2.9 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
 
 ## 3. Marco 3 — Tabelas do fork, administração e status pages
 
-- [ ] 3.1 Escrita otimista de `managed_endpoints` e `managed_status_pages` em MySQL e MariaDB (`ClientFoundRows`), inclusive atualização sem mudança de valores
-- [ ] 3.2 `isUniqueViolation` com `*mysql.MySQLError` número 1062; testes de chave e slug duplicados (409) com rollback da transação
-- [ ] 3.3 Leituras em lote (`GetUptimesByKeys` e `GetEndpointSummaries`) em MySQL e MariaDB comparadas com `GetUptimeByKey` e `GetEndpointStatusByKey`, inclusive conjunto vazio
-- [ ] 3.4 Limite de 768 caracteres (`utf8.RuneCountInString`) com `storage.type: mysql` na validação de endpoints, external-endpoints, suites, endpoints de suite e da administração; testes com `mysql`, com chave multibyte e sem o limite nos outros tipos
-- [ ] 3.5 `config/config_admin.go` aceitando `mysql`, com a mensagem de tipo atualizada e o aviso de várias instâncias; testes
-- [ ] 3.6 Helpers de teste do fork (`managedEndpointTestStores` e similares) usando o helper comum com os quatro bancos
+- [x] 3.1 Escrita otimista de `managed_endpoints` e `managed_status_pages` em MySQL e MariaDB (`ClientFoundRows`), inclusive atualização sem mudança de valores (testes do fork nos quatro bancos e `TestMySQLConnector_FoundRows`)
+- [x] 3.2 `isUniqueViolation` com `*mysql.MySQLError` número 1062; testes de chave e slug duplicados (409) com rollback da transação
+- [x] 3.3 Leituras em lote (`GetUptimesByKeys` e `GetEndpointSummaries`) em MySQL e MariaDB comparadas com `GetUptimeByKey` e `GetEndpointStatusByKey`, inclusive conjunto vazio
+- [x] 3.4 Limite de 768 caracteres (`utf8.RuneCountInString`) com `storage.type: mysql` na validação de endpoints, external-endpoints, suites, endpoints de suite e da administração; testes com `mysql`, com chave multibyte e sem o limite nos outros tipos
+- [x] 3.5 `config/config_admin.go` aceitando `mysql`, com a mensagem de tipo atualizada e o aviso de várias instâncias; testes
+- [x] 3.6 Helpers de teste do fork (`managedEndpointTestStores` e similares) usando o helper comum com os quatro bancos
 - [ ] 3.7 `make lint`, `go test ./... -race` com os quatro bancos; pull request, CI verde e merge
 
 ## 4. Marco 4 — Documentação, deploy e release
 
-- [ ] 4.1 `test/e2e/admin.sh` e `test/e2e/status-pages.sh` com `E2E_STORAGE_TYPE` e `E2E_STORAGE_PATH`; rodar os dois com MariaDB 11.4.13 e com SQLite
-- [ ] 4.2 `docs/storage-mysql.md` (DSN, parâmetros sobrepostos, criação de banco e usuário, versões, página de 16K, limite de chave, pool de 25 conexões, backup, várias instâncias, sem migração, volta ao upstream), seção de storage no `README.md`, `docs/admin-endpoints.md` e `docs/status-pages.md`
-- [ ] 4.3 Exemplo `.examples/docker-compose-mariadb-storage/` com `jniltinho/gatus` e `mariadb:11.4.13` em tags fixas
-- [ ] 4.4 `AGENTS.fork.md` (containers de teste, variáveis e passo de sincronização com o upstream) e contexto do `openspec/config.yaml`
-- [ ] 4.5 Pacote de deploy `/home/jnsilva/Projetos/gatus/mariadb` (compose, compose de build, `.env` com versões fixas, config, `gatus.sh`, `Dockerfile`), bind em `127.0.0.1`; subir e conferir dashboard, admin e status page
+- [x] 4.1 `test/e2e/admin.sh` e `test/e2e/status-pages.sh` com `E2E_STORAGE_TYPE` e `E2E_STORAGE_PATH`; rodar os dois com MariaDB e com SQLite (rodados com MariaDB 10.11.19 do container de teste e com SQLite: 9 e 13 etapas; corrigido o gráfico da página pública de detalhes, que sumia com resultados abaixo de 1 ms)
+- [x] 4.2 `docs/storage-mysql.md` (DSN, parâmetros sobrepostos, criação de banco e usuário, versões, página de 16K, limite de chave, pool de 25 conexões, backup, várias instâncias, sem migração, volta ao upstream), seção de storage no `README.md`, `docs/admin-endpoints.md` e `docs/status-pages.md`
+- [x] 4.3 Exemplo `.examples/docker-compose-mariadb-storage/` com `jniltinho/gatus` e `mariadb:11.4.13` em tags fixas
+- [x] 4.4 `AGENTS.fork.md` (containers de teste, variáveis e passo de sincronização com o upstream) e contexto do `openspec/config.yaml`
+- [x] 4.5 Pacote de deploy `/home/jnsilva/Projetos/gatus/mariadb` (compose, compose de build, `.env` com versões fixas, config, `gatus.sh`, `Dockerfile`), bind em `127.0.0.1`; subir e conferir dashboard, admin e status page (pacote conferido com a imagem local da branch: senhas geradas, healthcheck, `status`, API e resultados gravados no MariaDB 11.4.13, segundo `subir` sem baixar imagens; admin e status pages conferidos pelos E2E com MariaDB)
 - [ ] 4.6 `openspec validate add-mysql-storage --strict`, pull request, CI verde e merge; release pela skill `create-release` e atualização do servidor local de validação

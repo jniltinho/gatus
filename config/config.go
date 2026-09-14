@@ -349,6 +349,10 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 		if err := ValidateUniqueKeys(config); err != nil {
 			return nil, err
 		}
+		// Fork: keys longer than MySQL and MariaDB can index
+		if err := ValidateStorageKeysConfig(config); err != nil {
+			return nil, err
+		}
 		if err := ValidateStatusPagesConfig(config); err != nil {
 			return nil, err
 		}

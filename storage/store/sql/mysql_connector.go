@@ -59,6 +59,12 @@ func (connector *mysqlConnector) Connect(ctx context.Context) (driver.Conn, erro
 		_ = conn.Close()
 		return nil, errMySQLConnUnsupported
 	}
+	// READ COMMITTED, the default of PostgreSQL: with the REPEATABLE READ default of InnoDB, the gap locks taken by the
+	// concurrent insertions of results of different endpoints deadlock each other
+	if _, err := inner.ExecContext(ctx, "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED", nil); err != nil {
+		_ = inner.Close()
+		return nil, err
+	}
 	return &mysqlConn{inner: inner}, nil
 }
 
@@ -120,11 +126,57 @@ func (conn *mysqlConn) QueryContext(ctx context.Context, query string, args []dr
 	if err != nil {
 		return nil, conn.observe(err)
 	}
+	if len(translated.returningColumn) > 0 {
+		rows, err := conn.queryInsertReturning(ctx, translated, arguments)
+		return rows, conn.observe(err)
+	}
 	rows, err := conn.inner.QueryContext(ctx, translated.query, arguments)
 	if errors.Is(err, driver.ErrSkip) {
 		rows, err = conn.queryPrepared(ctx, translated.query, arguments)
 	}
 	return rows, conn.observe(err)
+}
+
+// queryInsertReturning runs an INSERT ... RETURNING <column>, which MySQL does not support, as the INSERT alone and
+// returns the generated id as the single row of the query. It keeps the upstream queries unchanged: they insert one row
+// and return its AUTO_INCREMENT primary key, and LastInsertId is reliable because the connection is not shared.
+func (conn *mysqlConn) queryInsertReturning(ctx context.Context, translated *translatedQuery, arguments []driver.NamedValue) (driver.Rows, error) {
+	result, err := conn.inner.ExecContext(ctx, translated.insertWithoutReturning, arguments)
+	if errors.Is(err, driver.ErrSkip) {
+		result, err = conn.execPrepared(ctx, translated.insertWithoutReturning, arguments)
+	}
+	if err != nil {
+		return nil, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	return &lastInsertIDRows{column: translated.returningColumn, id: id}, nil
+}
+
+// lastInsertIDRows is the single row of an emulated INSERT ... RETURNING <column>
+type lastInsertIDRows struct {
+	column string
+	id     int64
+	read   bool
+}
+
+func (rows *lastInsertIDRows) Columns() []string {
+	return []string{rows.column}
+}
+
+func (rows *lastInsertIDRows) Close() error {
+	return nil
+}
+
+func (rows *lastInsertIDRows) Next(dest []driver.Value) error {
+	if rows.read {
+		return io.EOF
+	}
+	rows.read = true
+	dest[0] = rows.id
+	return nil
 }
 
 func (conn *mysqlConn) execPrepared(ctx context.Context, query string, arguments []driver.NamedValue) (driver.Result, error) {
