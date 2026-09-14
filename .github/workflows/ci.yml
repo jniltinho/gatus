@@ -14,6 +14,23 @@ jobs:
     name: Go (lint, build e testes)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: gatus
+          POSTGRES_PASSWORD: gatus
+          POSTGRES_DB: gatus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gatus -d gatus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Testes do store em PostgreSQL (sem a variável, esses testes rodam só em SQLite)
+      GATUS_TEST_POSTGRES_URL: postgres://gatus:gatus@127.0.0.1:5432/gatus?sslmode=disable
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -35,4 +52,4 @@ jobs:
       - name: Test
         # sudo: um dos testes usa ping (ICMP), que exige privilégios de superusuário.
         # As variáveis mantêm o Go e os caches configurados pelo setup-go.
-        run: sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" go test ./... -race
+        run: sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "GATUS_TEST_POSTGRES_URL=$GATUS_TEST_POSTGRES_URL" go test ./... -race
