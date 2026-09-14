@@ -53,6 +53,46 @@ export const adminApi = {
   remove: (key, version) => request('DELETE', `/endpoints/${encodeKey(key)}`, { version }),
 }
 
+const encodeSlug = (slug) => encodeURIComponent(slug)
+
+// Client of the administration API of the public status pages (/api/v1/admin/status-pages)
+export const statusPagesApi = {
+  list: () => request('GET', '/status-pages'),
+  options: () => request('GET', '/status-pages/options'),
+  exposure: ({ group, key }) => {
+    const params = new URLSearchParams()
+    if (group) {
+      params.set('group', group)
+    }
+    if (key) {
+      params.set('key', key)
+    }
+    return request('GET', `/status-pages/exposure?${params}`)
+  },
+  validate: (document, slug) => request('POST', slug ? `/status-pages/validate?slug=${encodeSlug(slug)}` : '/status-pages/validate', jsonPayload(document)),
+  get: (slug) => request('GET', `/status-pages/${encodeSlug(slug)}`),
+  create: (document) => request('POST', '/status-pages', jsonPayload(document)),
+  update: (slug, document, version) => request('PUT', `/status-pages/${encodeSlug(slug)}`, { ...jsonPayload(document), version }),
+  setEnabled: (slug, enabled, version) => request('POST', `/status-pages/${encodeSlug(slug)}/${enabled ? 'enable' : 'disable'}`, { version }),
+  remove: (slug, version) => request('DELETE', `/status-pages/${encodeSlug(slug)}`, { version }),
+  preview: (slug) => request('GET', `/status-pages/${encodeSlug(slug)}/preview`),
+}
+
+export function describeStatusPageError(error) {
+  switch (error && error.status) {
+    case 409:
+      return error.message && error.message.includes('configuration file and cannot be changed')
+        ? 'Esta página é do arquivo de configuração e não pode ser alterada pela web.'
+        : 'Já existe uma status page com esse slug.'
+    case 412:
+      return 'A status page foi alterada por outra pessoa desde que você a abriu. Recarregue a página para ver a versão atual.'
+    case 501:
+      return 'O storage configurado não suporta status pages cadastradas pela web.'
+    default:
+      return describeAdminError(error)
+  }
+}
+
 export function describeAdminError(error) {
   switch (error && error.status) {
     case 401:

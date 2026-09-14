@@ -11,6 +11,8 @@
       </div>
     </div>
 
+    <AdminTabs active="endpoints" />
+
     <Input v-model="search" placeholder="Buscar por nome, grupo ou URL" class="mb-4 dark:border-gray-700" data-testid="admin-search" />
 
     <div v-if="notice" role="status" data-testid="admin-notice" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ notice }}</div>
@@ -81,6 +83,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Loading from '@/components/Loading.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
+import AdminTabs from '@/components/admin/AdminTabs.vue'
 import { adminApi, describeAdminError } from '@/utils/adminApi'
 
 const router = useRouter()

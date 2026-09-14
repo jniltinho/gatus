@@ -20,6 +20,13 @@
       <div v-if="readOnly" class="mb-4 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
         Este endpoint é definido no arquivo de configuração e só pode ser visualizado.
       </div>
+      <div v-if="exposure.length" role="status" data-testid="admin-endpoint-exposure" class="mb-4 border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-100">
+        Este endpoint aparecerá publicamente {{ exposure.length === 1 ? 'na status page' : 'nas status pages' }}:
+        <template v-for="(page, index) in exposure" :key="`${page.origin}-${page.slug}`">
+          <a :href="`/status/${page.slug}`" target="_blank" rel="noopener" class="font-medium underline">{{ page.title }}</a>
+          ({{ page.published ? 'publicada' : 'não publicada' }}, {{ page.reason === 'group' ? 'pelo grupo' : 'pela chave' }}){{ index < exposure.length - 1 ? ', ' : '' }}
+        </template>
+      </div>
 
       <div v-if="!readOnly" class="mb-4 flex border-b dark:border-gray-700" role="tablist">
         <button
@@ -144,13 +151,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import Loading from '@/components/Loading.vue'
-import { adminApi, describeAdminError, jsonPayload, yamlPayload } from '@/utils/adminApi'
+import { adminApi, describeAdminError, jsonPayload, statusPagesApi, yamlPayload } from '@/utils/adminApi'
+import { endpointKey as buildEndpointKey } from '@/utils/statusPage'
 import { toYaml } from '@/utils/yaml'
 
 const props = defineProps({
@@ -370,6 +378,32 @@ const reloadCurrentVersion = async () => {
 const goBack = () => {
   router.push({ name: 'AdminEndpoints' })
 }
+
+// Status pages on which the endpoint would appear, by group or by key (fork)
+const exposure = ref([])
+let exposureTimer = null
+
+const refreshExposure = () => {
+  clearTimeout(exposureTimer)
+  exposureTimer = setTimeout(async () => {
+    const group = form.group.trim()
+    const name = form.name.trim()
+    if (!group && !name) {
+      exposure.value = []
+      return
+    }
+    try {
+      const { data } = await statusPagesApi.exposure({ group, key: name ? buildEndpointKey(group, name) : '' })
+      exposure.value = (data && data.statusPages) || []
+    } catch (e) {
+      exposure.value = []
+    }
+  }, 400)
+}
+
+watch(() => [form.group, form.name], refreshExposure)
+
+onUnmounted(() => clearTimeout(exposureTimer))
 
 onMounted(async () => {
   try {

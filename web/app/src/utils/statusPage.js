@@ -2,6 +2,11 @@
 
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 
+const sanitizeKeyPart = (value) => (value || '').toLowerCase().trim().replace(/[/_., #+&]/g, '-')
+
+// endpointKey mirrors key.ConvertGroupAndNameToKey of the backend
+export const endpointKey = (group, name) => `${sanitizeKeyPart(group)}_${sanitizeKeyPart(name)}`
+
 // Labels of the statuses of the payload, for a page or group ("page") and for an endpoint ("endpoint")
 export const STATUS_LABELS = {
   operational: { page: 'Todos os sistemas operacionais', group: 'Operacional' },

@@ -45,11 +45,11 @@
 
 ## 5. Marco 5 — Telas de administração das status pages
 
-- [ ] 5.1 Rotas SPA `/admin/status-pages`, `/admin/status-pages/new` e `/admin/status-pages/:slug/edit` em `api/api.go` (só com admin) e no `vue-router`; abas Endpoints e Status pages nas views de administração; funções novas em `utils/adminApi.js`
-- [ ] 5.2 `views/admin/AdminStatusPages.vue`: lista com origem e estado, abrir com `<a target="_blank" rel="noopener">`, copiar link (`navigator.clipboard` e alternativa), habilitar ou desabilitar com `If-Match`, remover com `ConfirmDialog`; banners de publicação desligada, gerenciadas indisponíveis e limite compartilhado; páginas do YAML sem ações de alteração
-- [ ] 5.3 `views/admin/AdminStatusPageForm.vue`: slug somente leitura na edição, título, descrição, `enabled` (desmarcado ao criar), grupos e endpoints a partir de `/options` com busca, avisos de `/validate`, pré-visualização, tratamento de 412 sem perder o conteúdo
-- [ ] 5.4 Aviso de exposição em `AdminEndpointForm.vue` com `/status-pages/exposure` ao abrir e ao mudar grupo ou nome
-- [ ] 5.5 Conferir variantes `dark:` e visual quadrado; `make frontend-build` e commit de `web/static/`
+- [x] 5.1 Rotas SPA `/admin/status-pages`, `/admin/status-pages/new` e `/admin/status-pages/:slug/edit` em `api/api.go` (só com admin) e no `vue-router`; abas Endpoints e Status pages nas views de administração; funções novas em `utils/adminApi.js`
+- [x] 5.2 `views/admin/AdminStatusPages.vue`: lista com origem e estado, abrir com `<a target="_blank" rel="noopener">`, copiar link (`navigator.clipboard` e alternativa), habilitar ou desabilitar com `If-Match`, remover com `ConfirmDialog`; banners de publicação desligada, gerenciadas indisponíveis e limite compartilhado; páginas do YAML sem ações de alteração
+- [x] 5.3 `views/admin/AdminStatusPageForm.vue`: slug somente leitura na edição, título, descrição, `enabled` (desmarcado ao criar), grupos e endpoints a partir de `/options` com busca, avisos de `/validate`, pré-visualização, tratamento de 412 sem perder o conteúdo
+- [x] 5.4 Aviso de exposição em `AdminEndpointForm.vue` com `/status-pages/exposure` ao abrir e ao mudar grupo ou nome
+- [x] 5.5 Conferir variantes `dark:` e visual quadrado; `make frontend-build` e commit de `web/static/`
 - [ ] 5.6 `make lint`, `go test ./... -race`; pull request, CI verde e merge
 
 ## 6. Marco 6 — Documentação, E2E e release
