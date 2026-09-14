@@ -137,7 +137,7 @@ func Initialize(cfg *storage.Config) error {
 	}
 	ctx, cancelFunc = context.WithCancel(context.Background())
 	switch cfg.Type {
-	case storage.TypeSQLite, storage.TypePostgres:
+	case storage.TypeSQLite, storage.TypePostgres, storage.TypeMySQL:
 		store, err = sql.NewStore(string(cfg.Type), cfg.Path, cfg.Caching, cfg.MaximumNumberOfResults, cfg.MaximumNumberOfEvents)
 		if err != nil {
 			return err

@@ -2,6 +2,8 @@ package storage
 
 import (
 	"errors"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -12,6 +14,10 @@ const (
 var (
 	ErrSQLStorageRequiresPath          = errors.New("sql storage requires a non-empty path to be defined")
 	ErrMemoryStorageDoesNotSupportPath = errors.New("memory storage does not support persistence, use sqlite if you want persistence on file")
+
+	// ErrMySQLStorageInvalidPath is returned when the path of a mysql storage is not a valid DSN. It never includes the
+	// path, which contains the password.
+	ErrMySQLStorageInvalidPath = errors.New("mysql storage requires storage.path to be a valid DSN, for example gatus:password@tcp(mariadb:3306)/gatus")
 )
 
 // Config is the configuration for storage
@@ -28,7 +34,7 @@ type Config struct {
 	// Caching is whether to enable caching.
 	// This is used to drastically decrease read latency by pre-emptively caching writes
 	// as they happen, also known as the write-through caching strategy.
-	// Does not apply if Config.Type is not TypePostgres or TypeSQLite.
+	// Does not apply if Config.Type is not TypePostgres, TypeSQLite or TypeMySQL.
 	Caching bool `yaml:"caching,omitempty"`
 
 	// MaximumNumberOfResults is the number of results each endpoint should be able to provide
@@ -43,8 +49,14 @@ func (c *Config) ValidateAndSetDefaults() error {
 	if c.Type == "" {
 		c.Type = TypeMemory
 	}
-	if (c.Type == TypePostgres || c.Type == TypeSQLite) && len(c.Path) == 0 {
+	if (c.Type == TypePostgres || c.Type == TypeSQLite || c.Type == TypeMySQL) && len(c.Path) == 0 {
 		return ErrSQLStorageRequiresPath
+	}
+	if c.Type == TypeMySQL {
+		if _, err := mysql.ParseDSN(c.Path); err != nil {
+			// The error of the driver may quote the DSN, so it is not wrapped
+			return ErrMySQLStorageInvalidPath
+		}
 	}
 	if c.Type == TypeMemory && len(c.Path) > 0 {
 		return ErrMemoryStorageDoesNotSupportPath

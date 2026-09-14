@@ -27,6 +27,19 @@ func (s *Store) createManagedStatusPagesSchema() error {
 		`)
 		return err
 	}
+	if s.driver == driverMySQL {
+		_, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS managed_status_pages (
+				managed_status_page_id BIGINT      AUTO_INCREMENT PRIMARY KEY,
+				slug                   VARCHAR(64) NOT NULL UNIQUE,
+				definition             MEDIUMTEXT  NOT NULL,
+				version                BIGINT      NOT NULL,
+				created_at             BIGINT      NOT NULL,
+				updated_at             BIGINT      NOT NULL,
+				updated_by             MEDIUMTEXT  NOT NULL
+			) ` + mysqlTableOptions)
+		return err
+	}
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS managed_status_pages (
 			managed_status_page_id BIGSERIAL PRIMARY KEY,

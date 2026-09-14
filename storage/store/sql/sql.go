@@ -80,7 +80,13 @@ func NewStore(driver, path string, caching bool, maximumNumberOfResults, maximum
 		maximumNumberOfEvents:  maximumNumberOfEvents,
 	}
 	var err error
-	if store.db, err = sql.Open(driver, path); err != nil {
+	if driver == driverMySQL {
+		// Fork: the queries of the store are translated for MySQL and MariaDB (see mysql.go)
+		store.db, err = openMySQLStore(path)
+	} else {
+		store.db, err = sql.Open(driver, path)
+	}
+	if err != nil {
 		return nil, err
 	}
 	if err := store.db.Ping(); err != nil {
@@ -107,9 +113,12 @@ func NewStore(driver, path string, caching bool, maximumNumberOfResults, maximum
 // createSchema creates the schema required to perform all database operations.
 func (s *Store) createSchema() error {
 	var err error
-	if s.driver == "sqlite" {
+	switch s.driver {
+	case "sqlite":
 		err = s.createSQLiteSchema()
-	} else {
+	case driverMySQL:
+		err = s.createMySQLSchema()
+	default:
 		err = s.createPostgresSchema()
 	}
 	if err != nil {
