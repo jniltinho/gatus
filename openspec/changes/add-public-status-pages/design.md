@@ -448,9 +448,11 @@ Alternativa: contador `gatus_status_page_requests_total{slug,code}`. Adiada.
 - Os destaques **contam como seleção** (uma página só com `featured` é válida), aparecem no topo na ordem da lista e **não se repetem** nas seções de grupo. Entram primeiro no limite de 200 endpoints.
 - Payload: `featured: [{...endpoint, "group": "<nome real>"}]`; o estado da página agrega destaques e seções.
 - Chave sem endpoint publicável: ignorada na página, aviso na carga e na validação (`type: "featured"`).
-- Cartão na página pública: nome, grupo, estado, uptime e tempo médio de resposta de 24h/7d/30d, último tempo de resposta, barras e, se marcado, o gráfico já aberto.
+- Cartão na página pública: nome, grupo, estado, uptime e tempo médio de resposta de 24h/7d/30d, último tempo de resposta, barras e o link "View details" para a página de detalhes (D18).
 
-### D16. Gráficos de tempo de resposta escolhidos por endpoint (pedido do dono)
+### D16. Gráficos de tempo de resposta escolhidos por endpoint (pedido do dono) — substituída por D18
+> Publicada no `v5.36.0-fork.2` e substituída por D18: o gráfico embutido divergia do gráfico do dashboard. Mantida como histórico.
+
 - Campo `charts` na página: até 10 chaves. Só endpoints presentes na página (destaque, grupo ou chave) ganham `chart: true`; chave fora da página gera aviso (`type: "chart"`).
 - O gráfico segue o da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`, componente `ResponseTimeChart`): linha com área, médias horárias e seletor 24h/7d/30d **em cada gráfico**. Nos destaques aparece aberto; nas linhas das seções, abre por um botão.
 - Os dados **não** usam a rota do dashboard (`/api/v1/endpoints/<chave>/response-times/...`), que exige a chave: rota pública nova `GET /api/v1/status-pages/:slug/response-times/:duration` com `{"duration", "endpoints": [{"name", "group", "points": [{"timestamp", "ms"}]}]}`, na ordem da página, só dos endpoints com gráfico.
@@ -461,6 +463,18 @@ Alternativa: contador `gatus_status_page_requests_total{slug,code}`. Adiada.
 ### D17. Tempo médio de resposta no payload
 - `EndpointUptimes` ganha as médias em milissegundos de 24h/7d/30d, das mesmas somas horárias (`total_response_time`), sem consulta extra; nulas sem execução.
 - Payload: `responseTime: {"24h": 123, "7d": 130, "30d": null}` em todos os endpoints.
+
+### D18. Página pública de detalhes do endpoint (pedido do dono, substitui D16)
+- **Motivo:** o gráfico embutido na status page (D16) divergia do gráfico de `/endpoints/<chave>` do dashboard: sem preenchimento das horas sem dados, sem marcação dos períodos `UNHEALTHY` e com outra moldura. O dono decidiu abrir o gráfico numa página própria, para **todos** os endpoints da página, e tirá-lo da status page.
+- **Rota SPA** `/status/:slug/endpoints/:key` com `meta.public`, servida pela rota HTML `/status/*` que já existe (sempre 200). O nome do endpoint nas linhas e o link "View details" dos cartões em destaque levam a ela. A chave é derivada no navegador a partir de grupo e nome (`endpointKey`, espelho de `key.ConvertGroupAndNameToKey`), então o payload da status page continua sem chave.
+- **Layout igual ao da página de detalhes do dashboard:** cartões Current Status, Avg Response Time, Response Time Range e Last Check; barras das últimas verificações (`EndpointRow` sem cabeçalho); Response Time Trend com o **mesmo componente** `ResponseTimeChart` e o seletor 24h/7d/30d, lendo `/api/v1/endpoints/<chave>/response-times/<d>/history` (rota já pública no upstream) e recebendo os eventos para as marcações; badges de tempo de resposta, uptime e saúde (rotas já públicas); lista de eventos com os textos do dashboard; link de volta para a status page; atualização a cada 60 s pausada com a aba oculta; sem chamar `/api/v1/config`.
+- **API pública nova** `GET /api/v1/status-pages/:slug/endpoints/:key`, registrada antes do catch-all e só com `status-pages.enabled`: `{"page": {"slug", "title"}, "name", "group", "status", "updatedAt", "uptime", "responseTime", "results", "events": [{"type", "timestamp"}]}`, sem chave, URL, hostname, erros ou condições; só eventos `START`, `HEALTHY` e `UNHEALTHY`, no máximo os 50 mais recentes, em ordem cronológica.
+- **Pertinência antes de ler o storage:** a chave (decodificada com `url.QueryUnescape`) precisa estar entre os endpoints mostrados pela página publicada (`Select(page, Endpoints()).Refs()`, respeitando o limite de 200); senão, o 404 idêntico, contando no limitador. Chave vazia ou com mais de 400 bytes responde 404 sem seleção.
+- **Custo:** cache de 30 s por `slug|revisão|geração|endpoint|chave`, `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 s. Leitura por `GetEndpointSummaries([chave])` (resultados e uptime, iguais aos da página) e `GetEndpointStatusByKey` com 1 resultado e 50 eventos, pelo leitor injetável `getEventReader`; endpoint ainda sem registro sai `unknown` e sem eventos.
+- **Remoções:** campo `chart` do payload, rota `/api/v1/status-pages/:slug/response-times/:duration` (agora cai no 404 idêntico), `PublicResponseTimes`, componente `ResponseTimeTrend` e a coluna Chart do formulário.
+- **Compatibilidade:** `charts` continua aceito no YAML e nas definições gravadas pelo `v5.36.0-fork.2` (a decodificação é estrita e rejeitaria o campo), mas é ignorado: a carga registra aviso de obsoleto e a validação da administração devolve aviso `type: "charts"`. O formulário não envia mais `charts`, então salvar a página remove o campo.
+- **Exposição:** a página de detalhes usa as rotas por chave do upstream (histórico de tempo de resposta e badges), públicas mesmo com `security` configurado; não torna público nada que já não fosse. Os eventos (tipo e horário) derivam das mesmas transições que as barras já mostram.
+- **Alternativa:** manter o gráfico embutido e copiar o preenchimento e as marcações do dashboard. Rejeitada pelo dono: duplica o componente e pesa a status page; a página própria reaproveita o componente do upstream sem cópia.
 
 ## Risks / Trade-offs
 

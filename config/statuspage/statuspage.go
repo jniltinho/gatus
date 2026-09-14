@@ -39,7 +39,7 @@ const (
 	// MaximumFeatured is the maximum number of featured endpoints of a page
 	MaximumFeatured = 10
 
-	// MaximumCharts is the maximum number of endpoints of a page with a response time chart
+	// MaximumCharts is the maximum number of keys of the deprecated charts of a page
 	MaximumCharts = 10
 )
 
@@ -178,7 +178,8 @@ type Page struct {
 	// group
 	Featured []string `yaml:"featured,omitempty" json:"featured,omitempty"`
 
-	// Charts lists the keys of the endpoints of the page that show a response time chart
+	// Charts is deprecated and ignored: every endpoint of a page has a public details page with its response time chart.
+	// It is still accepted so that the definitions saved by v5.36.0-fork.2 stay valid.
 	Charts []string `yaml:"charts,omitempty" json:"charts,omitempty"`
 
 	// Enabled is whether the page is published. Pages of the configuration file default to true.

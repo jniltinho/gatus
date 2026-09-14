@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"gatus/v5/config/endpoint"
 	pageconfig "gatus/v5/config/statuspage"
 	"gatus/v5/storage/store/common"
 )
@@ -87,7 +88,6 @@ type allowedGroup struct {
 type allowedEndpoint struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
-	Chart  bool   `json:"chart"`
 	Uptime struct {
 		Last24Hours *float64 `json:"24h"`
 		Last7Days   *float64 `json:"7d"`
@@ -121,5 +121,48 @@ func TestBuildPayload_Allowlist(t *testing.T) {
 	}
 	if strings.Contains(string(body), "10-0-0-5") {
 		t.Errorf("expected the endpoint key not to be published, got %s", body)
+	}
+}
+
+type allowedEndpointDetails struct {
+	Page struct {
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+	} `json:"page"`
+	allowedEndpoint
+	Group     string `json:"group"`
+	UpdatedAt string `json:"updatedAt"`
+	Events    []struct {
+		Type      string `json:"type"`
+		Timestamp string `json:"timestamp"`
+	} `json:"events"`
+}
+
+func TestBuildEndpointDetailsPayload_Allowlist(t *testing.T) {
+	now := time.Now()
+	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}}
+	ref := EndpointRef{Key: "core_db-master-10-0-0-5", Name: "db", Group: "core"}
+	summary := &common.EndpointSummary{Results: []common.ResultSummary{{Timestamp: now, Success: true, Duration: time.Millisecond}}}
+	events := []*endpoint.Event{
+		{Type: endpoint.EventStart, Timestamp: now.Add(-time.Hour)},
+		{Type: "CUSTOM", Timestamp: now.Add(-time.Minute)},
+		{Type: endpoint.EventHealthy, Timestamp: now},
+	}
+	payload := BuildEndpointDetailsPayload(page, ref, summary, events, now)
+	if payload.Status != StatusUp || len(payload.Events) != 2 || payload.Events[0].Type != "START" || payload.Events[1].Type != "HEALTHY" {
+		t.Errorf("expected the known events only, got %+v", payload)
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var decoded allowedEndpointDetails
+	if err := decoder.Decode(&decoded); err != nil {
+		t.Fatalf("expected only allowed fields, got %v in %s", err, body)
+	}
+	if strings.Contains(string(body), "10-0-0-5") || strings.Contains(string(body), "CUSTOM") {
+		t.Errorf("expected neither the endpoint key nor unknown events to be published, got %s", body)
 	}
 }

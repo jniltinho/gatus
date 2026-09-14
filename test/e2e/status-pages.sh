@@ -65,7 +65,6 @@ status-pages:
       groups: [core]
       endpoints: [_panel]
       featured: [core_health]
-      charts: [core_health, _panel]
     - slug: draft
       title: "Draft"
       groups: [core]
@@ -149,21 +148,35 @@ public wait 300 >/dev/null
 grep -q " ms" <<<"$(js public "document.querySelector('[data-testid=\"status-endpoint-health\"] [data-testid=status-endpoint-detail]').textContent")" || fail "the keyboard did not show the detail of the check"
 public screenshot "$PRINTS/02-services-keyboard-detail.png" >/dev/null
 
-step "Featured endpoint and response time charts"
+step "Featured endpoint and endpoint details page"
 public wait "$(testid status-featured)" >/dev/null || fail "the featured section did not show up"
 grep -q "Avg response" <<<"$(js public "document.querySelector('[data-testid=status-featured]').innerText")" || fail "the featured card did not show the average response times"
-public wait "[data-testid=\"status-chart-health\"] canvas" >/dev/null || fail "the chart of the featured endpoint did not show up"
 [ "$(js public "document.querySelector('[data-testid=\"status-group-core\"] [data-testid=\"status-endpoint-health\"]') ? 'yes' : 'no'")" = "no" ] || fail "the featured endpoint is repeated in its group"
-public click "$(testid status-chart-toggle-panel)" >/dev/null
-public wait "[data-testid=\"status-chart-panel\"] canvas" >/dev/null || fail "the chart of panel did not open"
-public eval "const select = document.querySelector('[data-testid=\"status-chart-duration-panel\"]'); select.value = '7d'; select.dispatchEvent(new Event('change'))" >/dev/null
+[ "$(js public "document.querySelector('[data-testid=status-endpoint-details-health]') ? 'yes' : 'no'")" = "yes" ] || fail "the featured card has no link to the details page"
+[ "$(js public "document.querySelector('canvas') ? 'yes' : 'no'")" = "no" ] || fail "the status page still shows an inline chart"
+public network requests --clear >/dev/null 2>&1 || true
+public click "$(testid status-endpoint-link-panel)" >/dev/null
+public wait "$(testid status-endpoint-details)" >/dev/null || fail "the details page of panel did not open"
+[ "$(js public 'location.pathname')" = "/status/services/endpoints/_panel" ] || fail "unexpected address of the details page"
+grep -q "^panel" <<<"$(js public 'document.title')" || fail "document.title is not the name of the endpoint"
+public wait "[data-testid=\"status-endpoint-chart\"] canvas" >/dev/null || fail "the response time chart did not show up"
+public wait "$(testid status-endpoint-events)" >/dev/null || fail "the events did not show up"
+grep -q "Monitoring started" <<<"$(body_text public)" || fail "the events do not have the texts of the dashboard"
+public eval "const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '7d'; select.dispatchEvent(new Event('change'))" >/dev/null
 public wait 1000 >/dev/null
-grep -q "response-times/7d" <<<"$(public network requests 2>/dev/null)" || fail "changing the period did not load the 7d response times"
-public screenshot --full "$PRINTS/02b-services-featured-and-charts.png" >/dev/null
-[ "$(api_status "$BASE/api/v1/status-pages/services/response-times/24h")" = 200 ] || fail "expected 200 from the public response times"
-[ "$(api_status "$BASE/api/v1/status-pages/services/response-times/1y")" = 404 ] || fail "expected 404 for an invalid duration"
-if curl -s "$BASE/api/v1/status-pages/services/response-times/24h" | grep -qE '127\.0\.0\.1|core_health|_panel'; then
-  fail "the response times exposed a URL or a key"
+public screenshot --full "$PRINTS/02b-endpoint-details.png" >/dev/null
+requests=$(public network requests 2>/dev/null)
+grep -q "_panel/response-times/7d/history" <<<"$requests" || fail "changing the period did not load the 7d history"
+grep -q "/api/v1/config" <<<"$requests" && fail "the details page called /api/v1/config"
+grep -qE '\b401\b' <<<"$requests" && fail "a request of the details page received 401"
+public click "$(testid status-endpoint-back)" >/dev/null
+public wait "$(testid status-page-title)" >/dev/null || fail "the back link did not return to the status page"
+[ "$(api_status "$BASE/api/v1/status-pages/services/endpoints/_panel")" = 200 ] || fail "expected 200 from the public endpoint details"
+[ "$(api_status "$BASE/api/v1/status-pages/services/endpoints/core_missing")" = 404 ] || fail "expected 404 for an endpoint that is not on the page"
+[ "$(api_status "$BASE/api/v1/status-pages/draft/endpoints/core_health")" = 404 ] || fail "expected 404 for an endpoint of a disabled page"
+[ "$(api_status "$BASE/api/v1/status-pages/services/response-times/24h")" = 404 ] || fail "the former response times route still responds"
+if curl -s "$BASE/api/v1/status-pages/services/endpoints/_panel" | grep -qE '127\.0\.0\.1|_panel'; then
+  fail "the endpoint details exposed a URL or a key"
 fi
 
 step "Dark mode and 390 px screen"
@@ -183,7 +196,7 @@ public set media light >/dev/null
 
 step "Missing page, disabled page and malformed slug"
 public network requests --clear >/dev/null 2>&1 || true
-for path in missing draft "a%2Fb" "a/b"; do
+for path in missing draft "a%2Fb" "a/b" "services/endpoints/core_missing"; do
   public open "$BASE/status/$path" >/dev/null
   public wait --text "Page not found" >/dev/null || fail "/status/$path did not show Page not found"
 done
@@ -221,7 +234,6 @@ admin click "$(testid status-page-group-core)" >/dev/null
 admin fill "$(testid status-page-endpoint-search)" "panel" >/dev/null
 admin click "$(testid status-page-endpoint-_panel)" >/dev/null
 admin click "$(testid status-page-featured-_panel)" >/dev/null
-admin click "$(testid status-page-chart-_panel)" >/dev/null
 admin click "$(testid status-page-validate)" >/dev/null
 admin wait --text "The page will show 3 endpoints" >/dev/null || fail "the validation did not count the 3 endpoints"
 admin screenshot --full "$PRINTS/08-admin-validation.png" >/dev/null

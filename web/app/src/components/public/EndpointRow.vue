@@ -1,30 +1,24 @@
 <template>
   <li :class="featured ? 'border bg-card p-4 dark:border-gray-800' : 'py-3'" :data-testid="`status-endpoint-${endpoint.name}`">
-    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="showHeader" class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-2 min-w-0">
         <span :class="['inline-block h-2.5 w-2.5 rounded-full flex-shrink-0', dotClass]" aria-hidden="true"></span>
-        <span :class="['truncate', featured ? 'text-lg font-semibold' : 'font-medium']" :title="endpoint.name">{{ endpoint.name }}</span>
+        <component
+          :is="slug ? RouterLink : 'span'"
+          :to="slug ? detailsRoute : undefined"
+          :class="['truncate', featured ? 'text-lg font-semibold' : 'font-medium', slug ? 'underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : '']"
+          :title="endpoint.name"
+          :data-testid="slug ? `status-endpoint-link-${endpoint.name}` : undefined"
+        >{{ endpoint.name }}</component>
         <span :class="['text-xs', statusTextClass]" aria-hidden="true">{{ statusLabel }}</span>
         <span v-if="featured && group" class="truncate text-xs text-muted-foreground" :title="group">{{ group }}</span>
       </div>
-      <div class="flex items-center gap-4">
-        <dl v-if="!featured" class="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
-          <div v-for="period in periods" :key="period.key" class="flex gap-1">
-            <dt>{{ period.label }}</dt>
-            <dd class="font-medium text-foreground">{{ formatUptime(endpoint.uptime[period.key]) }}</dd>
-          </div>
-        </dl>
-        <button
-          v-if="endpoint.chart && !featured"
-          type="button"
-          class="inline-flex h-7 items-center border border-input bg-background px-2 text-xs font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800"
-          :aria-expanded="chartOpen ? 'true' : 'false'"
-          :data-testid="`status-chart-toggle-${endpoint.name}`"
-          @click="chartOpen = !chartOpen"
-        >
-          {{ chartOpen ? 'Hide response time' : 'Response time' }}
-        </button>
-      </div>
+      <dl v-if="!featured" class="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
+        <div v-for="period in periods" :key="period.key" class="flex gap-1">
+          <dt>{{ period.label }}</dt>
+          <dd class="font-medium text-foreground">{{ formatUptime(endpoint.uptime[period.key]) }}</dd>
+        </div>
+      </dl>
     </div>
     <table v-if="featured" class="mt-3 w-full text-sm" data-testid="status-featured-stats">
       <thead>
@@ -44,9 +38,15 @@
         </tr>
       </tbody>
     </table>
-    <p v-if="featured" class="mt-1 text-xs text-muted-foreground">
-      Last response <span class="font-medium text-foreground">{{ formatMilliseconds(lastResult ? lastResult.durationMs : null) }}</span>
-    </p>
+    <div v-if="featured" class="mt-1 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+      <p>Last response <span class="font-medium text-foreground">{{ formatMilliseconds(lastResult ? lastResult.durationMs : null) }}</span></p>
+      <RouterLink
+        v-if="slug"
+        :to="detailsRoute"
+        class="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        :data-testid="`status-endpoint-details-${endpoint.name}`"
+      >View details<span class="sr-only"> of {{ endpoint.name }}</span></RouterLink>
+    </div>
     <p class="sr-only">{{ accessibleSummary }}</p>
     <div
       class="mt-2 flex gap-px outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -71,21 +71,24 @@
         {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : 'Failure' }} · {{ activeResult.durationMs }} ms
       </template>
     </p>
-    <ResponseTimeTrend v-if="endpoint.chart && (featured || chartOpen)" :endpoint="endpoint" :group="group" />
   </li>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import ResponseTimeTrend from '@/components/public/ResponseTimeTrend.vue'
-import { formatDateTime, formatMilliseconds, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
+import { RouterLink } from 'vue-router'
+import { endpointKey, formatDateTime, formatMilliseconds, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
 
 const props = defineProps({
   endpoint: { type: Object, required: true },
   bars: { type: Number, default: 50 },
-  // Featured endpoints are shown as a card, with more details and their chart open
+  // Featured endpoints are shown as a card, with more details
   featured: { type: Boolean, default: false },
-  group: { type: String, default: '' }
+  group: { type: String, default: '' },
+  // Slug of the status page: when set, the name of the endpoint links to its details page
+  slug: { type: String, default: '' },
+  // The details page shows the bars without the name and the uptimes, which it already shows
+  showHeader: { type: Boolean, default: true }
 })
 
 const periods = [
@@ -96,7 +99,11 @@ const periods = [
 
 const hoveredIndex = ref(null)
 const selectedIndex = ref(null)
-const chartOpen = ref(false)
+
+const detailsRoute = computed(() => ({
+  name: 'PublicStatusPageEndpoint',
+  params: { slug: props.slug, key: endpointKey(props.group, props.endpoint.name) }
+}))
 
 const displayedResults = computed(() => {
   const results = (props.endpoint.results || []).slice(-props.bars)

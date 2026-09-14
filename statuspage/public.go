@@ -4,23 +4,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
+	"gatus/v5/config/endpoint"
 	pageconfig "gatus/v5/config/statuspage"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common/paging"
 	"github.com/TwiN/gocache/v2"
 	"github.com/TwiN/logr"
 	"golang.org/x/sync/singleflight"
 )
 
 const (
-	publicCacheTTL        = 30 * time.Second
-	responseTimesCacheTTL = 5 * time.Minute
-	unavailableCacheTTL   = 5 * time.Second
+	publicCacheTTL      = 30 * time.Second
+	unavailableCacheTTL = 5 * time.Second
 
 	maximumConcurrentAssemblies = 4
+
+	// maximumPublicEvents is the maximum number of latest events shown on the details page of an endpoint
+	maximumPublicEvents = 50
 )
 
 var (
@@ -31,13 +34,6 @@ var (
 	ErrPageUnavailable = errors.New("status page temporarily unavailable")
 
 	errStorageNotSupported = errors.New("the storage does not support public status pages")
-
-	// responseTimeDurations are the periods of the response time charts
-	responseTimeDurations = map[string]time.Duration{
-		"24h": 24 * time.Hour,
-		"7d":  7 * 24 * time.Hour,
-		"30d": 30 * 24 * time.Hour,
-	}
 )
 
 // summaryReader is the part of the storage used to assemble the public status pages
@@ -45,9 +41,9 @@ type summaryReader interface {
 	GetEndpointSummaries(keys []string, maximumResults int, now time.Time) (map[string]*common.EndpointSummary, error)
 }
 
-// responseTimeReader is the part of the storage used to assemble the response time charts
-type responseTimeReader interface {
-	GetHourlyAverageResponseTimeByKey(key string, from, to time.Time) (map[int64]int, error)
+// eventReader is the part of the storage used to read the events of an endpoint for its details page
+type eventReader interface {
+	GetEndpointStatusByKey(key string, params *paging.EndpointStatusParams) (*endpoint.Status, error)
 }
 
 var (
@@ -57,19 +53,19 @@ var (
 		return store.GetEndpointSummaryBatchReader()
 	}
 
-	// getResponseTimeReader resolves the reader of the response time charts once per assembly. It is replaced in tests.
-	getResponseTimeReader = func() (responseTimeReader, bool) {
+	// getEventReader resolves the reader of the events once per assembly. It is replaced in tests.
+	getEventReader = func() (eventReader, bool) {
 		return store.Get(), true
 	}
 
 	// publicCache holds the JSON payloads, and the unavailability of the payloads that failed to be assembled, by
-	// slug|revision|generation (and the duration for the response times)
+	// slug|revision|generation (and the endpoint key for the details pages)
 	publicCache = gocache.NewCache().WithMaxSize(1000).WithEvictionPolicy(gocache.LeastRecentlyUsed)
 
 	// assemblies deduplicates the concurrent assemblies of the same payload
 	assemblies singleflight.Group
 
-	// assemblySemaphore limits the concurrent assemblies of the public status pages and of their response time charts
+	// assemblySemaphore limits the concurrent assemblies of the public status pages and of their endpoint details
 	assemblySemaphore = make(chan struct{}, maximumConcurrentAssemblies)
 
 	// semaphoreTimeout is how long an assembly waits for a slot of its semaphore
@@ -79,25 +75,6 @@ var (
 // unavailableMarker is cached when a payload could not be assembled, so that a failing storage is not queried by every
 // request
 type unavailableMarker struct{}
-
-// ResponseTimesPayload is the public representation of the response time charts of a status page
-type ResponseTimesPayload struct {
-	Duration  string               `json:"duration"`
-	Endpoints []ResponseTimeSeries `json:"endpoints"`
-}
-
-// ResponseTimeSeries is the response time chart of an endpoint, identified by its name and group (never by its key)
-type ResponseTimeSeries struct {
-	Name   string              `json:"name"`
-	Group  string              `json:"group"`
-	Points []ResponseTimePoint `json:"points"`
-}
-
-// ResponseTimePoint is the average response time of an hour, or of a day for the entries merged by the SQL storage
-type ResponseTimePoint struct {
-	Timestamp    time.Time `json:"timestamp"`
-	Milliseconds int       `json:"ms"`
-}
 
 // PublicPage returns the JSON payload of the published status page with the given slug. The payload is assembled at most
 // once per page revision every 30 seconds, whatever the number of concurrent requests.
@@ -115,23 +92,38 @@ func PublicPage(slug string) ([]byte, error) {
 	})
 }
 
-// PublicResponseTimes returns the JSON payload of the response time charts of the published status page with the given
-// slug over the given duration (24h, 7d or 30d). It is assembled at most once per page revision and duration every 5
-// minutes. It returns ErrPageNotFound, without reading the storage, when the page is not published or the duration is
-// invalid.
-func PublicResponseTimes(slug, duration string) ([]byte, error) {
-	period, valid := responseTimeDurations[duration]
-	if !valid {
+// PublicEndpointDetails returns the JSON payload of the details page of the endpoint with the given key on the published
+// status page with the given slug. Like the page, it is assembled at most once per page revision and endpoint every 30
+// seconds.
+//
+// It returns ErrPageNotFound, without reading the storage, when the page is not published or does not show the
+// endpoint, and ErrPageUnavailable when the storage could not be read or the assembly waited too long for a slot.
+func PublicEndpointDetails(slug, key string) ([]byte, error) {
+	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return nil, ErrPageNotFound
 	}
 	published, ok := Lookup(slug)
 	if !ok {
 		return nil, ErrPageNotFound
 	}
-	cacheKey := fmt.Sprintf("%s|%d|%d|response-times|%s", slug, published.Revision, published.Generation, duration)
-	return cachedAssembly(cacheKey, responseTimesCacheTTL, slug, func() ([]byte, error) {
-		return assembleResponseTimes(published.Page, duration, period, time.Now())
+	ref, shown := findShownEndpoint(published.Page, key)
+	if !shown {
+		return nil, ErrPageNotFound
+	}
+	cacheKey := fmt.Sprintf("%s|%d|%d|endpoint|%s", slug, published.Revision, published.Generation, key)
+	return cachedAssembly(cacheKey, publicCacheTTL, slug, func() ([]byte, error) {
+		return assembleEndpointDetails(published.Page, ref, published.MaximumResults, time.Now())
 	})
+}
+
+// findShownEndpoint returns the endpoint with the given key among the endpoints shown on the page
+func findShownEndpoint(page *pageconfig.Page, key string) (EndpointRef, bool) {
+	for _, ref := range Select(page, Endpoints()).Refs() {
+		if ref.Key == key {
+			return ref, true
+		}
+	}
+	return EndpointRef{}, false
 }
 
 // cachedAssembly returns the payload cached under cacheKey or assembles it once for all concurrent requests, in a slot of
@@ -196,39 +188,27 @@ func assemble(page *pageconfig.Page, maximumResults int, now time.Time) ([]byte,
 	return json.Marshal(BuildPayload(page, selection, summaries, now))
 }
 
-// assembleResponseTimes reads the hourly average response times of the endpoints of the page with a chart, in display
-// order, and encodes them. A page without chart does not read the storage.
-func assembleResponseTimes(page *pageconfig.Page, duration string, period time.Duration, now time.Time) ([]byte, error) {
-	payload := ResponseTimesPayload{Duration: duration, Endpoints: []ResponseTimeSeries{}}
-	charts := make(map[string]struct{}, len(page.Charts))
-	for _, key := range page.Charts {
-		charts[key] = struct{}{}
-	}
-	if len(charts) == 0 {
-		return json.Marshal(payload)
-	}
-	reader, ok := getResponseTimeReader()
-	if !ok {
+// assembleEndpointDetails reads the summary and the latest events of an endpoint of the page and encodes the payload of
+// its details page. An endpoint that is not in the store yet is unknown, without events.
+func assembleEndpointDetails(page *pageconfig.Page, ref EndpointRef, maximumResults int, now time.Time) ([]byte, error) {
+	summaries, summariesSupported := getSummaryReader()
+	events, eventsSupported := getEventReader()
+	if !summariesSupported || !eventsSupported {
 		return nil, errStorageNotSupported
 	}
-	for _, ref := range Select(page, Endpoints()).Refs() {
-		if _, chart := charts[ref.Key]; !chart {
-			continue
-		}
-		series := ResponseTimeSeries{Name: ref.Name, Group: ref.Group, Points: []ResponseTimePoint{}}
-		hourlyAverages, err := reader.GetHourlyAverageResponseTimeByKey(ref.Key, now.Add(-period), now)
-		if err != nil && !errors.Is(err, common.ErrEndpointNotFound) {
-			return nil, err
-		}
-		for hourUnixTimestamp, milliseconds := range hourlyAverages {
-			series.Points = append(series.Points, ResponseTimePoint{Timestamp: time.Unix(hourUnixTimestamp, 0).UTC(), Milliseconds: milliseconds})
-		}
-		sort.Slice(series.Points, func(i, j int) bool {
-			return series.Points[i].Timestamp.Before(series.Points[j].Timestamp)
-		})
-		payload.Endpoints = append(payload.Endpoints, series)
+	summaryByKey, err := summaries.GetEndpointSummaries([]string{ref.Key}, maximumResults, now)
+	if err != nil {
+		return nil, err
 	}
-	return json.Marshal(payload)
+	var endpointEvents []*endpoint.Event
+	status, err := events.GetEndpointStatusByKey(ref.Key, paging.NewEndpointStatusParams().WithResults(1, 1).WithEvents(1, maximumPublicEvents))
+	switch {
+	case err == nil:
+		endpointEvents = status.Events
+	case !errors.Is(err, common.ErrEndpointNotFound):
+		return nil, err
+	}
+	return json.Marshal(BuildEndpointDetailsPayload(page, ref, summaryByKey[ref.Key], endpointEvents, now))
 }
 
 // acquireSlot waits at most semaphoreTimeout for a slot of the semaphore, and returns the function releasing it

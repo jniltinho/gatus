@@ -69,3 +69,10 @@
 - [x] 7.5 Página pública: cartões em destaque, gráfico no formato do `ResponseTimeChart` com seletor por gráfico, botão de gráfico nas linhas, tema escuro e 390 px; build e capturas
 - [x] 7.6 Formulário da administração: marcar destaque e gráfico nos endpoints resolvidos pela seleção, limites de 10, pré-visualização com destaques; build e capturas
 - [ ] 7.7 Documentação (em inglês), `config.yaml` padrão com um destaque e um gráfico de exemplo, E2E, `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
+
+## 8. Marco 8 — Página pública de detalhes do endpoint (pedido do dono, substitui os gráficos embutidos)
+
+- [x] 8.1 D18 no design e spec `status-page-highlights` ajustada: página de detalhes para todos os endpoints, gráfico fora da status page, `charts` obsoleto
+- [x] 8.2 `GET /api/v1/status-pages/:slug/endpoints/:key` com `PublicEndpointDetails`: pertinência pela seleção antes da leitura, cache de 30 s, `singleflight`, semáforo, eventos só com tipo e horário; remoção de `chart`, `PublicResponseTimes` e da rota `response-times`; aviso de `charts` obsoleto na carga e na validação; testes de serviço, lista de permitidos e HTTP
+- [x] 8.3 View `StatusPageEndpoint.vue` no layout de `EndpointDetails.vue` com `ResponseTimeChart`, badges e eventos; links nas linhas e nos destaques; remoção de `ResponseTimeTrend`; formulário sem a coluna Chart e com o endereço público abrindo em nova aba; build e capturas
+- [ ] 8.4 `docs/status-pages.md`, `config.yaml` padrão e do servidor de validação sem `charts`, E2E com a página de detalhes; `make lint`, `go test ./... -race` com PostgreSQL, `test/e2e/status-pages.sh` e `test/e2e/admin.sh`; pull request, CI verde e merge

@@ -16,6 +16,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// warningTypeCharts is the type of the warning of a page with the deprecated charts, which are ignored
+const warningTypeCharts = "charts"
+
 var (
 	// ErrReadOnly is returned when trying to change a status page defined in the configuration file
 	ErrReadOnly = errors.New("the status page is defined in the configuration file and cannot be changed through the administration")
@@ -470,7 +473,7 @@ func findState(slug string) *State {
 }
 
 // selectionWarnings returns the groups, endpoint keys and featured endpoint keys selected by the page without match
-// among refs, and the keys of the charts of endpoints that are not on the page
+// among refs, and a warning of type charts when the page still has the deprecated charts
 func selectionWarnings(page *pageconfig.Page, refs []EndpointRef) []Warning {
 	groups := make(map[string]struct{}, len(refs))
 	keys := make(map[string]struct{}, len(refs))
@@ -495,15 +498,7 @@ func selectionWarnings(page *pageconfig.Page, refs []EndpointRef) []Warning {
 		}
 	}
 	if len(page.Charts) > 0 {
-		onPage := make(map[string]struct{})
-		for _, key := range Select(page, refs).Keys() {
-			onPage[key] = struct{}{}
-		}
-		for _, key := range page.Charts {
-			if _, exists := onPage[key]; !exists {
-				warnings = append(warnings, Warning{Type: "chart", Value: key})
-			}
-		}
+		warnings = append(warnings, Warning{Type: warningTypeCharts, Value: strings.Join(page.Charts, ", ")})
 	}
 	return warnings
 }

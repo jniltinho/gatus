@@ -52,6 +52,7 @@ Change: `openspec/changes/add-public-status-pages/` (read `design.md` before tou
 - Administration writes store to the database and **only after the commit** publish the snapshot with a new revision; the cache and `singleflight` use `slug|revision|generation`, never the database version.
 - The assembly is synchronous in the goroutine of the request and resolves the store reader on every assembly (a reload closes and replaces the store).
 - The limiter is our own and has no goroutine (the Fiber `limiter` leaks a goroutine per reload) and only counts 404 responses.
+- The endpoint details page (`/status/<slug>/endpoints/<key>`, API `GET /api/v1/status-pages/<slug>/endpoints/<key>`) checks that the key is among the endpoints shown by the published page **before** reading the store; its chart reuses the upstream `ResponseTimeChart` with the public routes by key. `charts` is deprecated and ignored, but must stay accepted by the strict decoding (definitions saved by `v5.36.0-fork.2`).
 - In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
 - The interface texts are in English, like the rest of the Gatus UI.
 
