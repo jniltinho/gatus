@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/security"
+	"gatus/v5/config"
+	"gatus/v5/security"
 	"github.com/gofiber/fiber/v2"
 )
 

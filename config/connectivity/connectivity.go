@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/client"
+	"gatus/v5/client"
 )
 
 var (

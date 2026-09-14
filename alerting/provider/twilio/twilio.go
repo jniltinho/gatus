@@ -10,9 +10,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/client"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/client"
+	"gatus/v5/config/endpoint"
 	"gopkg.in/yaml.v3"
 )
 

@@ -3,10 +3,10 @@ package api
 import (
 	"fmt"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/suite"
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/storage/store/common/paging"
+	"gatus/v5/config"
+	"gatus/v5/config/suite"
+	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common/paging"
 	"github.com/gofiber/fiber/v2"
 )
 

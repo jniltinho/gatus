@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"

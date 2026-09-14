@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/metrics"
+	"gatus/v5/config"
+	"gatus/v5/metrics"
 	"github.com/TwiN/logr"
 	"golang.org/x/sync/semaphore"
 )

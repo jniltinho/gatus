@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/suite"
-	"github.com/TwiN/gatus/v5/metrics"
-	"github.com/TwiN/gatus/v5/storage/store"
+	"gatus/v5/config"
+	"gatus/v5/config/suite"
+	"gatus/v5/metrics"
+	"gatus/v5/storage/store"
 	"github.com/TwiN/logr"
 )
 

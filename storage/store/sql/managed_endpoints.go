@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common"
 )
 
 const managedEndpointColumns = "endpoint_key, definition, version, created_at, updated_at, updated_by"

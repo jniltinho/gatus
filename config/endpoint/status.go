@@ -1,6 +1,6 @@
 package endpoint
 
-import "github.com/TwiN/gatus/v5/config/key"
+import "gatus/v5/config/key"
 
 // Status contains the evaluation Results of an Endpoint
 // This is essentially a DTO

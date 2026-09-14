@@ -1,9 +1,9 @@
 package memory
 
 import (
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/config/suite"
-	"github.com/TwiN/gatus/v5/storage/store/common/paging"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/config/suite"
+	"gatus/v5/storage/store/common/paging"
 )
 
 // ShallowCopyEndpointStatus returns a shallow copy of a Status with only the results

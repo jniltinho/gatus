@@ -4,8 +4,8 @@ import (
 	_ "embed"
 	"html/template"
 
-	"github.com/TwiN/gatus/v5/config/ui"
-	static "github.com/TwiN/gatus/v5/web"
+	"gatus/v5/config/ui"
+	static "gatus/v5/web"
 	"github.com/TwiN/logr"
 	"github.com/gofiber/fiber/v2"
 )

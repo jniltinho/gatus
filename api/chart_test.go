@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/watchdog"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/storage/store"
+	"gatus/v5/watchdog"
 )
 
 func TestResponseTimeChart(t *testing.T) {

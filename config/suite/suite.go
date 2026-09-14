@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/config/gontext"
-	"github.com/TwiN/gatus/v5/config/key"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/config/gontext"
+	"gatus/v5/config/key"
 )
 
 var (

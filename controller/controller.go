@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/TwiN/gatus/v5/api"
-	"github.com/TwiN/gatus/v5/config"
+	"gatus/v5/api"
+	"gatus/v5/config"
 	"github.com/TwiN/logr"
 	"github.com/gofiber/fiber/v2"
 )

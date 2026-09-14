@@ -9,10 +9,10 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/TwiN/gatus/v5/alerting/provider"
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/config/key"
+	"gatus/v5/alerting/provider"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/config/key"
 	"gopkg.in/yaml.v3"
 )
 

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/config/suite"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/config/suite"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

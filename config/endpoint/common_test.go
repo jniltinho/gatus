@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
+	"gatus/v5/alerting/alert"
 )
 
 func TestValidateEndpointNameGroupAndAlerts(t *testing.T) {

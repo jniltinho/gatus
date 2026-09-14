@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/storage/store/common"
+	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common"
 	"github.com/TwiN/logr"
 	"github.com/gofiber/fiber/v2"
 	"github.com/wcharczuk/go-chart/v2"

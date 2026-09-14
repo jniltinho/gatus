@@ -1,8 +1,8 @@
 package store
 
 import (
-	"github.com/TwiN/gatus/v5/storage/store/common"
-	"github.com/TwiN/gatus/v5/storage/store/sql"
+	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/sql"
 )
 
 var _ ManagedEndpointStore = (*sql.Store)(nil)

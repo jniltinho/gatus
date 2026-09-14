@@ -44,6 +44,9 @@ Este fork adiciona a **administração de endpoints pela web**: cadastrar, edita
 [docs/admin-endpoints.md](docs/admin-endpoints.md). Releases do fork: tags `v<versão-do-upstream>-fork.<N>` e imagem
 `jniltinho/gatus` no Docker Hub.
 
+O módulo Go do fork se chama `gatus/v5` e não depende do repositório original: gere o binário com `make build` ou use os
+tarballs e a imagem das [releases](https://github.com/jniltinho/gatus/releases) (o fork não é instalável com `go install`).
+
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Why Gatus?](#why-gatus)
@@ -3707,9 +3710,9 @@ https://example.com/api/v1/endpoints/core_frontend/response-times/24h
 
 
 ### Installing as binary
-You can download Gatus as a binary using the following command:
+You can download the fork binaries (`linux/amd64` and `linux/arm64`) from the [releases](https://github.com/jniltinho/gatus/releases), or build it from source:
 ```
-go install github.com/TwiN/gatus/v5@latest
+make build   # dist/gatus
 ```
 
 

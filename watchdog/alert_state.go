@@ -1,8 +1,8 @@
 package watchdog
 
 import (
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/storage/store"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/storage/store"
 	"github.com/TwiN/logr"
 )
 

@@ -3,8 +3,8 @@ package email
 import (
 	"testing"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint"
 )
 
 func TestAlertProvider_Validate(t *testing.T) {

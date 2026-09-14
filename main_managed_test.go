@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
-	"github.com/TwiN/gatus/v5/config/endpoint"
-	"github.com/TwiN/gatus/v5/managedendpoint"
-	"github.com/TwiN/gatus/v5/storage"
-	"github.com/TwiN/gatus/v5/storage/store"
-	"github.com/TwiN/gatus/v5/storage/store/common"
-	"github.com/TwiN/gatus/v5/storage/store/common/paging"
+	"gatus/v5/config"
+	"gatus/v5/config/endpoint"
+	"gatus/v5/managedendpoint"
+	"gatus/v5/storage"
+	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common/paging"
 )
 
 // The history of managed endpoints must be preserved on startup and reload, even without admin.enabled

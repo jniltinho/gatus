@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
+	"gatus/v5/alerting/alert"
 )
 
 var (

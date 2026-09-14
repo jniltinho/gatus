@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TwiN/gatus/v5/config"
+	"gatus/v5/config"
 )
 
 const validReloadTestConfig = `

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/TwiN/gatus/v5/alerting/alert"
-	"github.com/TwiN/gatus/v5/config/endpoint/heartbeat"
-	"github.com/TwiN/gatus/v5/config/key"
-	"github.com/TwiN/gatus/v5/config/maintenance"
+	"gatus/v5/alerting/alert"
+	"gatus/v5/config/endpoint/heartbeat"
+	"gatus/v5/config/key"
+	"gatus/v5/config/maintenance"
 )
 
 var (

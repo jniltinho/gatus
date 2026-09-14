@@ -1,7 +1,7 @@
 package security
 
 import (
-	"github.com/TwiN/gatus/v5/config/admin"
+	"gatus/v5/config/admin"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
