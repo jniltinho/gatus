@@ -10,6 +10,7 @@ import (
 	"github.com/TwiN/gatus/v5/config"
 	"github.com/TwiN/gatus/v5/controller"
 	"github.com/TwiN/gatus/v5/lifecycle"
+	"github.com/TwiN/gatus/v5/managedendpoint"
 	"github.com/TwiN/gatus/v5/metrics"
 	"github.com/TwiN/gatus/v5/storage/store"
 	"github.com/TwiN/gatus/v5/watchdog"
@@ -56,6 +57,7 @@ func start(cfg *config.Config) {
 	go controller.Handle(cfg)
 	metrics.InitializePrometheusMetrics(cfg, nil)
 	watchdog.Monitor(cfg)
+	managedendpoint.StartMonitoring()
 	lifecycle.EndCycle()
 	go listenToConfigurationFileChanges(cfg)
 }
@@ -132,9 +134,13 @@ func initializeStorage(cfg *config.Config) {
 			keys = append(keys, ep.Key())
 		}
 	}
+	// Endpoints managed through the administration API, valid or not, so that their history is preserved
+	managedKeys, loadErr := managedendpoint.Load(cfg)
+	keys = append(keys, managedKeys...)
 	logr.Infof("[main.initializeStorage] Total endpoint keys to preserve: %d", len(keys))
-	numberOfEndpointStatusesDeleted := store.Get().DeleteAllEndpointStatusesNotInKeys(keys)
-	if numberOfEndpointStatusesDeleted > 0 {
+	if loadErr != nil {
+		logr.Errorf("[main.initializeStorage] Failed to load managed endpoints, so endpoint statuses are not cleaned up to preserve their history: %s", loadErr.Error())
+	} else if numberOfEndpointStatusesDeleted := store.Get().DeleteAllEndpointStatusesNotInKeys(keys); numberOfEndpointStatusesDeleted > 0 {
 		logr.Infof("[main.initializeStorage] Deleted %d endpoint statuses because their matching endpoints no longer existed", numberOfEndpointStatusesDeleted)
 	}
 	// Clean up the triggered alerts from the storage provider and load valid triggered endpoint alerts
