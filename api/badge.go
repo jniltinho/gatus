@@ -11,6 +11,7 @@ import (
 
 	"github.com/TwiN/gatus/v5/config"
 	"github.com/TwiN/gatus/v5/config/endpoint/ui"
+	"github.com/TwiN/gatus/v5/managedendpoint"
 	"github.com/TwiN/gatus/v5/storage/store"
 	"github.com/TwiN/gatus/v5/storage/store/common"
 	"github.com/TwiN/gatus/v5/storage/store/common/paging"
@@ -203,7 +204,7 @@ func generateUptimeBadgeSVG(duration string, uptime float64) []byte {
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>
@@ -268,7 +269,7 @@ func generateResponseTimeBadgeSVG(duration string, averageResponseTime int, key 
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>
@@ -296,6 +297,8 @@ func generateResponseTimeBadgeSVG(duration string, averageResponseTime int, key 
 func getBadgeColorFromResponseTime(responseTime int, key string, cfg *config.Config) string {
 	thresholds := ui.GetDefaultConfig().Badge.ResponseTime.Thresholds
 	if endpoint := cfg.GetEndpointByKey(key); endpoint != nil {
+		thresholds = endpoint.UIConfig.Badge.ResponseTime.Thresholds
+	} else if endpoint := managedendpoint.EndpointByKey(key); endpoint != nil {
 		thresholds = endpoint.UIConfig.Badge.ResponseTime.Thresholds
 	}
 	// the threshold config requires 5 values, so we can be sure it's set here
@@ -330,7 +333,7 @@ func generateHealthBadgeSVG(healthStatus string) []byte {
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
   <mask id="a">
-    <rect width="%d" height="20" rx="3" fill="#fff"/>
+    <rect width="%d" height="20" fill="#fff"/>
   </mask>
   <g mask="url(#a)">
     <path fill="#555" d="M0 0h%dv20H0z"/>

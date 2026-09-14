@@ -1,13 +1,8 @@
 version: 2
 updates:
+  # Só GitHub Actions: atualizações de gomod conflitariam com a sincronização com o upstream
   - package-ecosystem: "github-actions"
     directory: "/"
-    labels: ["dependencies"]
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "gomod"
-    directory: "/"
-    open-pull-requests-limit: 3
     labels: ["dependencies"]
     schedule:
       interval: "daily"

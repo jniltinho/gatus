@@ -1,0 +1,19 @@
+# Imagem de release do fork, montada com os binários de `make release-cross`
+# (dist/pkg/linux_<arch>/gatus). Nada é compilado nem executado na plataforma de destino,
+# então o build multi-arquitetura não precisa de QEMU.
+#
+#   make docker-release VERSION=5.36.0-fork.1
+FROM --platform=$BUILDPLATFORM alpine:3.24.1 AS certs
+RUN apk add --no-cache ca-certificates tzdata
+
+FROM scratch
+ARG TARGETARCH
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=certs /usr/share/zoneinfo /usr/share/zoneinfo
+COPY dist/pkg/linux_${TARGETARCH}/gatus /gatus
+COPY config.yaml /config/config.yaml
+ENV GATUS_CONFIG_PATH=""
+ENV GATUS_LOG_LEVEL="INFO"
+ENV PORT="8080"
+EXPOSE ${PORT}
+ENTRYPOINT ["/gatus"]

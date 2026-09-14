@@ -65,7 +65,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <span v-if="calculateUnhealthyCount(items.endpoints) + calculateFailingSuitesCount(items.suites) > 0" 
-                      class="bg-red-600 text-white px-2 py-1 rounded-full text-sm font-medium">
+                      class="bg-red-600 text-white px-2 py-1 rounded-none text-sm font-medium">
                   {{ calculateUnhealthyCount(items.endpoints) + calculateFailingSuitesCount(items.suites) }}
                 </span>
                 <CheckCircle v-else class="h-6 w-6 text-green-600" />

@@ -37,6 +37,13 @@ For more details, see [Usage](#usage)
 Have any feedback or questions? [Create a discussion](https://github.com/TwiN/gatus/discussions/new).
 
 
+## Fork jniltinho/gatus
+
+Este fork adiciona a **administração de endpoints pela web**: cadastrar, editar, desabilitar e remover endpoints em
+`/admin`, persistidos em SQLite ou PostgreSQL, sem reiniciar o Gatus. Configuração, uso, API e limitações em
+[docs/admin-endpoints.md](docs/admin-endpoints.md). Releases do fork: tags `v<versão-do-upstream>-fork.<N>` e imagem
+`jniltinho/gatus` no Docker Hub.
+
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Why Gatus?](#why-gatus)

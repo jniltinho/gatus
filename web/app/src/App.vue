@@ -44,6 +44,15 @@
 
             <!-- Right Side Actions -->
             <div class="flex items-center gap-2">
+              <!-- Administration of endpoints (fork) -->
+              <router-link
+                v-if="showAdminLink"
+                to="/admin"
+                class="px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-800 transition-colors"
+                data-testid="admin-link"
+              >
+                Admin
+              </router-link>
               <!-- Navigation Links (Desktop) -->
               <nav v-if="buttons && buttons.length" class="hidden md:flex items-center gap-1">
                 <a 
@@ -190,6 +199,10 @@ const link = computed(() => {
 
 const buttons = computed(() => {
   return window.config && window.config.buttons ? window.config.buttons : []
+})
+
+const showAdminLink = computed(() => {
+  return Boolean(config.value && config.value.admin && config.value.admin.enabled && config.value.admin.authorized)
 })
 
 const loginSubtitle = computed(() => {

@@ -19,3 +19,5 @@ node_modules
 gatus
 config/config.yml
 config.yaml
+# Pacotes de release e capturas de tela dos testes E2E (dist/prints)
+dist/

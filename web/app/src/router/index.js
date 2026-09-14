@@ -2,6 +2,8 @@ import {createRouter, createWebHistory} from 'vue-router'
 import Home from '@/views/Home'
 import EndpointDetails from "@/views/EndpointDetails";
 import SuiteDetails from '@/views/SuiteDetails';
+import AdminEndpoints from '@/views/admin/AdminEndpoints';
+import AdminEndpointForm from '@/views/admin/AdminEndpointForm';
 
 const routes = [
     {
@@ -18,6 +20,23 @@ const routes = [
         path: '/suites/:key',
         name: 'SuiteDetails',
         component: SuiteDetails
+    },
+    // Administration of endpoints (fork)
+    {
+        path: '/admin',
+        name: 'AdminEndpoints',
+        component: AdminEndpoints
+    },
+    {
+        path: '/admin/endpoints/new',
+        name: 'AdminEndpointNew',
+        component: AdminEndpointForm
+    },
+    {
+        path: '/admin/endpoints/:endpointKey/edit',
+        name: 'AdminEndpointEdit',
+        component: AdminEndpointForm,
+        props: true
     }
 ];
 

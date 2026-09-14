@@ -27,6 +27,13 @@ func (handler ConfigHandler) GetConfig(c *fiber.Ctx) error {
 		"oidc":          hasOIDC,
 		"authenticated": isAuthenticated,
 	}
+	// Administration of endpoints (fork): whether it is enabled and whether the current request can use it
+	if handler.config != nil {
+		response["admin"] = map[string]bool{
+			"enabled":    handler.config.Admin.IsEnabled(),
+			"authorized": handler.securityConfig.IsAdmin(c, handler.config.Admin),
+		}
+	}
 	// Add announcements if available, otherwise use empty slice
 	if handler.config != nil && handler.config.Announcements != nil && len(handler.config.Announcements) > 0 {
 		response["announcements"] = handler.config.Announcements

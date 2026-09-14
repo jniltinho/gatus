@@ -2,6 +2,8 @@
 
 Guidance for AI coding agents working in this repository.
 
+> **Fork `jniltinho/gatus`:** also read [AGENTS.fork.md](AGENTS.fork.md). Its rules complement this file and take precedence when they conflict.
+
 ## Commands
 
 - `make install` — Build the `gatus` binary

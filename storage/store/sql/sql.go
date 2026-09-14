@@ -106,10 +106,17 @@ func NewStore(driver, path string, caching bool, maximumNumberOfResults, maximum
 
 // createSchema creates the schema required to perform all database operations.
 func (s *Store) createSchema() error {
+	var err error
 	if s.driver == "sqlite" {
-		return s.createSQLiteSchema()
+		err = s.createSQLiteSchema()
+	} else {
+		err = s.createPostgresSchema()
 	}
-	return s.createPostgresSchema()
+	if err != nil {
+		return err
+	}
+	// Endpoints managed through the administration API (see managed_endpoints.go)
+	return s.createManagedEndpointsSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status
