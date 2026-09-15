@@ -1,52 +1,78 @@
-## 1. Backend: sessões, autenticador e API
+## 1. Backend: sessões, autenticador, limitador e API
 
 - [ ] 1.1 `security.basic.session-ttl` (duração, padrão 8h, mínimo 5 minutos e máximo 30 dias) na validação da configuração, com testes de faixa.
-- [ ] 1.2 `store.LoginSessionStore`:
-  - tabela `login_sessions` (hash SHA-256 do token, usuário, fingerprint da credencial, criação e expiração) nos três dialetos, com `mysql_schema_test.go`;
+- [ ] 1.2 `store.LoginSessionStore` com a tabela `login_sessions`:
+  - DDL por dialeto: `token_hash` `CHAR(64)` como chave primária (`TEXT` no SQLite), `username` `VARCHAR(255)` no MySQL, `credential_fingerprint` `CHAR(64)`, `created_at` e `expires_at` `BIGINT`, índice em `expires_at`;
+  - `mysql_schema_test.go`;
   - store em memória;
-  - operações de criar, buscar, remover e remover expiradas;
+  - criar, buscar, remover e remover expiradas;
   - testes nos 4 bancos e na memória.
-- [ ] 1.3 Autenticador basic em arquivo novo de `security/`, no lugar do `basicauth`:
-  - sessão por cookie `gatus_session` e fallback para `Authorization: Basic`;
+- [ ] 1.3 Limitador de falhas do pacote `security`:
+  - `Blocked` só consulta e `Failure` conta a falha;
+  - janela de 1 minuto, teto de 10.000 chaves, IPv6 por /64 e sem goroutine;
+  - IP de `statuspage.ClientIP` com `trusted-proxies`;
+  - comparação de usuário com `subtle.ConstantTimeCompare` e bcrypt sempre contra o hash configurado.
+  - Testes:
+    - 10 falhas e bloqueio com a senha certa;
+    - acertos que não contam;
+    - reinício da janela;
+    - comparador chamado nos dois ramos, sem medir tempo.
+- [ ] 1.4 Autenticador basic em arquivo novo de `security/`, no lugar do `basicauth`:
+  - sessão por cookie `gatus_session` consultada no storage sem cache, com limpeza de sessão expirada ou antiga na consulta;
+  - fallback para `Authorization: Basic`, com cookie inválido que não bloqueia o header;
+  - limitador antes do bcrypt;
   - `Locals("username")`;
   - 401 com `Cache-Control: no-store`, e `WWW-Authenticate: Basic` só sem `Sec-Fetch-Site`, `Sec-Fetch-Mode` e `X-Requested-With`;
-  - cache de 30 segundos por hash;
-  - `IsAuthenticated` reconhecendo basic;
-  - testes com sessão, header, sem credencial, com e sem `Sec-Fetch-*`, sessão expirada e credencial trocada.
-- [ ] 1.4 Rotas `POST /api/v1/auth/login` e `POST /api/v1/auth/logout` no roteador não protegido:
-  - token de 32 bytes, cookie `HttpOnly`/`SameSite=Strict`/`Secure` com HTTPS e `Cache-Control: no-store`;
-  - proteção de origem da administração, corpo JSON de até 4 KB e 404 sem basic ou com OIDC;
-  - limpeza das sessões expiradas no login e a cada hora, ligada ao ciclo de vida;
-  - logs sem senha nem token;
-  - testes de API.
-- [ ] 1.5 Limite de 10 falhas por minuto por IP com `statuspage.NewLimiter` e `ClientIP` (429 inclusive com a senha certa durante o bloqueio) e bcrypt contra hash fixo para usuário inexistente, com testes.
-- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio) e `authenticated` para basic; rota HTML `/login` na SPA. Testes de API, incluindo a auditoria da administração com o usuário da sessão.
+  - `IsAuthenticated` reconhecendo basic sem contar falha;
+  - só com basic sem OIDC.
+  - Testes:
+    - sessão, header, sem credencial, com e sem `Sec-Fetch-*`, cookie expirado com header válido;
+    - sessão expirada, credencial trocada e logout em outra instância com o mesmo banco;
+    - 429 pelo header.
+- [ ] 1.5 Rotas `POST /api/v1/auth/login` e `POST /api/v1/auth/logout`, só com basic sem OIDC (404 nos outros casos):
+  - token de 32 bytes, sessão nova a cada login, ignorando cookie recebido;
+  - cookie `HttpOnly`/`SameSite=Strict`/`Secure` com TLS ou `X-Forwarded-Proto: https`;
+  - logout aceitando corpo vazio e expirando o cookie com os mesmos atributos;
+  - `Cache-Control: no-store`;
+  - regra de origem da administração: ausência de origem aceita, `ENVIRONMENT=dev`, `allowed-origins` e origem derivada;
+  - login com JSON de até 4 KB (415/413);
+  - limpeza das expiradas no login;
+  - logs sem senha nem token.
+  - Testes de API, incluindo login sem `Origin`, origem ruim, fixação e OIDC com basic.
+- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido e `authenticated` para basic (sessão ou header); rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo a auditoria da administração com o usuário da sessão.
 
 ## 2. Frontend: tela de login, redirecionamento e logout
 
-- [ ] 2.1 `views/Login.vue` com layout próprio:
+- [ ] 2.1 `views/Login.vue`:
   - cartão quadrado `max-w-sm` centralizado na horizontal a `15vh` do topo, com logo, `ui.header`, usuário, senha e "Sign in";
   - erro genérico e mensagem para 429;
   - botão de tema com o mesmo cookie de `PublicLayout.vue`, e variantes `dark:`;
   - rota `/login` com `meta.login`.
 - [ ] 2.2 `App.vue`:
-  - com `login === "basic"` e sem autenticação, levar as rotas não públicas a `/login?redirect=<caminho>`;
-  - na rota `/login` já autenticado, voltar ao `redirect` interno (começa com `/` e não com `//`);
+  - `meta.login` sem cabeçalho e sem link Admin, como `meta.public`;
+  - com `login === "basic"` e sem autenticação, levar as rotas não públicas e não de login a `/login?redirect=<caminho>`;
+  - na rota `/login` autenticado, voltar ao `redirect` validado (decodificado, um único `/` inicial, sem `//`, `\`, esquema, caracteres de controle ou `/login`), e com `login !== "basic"` voltar a `/`;
   - botão "Logout" no cabeçalho;
   - OIDC sem mudança.
-- [ ] 2.3 `X-Requested-With: XMLHttpRequest` e tratamento de 401 com ida a `/login` nas chamadas do dashboard (`fetch` com `credentials`) e em `utils/adminApi.js`.
+  - Testes unitários da validação do `redirect`.
+- [ ] 2.3 `X-Requested-With: XMLHttpRequest` e 401 levando a `/login` em `Home.vue`, `EndpointDetails.vue`, `SuiteDetails.vue` e `utils/adminApi.js`.
 - [ ] 2.4 Lint e `make frontend-build`.
 
 ## 3. Documentação, E2E e entrega
 
 - [ ] 3.1 Documentação:
-  - `docs/admin-endpoints.md`: tela de login, sessões, `session-ttl`, logout, `curl -u` e várias instâncias;
+  - `docs/admin-endpoints.md`: tela de login, sessões, `session-ttl`, logout, `curl -u` com limite de falhas, limitador por instância, storage memory, `X-Forwarded-Proto` e rollback;
   - `docs/README.md`: nota do fork em `security.basic`;
-  - `README.md` e `AGENTS.fork.md`: autenticador, tabela e rotas.
-- [ ] 3.2 E2E com agent-browser (`test/e2e/login.sh`, e ajuste de `admin.sh`, `push.sh`, `status-pages.sh` e `certificate.sh` para logar pela tela no lugar de `set credentials`):
+  - `README.md` e `AGENTS.fork.md`: autenticador, limitador, tabela e rotas.
+- [ ] 3.2 E2E com agent-browser em `test/e2e/login.sh`:
   - sem janela nativa;
-  - redirect para `/login` e de volta;
-  - senha errada, logout e status page pública sem login;
+  - redirect para `/login` e de volta, e redirects recusados;
+  - senha errada e 429;
+  - logout;
+  - detalhes de endpoint;
+  - status page pública sem login;
+  - `curl -u` funcionando;
   - prints claro e escuro em `dist/prints/`.
-- [ ] 3.3 `go test ./... -race` com PostgreSQL, MySQL e MariaDB, `make lint` e `openspec validate add-basic-login-page --strict`.
+  - Os E2E existentes (`admin.sh`, `push.sh`, `status-pages.sh`, `certificate.sh`) passam a logar pela tela no lugar de `set credentials`.
+- [ ] 3.3 `go test ./... -race` com PostgreSQL, MySQL e MariaDB, teste de recarga da configuração com sessão ativa, `make lint` e `openspec validate add-basic-login-page --strict`.
 - [ ] 3.4 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub, pacote `mariadb` e arquivamento da change.
