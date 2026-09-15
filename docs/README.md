@@ -2806,6 +2806,10 @@ security:
     password-bcrypt-base64: "JDJhJDEwJHRiMnRFakxWazZLdXBzRERQazB1TE8vckRLY05Yb1hSdnoxWU0yQ1FaYXZRSW1McmladDYu"
 ```
 
+To generate `password-bcrypt-base64` without `htpasswd` (jniltinho/gatus fork), run
+`python3 docs/generate-admin-password.py`, which only needs Python 3 and accepts `--cost` (for example `--cost 9`). See
+[admin-endpoints.md](admin-endpoints.md#configuration).
+
 > ⚠ Make sure to carefully select the cost of the bcrypt hash. The higher the cost, the longer it takes to compute the hash,
 > and basic auth verifies the password against the hash on every request. As of 2023-01-06, I suggest a cost of 9.
 
