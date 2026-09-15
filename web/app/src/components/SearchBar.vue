@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col lg:flex-row gap-3 lg:gap-4 p-3 sm:p-4 bg-card rounded-lg border">
+  <div class="flex flex-col lg:flex-row gap-3 lg:gap-4 p-3 bg-card border dark:border-gray-700">
     <div class="flex-1">
       <div class="relative">
         <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />

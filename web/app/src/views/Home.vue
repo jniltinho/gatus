@@ -1,24 +1,36 @@
 <template>
   <div class="dashboard-container bg-background">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-4xl font-bold tracking-tight">{{ dashboardHeading }}</h1>
-            <p class="text-muted-foreground mt-2">{{ dashboardSubheading }}</p>
+    <div class="container mx-auto px-4 py-4 max-w-7xl">
+      <div class="mb-4">
+        <!-- Fork: compact heading with a summary of the endpoints, like the administration -->
+        <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <h1 class="text-xl font-semibold tracking-tight">{{ dashboardHeading }}</h1>
+            <p class="mt-0.5 truncate text-sm text-muted-foreground">{{ dashboardSubheading }}</p>
           </div>
-          <div class="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              @click="toggleShowAverageResponseTime" 
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
+            <div v-if="!loading && endpointStatuses.length" class="flex flex-wrap items-center gap-2 text-xs" data-testid="dashboard-summary">
+              <span class="inline-flex items-center gap-1.5 border px-2 py-1 text-muted-foreground dark:border-gray-700" data-testid="dashboard-summary-up">
+                <span class="h-2 w-2 rounded-full bg-green-500" aria-hidden="true"></span>{{ endpointSummary.up }} up
+              </span>
+              <span v-if="endpointSummary.down" class="inline-flex items-center gap-1.5 border border-red-300 bg-red-50 px-2 py-1 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200" data-testid="dashboard-summary-down">
+                <span class="h-2 w-2 rounded-full bg-red-500" aria-hidden="true"></span>{{ endpointSummary.down }} down
+              </span>
+              <span v-if="endpointSummary.unknown" class="inline-flex items-center gap-1.5 border px-2 py-1 text-muted-foreground dark:border-gray-700" data-testid="dashboard-summary-unknown">
+                <span class="h-2 w-2 rounded-full bg-gray-400" aria-hidden="true"></span>{{ endpointSummary.unknown }} no data
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              @click="toggleShowAverageResponseTime"
               :title="showAverageResponseTime ? 'Show min-max response time' : 'Show average response time'"
             >
-              <Activity v-if="showAverageResponseTime" class="h-5 w-5" />
-              <Timer v-else class="h-5 w-5" />
+              <Activity v-if="showAverageResponseTime" class="h-4 w-4" />
+              <Timer v-else class="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" @click="refreshData" title="Refresh data">
-              <RefreshCw class="h-5 w-5" />
+              <RefreshCw class="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -56,19 +68,19 @@
             <!-- Group Header -->
             <div 
               @click="toggleGroupCollapse(group)"
-              class="endpoint-group-header flex items-center justify-between p-4 bg-card border-b cursor-pointer hover:bg-accent/50 transition-colors"
+              class="endpoint-group-header flex items-center justify-between px-4 py-3 bg-card border-b cursor-pointer hover:bg-accent/50 transition-colors"
             >
               <div class="flex items-center gap-3">
                 <ChevronDown v-if="uncollapsedGroups.has(group)" class="h-5 w-5 text-muted-foreground" />
                 <ChevronUp v-else class="h-5 w-5 text-muted-foreground" />
-                <h2 class="text-xl font-semibold text-foreground">{{ group }}</h2>
+                <h2 class="text-base font-semibold text-foreground">{{ group }}</h2>
               </div>
               <div class="flex items-center gap-2">
                 <span v-if="calculateUnhealthyCount(items.endpoints) + calculateFailingSuitesCount(items.suites) > 0" 
-                      class="bg-red-600 text-white px-2 py-1 rounded-none text-sm font-medium">
+                      class="bg-red-600 text-white px-2 py-0.5 rounded-none text-xs font-medium">
                   {{ calculateUnhealthyCount(items.endpoints) + calculateFailingSuitesCount(items.suites) }}
                 </span>
-                <CheckCircle v-else class="h-6 w-6 text-green-600" />
+                <CheckCircle v-else class="h-5 w-5 text-green-600" />
               </div>
             </div>
             
@@ -224,6 +236,22 @@ const groupByGroup = ref(false)
 const sortBy = ref(localStorage.getItem('gatus:sort-by') || 'name')
 const uncollapsedGroups = ref(new Set())
 const resultPageSize = 50
+
+// Endpoints up, down and without results, for the summary next to the heading (fork)
+const endpointSummary = computed(() => {
+  const summary = { up: 0, down: 0, unknown: 0 }
+  for (const endpoint of endpointStatuses.value) {
+    const results = endpoint.results || []
+    if (results.length === 0) {
+      summary.unknown++
+    } else if (results[results.length - 1].success) {
+      summary.up++
+    } else {
+      summary.down++
+    }
+  }
+  return summary
+})
 
 const filteredEndpoints = computed(() => {
   let filtered = [...endpointStatuses.value]
