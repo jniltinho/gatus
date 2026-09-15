@@ -208,7 +208,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.10
+    image: jniltinho/gatus:v5.36.0-fork.11
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
