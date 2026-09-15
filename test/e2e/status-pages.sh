@@ -264,8 +264,10 @@ public screenshot --full "$PRINTS/10-team-public.png" >/dev/null
 
 step "Administration: exposure warning in the endpoint form"
 admin open "$BASE/admin/endpoints/new" >/dev/null
-admin wait "$(testid admin-field-group)" >/dev/null || fail "the endpoint form did not open"
-admin fill "$(testid admin-field-group)" "core" >/dev/null
+admin wait "$(testid admin-field-group-select)" >/dev/null || fail "the endpoint form did not open"
+admin click "$(testid admin-field-group-select) button" >/dev/null
+admin wait "$(testid admin-group-option-core)" >/dev/null || fail "the group field did not list the core group"
+admin click "$(testid admin-group-option-core)" >/dev/null
 admin fill "$(testid admin-field-name)" "new" >/dev/null
 admin wait "$(testid admin-endpoint-exposure)" >/dev/null || fail "the exposure warning did not show up"
 exposure=$(js admin "document.querySelector('[data-testid=admin-endpoint-exposure]').innerText")

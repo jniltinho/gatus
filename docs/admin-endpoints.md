@@ -65,7 +65,8 @@ With `security.basic`, the only basic user is the administrator. With `security.
   and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web.
 - **Form (`/admin/endpoints/new` and `/admin/endpoints/<key>/edit`):** form mode (name, group, URL, method, interval,
   conditions, headers, alerts and enabled) and YAML mode, with the same keys as an item of `endpoints` in the
-  configuration file. The name and the group cannot be changed after creation.
+  configuration file. When creating, the group is picked from the groups of the existing endpoints or typed as a new
+  group. The name and the group cannot be changed after creation.
 - **Validate** checks the definition without saving it. **Test** runs a single check, without storing the result or
   triggering alerts, and shows each condition. **Save** stores and applies it.
 - **Remove** deletes the definition and the whole history of the endpoint. Triggered alerts are not resolved with the

@@ -46,9 +46,13 @@
           <label class="block text-sm font-medium text-foreground dark:text-gray-200">Name
             <Input v-model="form.name" :disabled="isEdit" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
           </label>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Group
-            <Input v-model="form.group" :disabled="isEdit" class="mt-1 dark:border-gray-700" data-testid="admin-field-group" />
-          </label>
+          <div class="text-sm font-medium text-foreground dark:text-gray-200">Group
+            <Input v-if="isEdit" v-model="form.group" disabled class="mt-1 dark:border-gray-700" data-testid="admin-field-group" />
+            <template v-else>
+              <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1" data-testid="admin-field-group-select" />
+              <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
+            </template>
+          </div>
           <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
             <Input v-model="form.url" placeholder="https://example.com/health" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
           </label>
@@ -184,6 +188,9 @@ const yamlText = ref('')
 const version = ref(0)
 const source = ref('admin')
 const alertTypes = ref([])
+// Groups of the existing endpoints, offered when creating an endpoint (fork)
+const groupNames = ref([])
+const newGroup = ref(false)
 // Keys of the definition that the form does not edit (e.g. client, dns) are kept from this document
 const baseDocument = ref({})
 
@@ -210,6 +217,34 @@ const title = computed(() => {
   return readOnly.value ? 'Endpoint from the configuration file' : 'Edit endpoint'
 })
 const alertTypeOptions = computed(() => alertTypes.value.map((type) => ({ label: type, value: type })))
+
+// Groups are trimmed, so a value with a leading space never matches an existing group
+const NEW_GROUP = ' new-group'
+const groupChoiceOptions = computed(() => [
+  { label: 'No group', value: '', testid: 'admin-group-none' },
+  ...groupNames.value.map((name) => ({ label: name, value: name, testid: `admin-group-option-${name}` })),
+  { label: 'New group…', value: NEW_GROUP, testid: 'admin-group-new' },
+])
+const groupChoice = computed({
+  get: () => (newGroup.value ? NEW_GROUP : form.group),
+  set: (value) => {
+    newGroup.value = value === NEW_GROUP
+    form.group = newGroup.value ? '' : value
+  },
+})
+
+const loadGroupNames = async () => {
+  const [endpoints, options] = await Promise.allSettled([adminApi.list(), statusPagesApi.options()])
+  const names = new Set()
+  if (endpoints.status === 'fulfilled') {
+    (endpoints.value.data || []).forEach((item) => names.add((item.group || '').trim()))
+  }
+  if (options.status === 'fulfilled') {
+    ((options.value.data && options.value.data.groups) || []).forEach((group) => names.add((group.name || '').trim()))
+  }
+  names.delete('')
+  groupNames.value = [...names].sort((a, b) => a.localeCompare(b))
+}
 
 const clearMessages = () => {
   error.value = ''
@@ -238,6 +273,7 @@ const formFromDocument = (document) => {
       }))
       : [],
   })
+  newGroup.value = form.group !== '' && !groupNames.value.includes(form.group)
 }
 
 const setOrDelete = (document, key, value) => {
@@ -406,12 +442,14 @@ watch(() => [form.group, form.name], refreshExposure)
 onUnmounted(() => clearTimeout(exposureTimer))
 
 onMounted(async () => {
+  const groups = isEdit.value ? Promise.resolve() : loadGroupNames()
   try {
     const { data } = await adminApi.metadata()
     alertTypes.value = (data && data.alertTypes) || []
   } catch (e) {
     alertTypes.value = []
   }
+  await groups
   try {
     if (isEdit.value) {
       await loadDetail()
