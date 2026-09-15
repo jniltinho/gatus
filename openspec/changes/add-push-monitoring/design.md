@@ -36,6 +36,7 @@ Restrições do fork:
 
 - Receber o push com a mesma entrada e as mesmas respostas do Uptime Kuma, inclusive reaproveitando tokens existentes.
 - Chaves por endpoint, grupo e global, sem criar endpoints no envio.
+- Push também em endpoints ativos, como opção de cada endpoint e no mesmo histórico das verificações, para notificações externas como as da Akamai.
 - Endpoints Push pela administração com o mesmo ciclo dos endpoints gerenciados, e chaves pela administração e pelo YAML.
 - Heartbeat confiável por endpoint, controlado pelo registro por chave.
 - Mensagem de cada resultado no dashboard, nunca nas páginas públicas.
@@ -46,6 +47,7 @@ Restrições do fork:
 - O estado PENDING e as tentativas do Kuma, o modo "upside down" e os monitores manuais.
 - Mudar o label `type` das métricas dos external endpoints do YAML.
 - Criar endpoints no primeiro envio.
+- Webhooks com corpo JSON próprio, como o formato nativo da Akamai.
 - Sincronizar heartbeats entre instâncias que compartilham o banco.
 
 ## Decisions
@@ -78,10 +80,10 @@ Arquivo novo `api/push.go`, registrado no bloco sem autenticação de `api/api.g
 
 Um componente único resolve cada envio, lendo snapshots atômicos atualizados na carga, na recarga e em cada alteração da administração:
 
-- **token de endpoint → endpoint Push:** índice dos external endpoints do YAML (montado a partir do `cfg` do router) e dos endpoints Push gerenciados (índice novo no snapshot de `managedendpoint`, atualizado em `putState`/`replaceState`/`removeState`);
+- **token de endpoint → endpoint:** índice dos external endpoints do YAML (montado a partir do `cfg` do router), dos endpoints Push gerenciados e dos ativos com push ligado e token, gerenciados ou em `push.endpoints` do YAML (índice novo no snapshot de `managedendpoint`, atualizado em `putState`/`replaceState`/`removeState`);
 - **hash da chave → escopo:** chaves de grupo e globais do YAML, com hash calculado na carga, e da tabela `push_keys`, publicadas por um pacote novo `pushkey` depois do commit, como as status pages.
 
-Com `/api/push/{token}`, só tokens de endpoint valem. Com `/api/push/{token}/{key}`, o endpoint é procurado pela chave; o envio é autorizado quando o token é o dele, quando o hash é de uma chave global ou quando o hash é de uma chave do grupo atual do endpoint. Todas as rejeições respondem da mesma forma.
+Com `/api/push/{token}`, só tokens de endpoint valem. Com `/api/push/{token}/{key}`, o endpoint é procurado pela chave; o envio é autorizado quando o token é o dele, quando o hash é de uma chave global ou quando o hash é de uma chave do grupo atual do endpoint. O endpoint pode ser Push ou ativo com push ligado, do YAML (`cfg.ExternalEndpoints` e `push.endpoints`) ou gerenciado pela web (D10). Todas as rejeições respondem da mesma forma.
 
 Um token presente em mais de um endpoint Push fica fora do índice de `/api/push/{token}` e gera um aviso na carga. A administração impede duplicatas com 409.
 
@@ -158,9 +160,9 @@ A autorização por grupo usa o grupo atual do endpoint, então trocar o grupo m
 
 ### D7. Mensagem em tabela própria do fork
 
-`endpoint.Result` ganha `Message` (`json:"message,omitempty"`). A tabela nova `endpoint_result_messages` tem `endpoint_result_id` como chave primária, com chave estrangeira para `endpoint_results` e `ON DELETE CASCADE`, e `message`.
+`endpoint.Result` ganha `Message` (`json:"message,omitempty"`) e `Origin` (`json:"origin,omitempty"`, `push` para resultados enviados). A tabela nova `endpoint_result_messages` tem `endpoint_result_id` como chave primária, com chave estrangeira para `endpoint_results` e `ON DELETE CASCADE`, `message` e `origin`.
 
-- A gravação acontece em `insertEndpointResultWithSuiteID`, só quando a mensagem não é vazia.
+- A gravação acontece em `insertEndpointResultWithSuiteID`, só quando há mensagem ou origem.
 - As leituras de resultados fazem `LEFT JOIN`.
 - A limpeza de resultados antigos remove as mensagens pela cascata.
 - O limite é de 1024 bytes, cortado em fronteira de caractere UTF-8.
@@ -182,6 +184,7 @@ A autorização por grupo usa o grupo atual do endpoint, então trocar o grupo m
 
 - **Formulário:**
   - seletor de tipo de monitor: ativos, com a URL sugerida pelo tipo (`tcp://`, `icmp://` etc.), ou Push;
+  - nos ativos, a opção "Accept push", desligada por padrão, com token opcional, URL do Kuma e exemplo com a chave global;
   - campos do Push: token com gerar e colar, URL copiável no formato do Kuma, heartbeat e alertas;
   - aviso de renomeação para as URLs com chave;
   - sem Testar no Push.
@@ -189,7 +192,28 @@ A autorização por grupo usa o grupo atual do endpoint, então trocar o grupo m
 - **Chaves:** aba nova "Push keys" (`AdminPushKeys.vue`).
 - **Dashboard:** `EndpointDetails.vue` ganha a tabela "Recent checks" com os resultados já carregados pela paginação atual.
 
-### D10. Entrega em 3 marcos
+### D10. Push em endpoints ativos
+
+Serviços ativos que recebem notificações externas, como alertas de métricas da Akamai chamando a URL no formato do Kuma, também aceitam push:
+
+- **Opção por endpoint:** receber push vem desligado por padrão nos endpoints ativos.
+  - Na definição gerenciada, o campo do fork `push` (`enabled` e `token` opcional) é retirado do documento antes da decodificação estrita em `endpoint.Endpoint`. O token é mascarado na definição e devolvido em `pushToken`.
+  - No YAML, a lista `push.endpoints` (chave do endpoint ativo e token opcional) liga a opção sem alterar o `endpoint.Endpoint` do upstream. Uma chave que não seja de endpoint ativo do arquivo é rejeitada na carga.
+  - Com a opção ligada, o endpoint aceita a chave global, a de grupo e o próprio token. Com ela desligada, a rota responde 404.
+- **Resultado:** o push vira um resultado no mesmo histórico, com origem `push` guardada em `endpoint_result_messages` e mostrada em "Recent checks". Uptime, eventos, métricas e alertas contam os dois tipos de resultado.
+- **Concorrência:**
+  - o lock por chave de D6 também envolve a gravação, as métricas e os alertas das verificações ativas em `executeEndpoint`;
+  - o push usa `watchdog.SubmitResult(key, result)`, que só aceita quando a chave está no registro e processa com o objeto do endpoint em execução;
+  - quando a chave não está no registro, a rota responde 404.
+- **Heartbeat:** não se aplica a endpoints ativos.
+
+**Alternativas consideradas:**
+- **Aceitar push em todos os endpoints ativos, sem opção:** rejeitada, porque o administrador escolhe quais serviços recebem notificações externas, e uma chave global vazada não afeta os demais.
+- **Push só como notificação, sem entrar no histórico nem no status:** rejeitada pela escolha do usuário, porque os alertas e o uptime devem refletir as notificações.
+- **Push down prevalecendo até um push up:** rejeitada por exigir dois estados por endpoint.
+- **Webhook com o JSON nativo da Akamai:** fora do escopo, porque a Akamai vai chamar a URL com a query do Kuma.
+
+### D11. Entrega em 3 marcos
 
 1. Rota `/api/push`, resolução, chaves do YAML, mensagem com a tabela nova, heartbeat no registro com o processamento único, testes da rota e do store nos 4 bancos.
 2. Endpoints Push e chaves pela administração: API, formulário, lista, aba "Push keys" e testes de API.
@@ -199,6 +223,7 @@ A autorização por grupo usa o grupo atual do endpoint, então trocar o grupo m
 
 - **[Token na URL aparece em logs de proxy e histórico]** → Mesmo modelo do Kuma. A documentação orienta HTTPS, logs sem query e path e rotação de chaves. O Gatus não loga o token.
 - **[Diferença de semântica com PENDING e Retries do Kuma]** → Documentar que `failure-threshold` dos alertas substitui as tentativas e que o status aparece como falha imediatamente.
+- **[Status alternando em endpoint ativo com push]** → Escolha consciente: a tabela "Recent checks" marca a origem de cada resultado, e a documentação explica o efeito no uptime e nos alertas.
 - **[Janela sem falha depois de reiniciar ou recarregar]** → A contagem começa na carga, como no Kuma. Documentado.
 - **[Heartbeat duplicado com várias instâncias no mesmo banco]** → Limitação já existente dos external endpoints, citada na documentação de várias instâncias.
 - **[Limitador por IP atrás de proxy não confiável]** → O mesmo aviso de `trusted-proxies` das status pages vale para o push.

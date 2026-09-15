@@ -36,11 +36,11 @@ Um envio aceito MUST responder 200 com `{"ok":true}`. Um envio rejeitado MUST re
 
 ### Requirement: Escopos das chaves de push
 Além do token do próprio endpoint, o sistema MUST aceitar chaves de grupo e globais em `/api/push/{token}/{chave-do-endpoint}`, com os mesmos parâmetros, métodos e respostas da URL do Uptime Kuma:
-- uma chave global MUST autorizar qualquer endpoint Push habilitado;
-- uma chave de grupo MUST autorizar somente os endpoints Push cujo grupo seja o da chave;
+- uma chave global MUST autorizar qualquer endpoint habilitado que receba push;
+- uma chave de grupo MUST autorizar somente os endpoints habilitados que recebam push e cujo grupo seja o da chave;
 - o token de um endpoint MUST autorizar somente esse endpoint.
 
-Endpoint inexistente, desabilitado ou que não seja Push, e chave que não autorize o endpoint, MUST responder 404 com o mesmo corpo de token desconhecido, sem revelar qual das condições falhou. Os endpoints Push MUST ser os external endpoints do arquivo de configuração e os endpoints Push gerenciados pela web.
+Endpoint inexistente, desabilitado ou que não receba push, e chave que não autorize o endpoint, MUST responder 404 com o mesmo corpo de token desconhecido, sem revelar qual das condições falhou. Os endpoints Push MUST ser os external endpoints do arquivo de configuração e os endpoints Push gerenciados pela web, e MUST sempre receber push. Um endpoint ativo, do arquivo de configuração ou gerenciado pela web, MUST receber push somente quando a opção estiver ligada.
 
 #### Scenario: Chave global
 - **WHEN** um script usa a chave global em `/api/push/<global>/jobs_backup?status=up` e `jobs_backup` é um endpoint Push
@@ -51,12 +51,16 @@ Endpoint inexistente, desabilitado ou que não seja Push, e chave que não autor
 - **THEN** a API responde 404 com `{"ok":false,"msg":"Monitor not found or not active."}`
 - **AND** `core_cron` não registra resultado
 
-#### Scenario: Endpoint ativo
-- **WHEN** um script usa a chave global com a chave de um endpoint HTTP monitorado ativamente
+#### Scenario: Chave global num endpoint ativo
+- **WHEN** a Akamai chama `/api/push/<global>/erp_site?status=down&msg=Latencia%20alta` e `erp_site` é um endpoint HTTP com push ligado
+- **THEN** a API responde 200 e `erp_site` registra a falha com a mensagem `Latencia alta`, marcada como origem Push
+
+#### Scenario: Endpoint ativo sem push
+- **WHEN** um script usa a chave global com a chave de um endpoint HTTP com push desligado
 - **THEN** a API responde 404 e nenhum resultado é armazenado
 
 ### Requirement: Tokens e chaves de push
-O token de um endpoint Push MUST ter de 8 a 128 caracteres entre letras, dígitos, `-` e `_`. Ele MUST poder ser informado, para reaproveitar o token de um monitor do Uptime Kuma, ou gerado com 32 letras e dígitos aleatórios, com gerador criptográfico. Um token não pode identificar mais de um endpoint Push: a administração MUST rejeitar com 409 um token já usado por outro endpoint Push, do arquivo ou da web. Quando o arquivo de configuração tiver o mesmo token em mais de um external endpoint, o sistema MUST registrar um aviso na carga, e esse token MUST responder 404 em `/api/push/{token}`.
+O token de um endpoint Push, e o token opcional de um endpoint ativo com push ligado, MUST ter de 8 a 128 caracteres entre letras, dígitos, `-` e `_`. Ele MUST poder ser informado, para reaproveitar o token de um monitor do Uptime Kuma, ou gerado com 32 letras e dígitos aleatórios, com gerador criptográfico. Um token não pode identificar mais de um endpoint: a administração MUST rejeitar com 409 um token já usado por outro endpoint, do arquivo ou da web. No arquivo de configuração, `push.endpoints` MUST ligar o push de endpoints ativos pela chave, com token opcional, e uma chave que não seja de endpoint ativo do arquivo MUST ser rejeitada na carga. Quando o arquivo de configuração tiver o mesmo token em mais de um external endpoint, o sistema MUST registrar um aviso na carga, e esse token MUST responder 404 em `/api/push/{token}`.
 
 As chaves de grupo e globais criadas pela administração MUST ser geradas com 32 letras e dígitos aleatórios, mostradas uma única vez e armazenadas somente como hash SHA-256 com os 4 últimos caracteres como dica. Elas MUST poder ser revogadas, e uma chave revogada MUST parar de autorizar envios imediatamente. As chaves do arquivo de configuração MUST ficar em `push.keys`, com `scope` (`global` ou `group`), `group` quando o escopo for de grupo e `token` com pelo menos 16 caracteres, e MUST ser somente leitura na administração.
 
@@ -112,7 +116,7 @@ O heartbeat MUST ser controlado pelo registro de monitoramento por chave, e MUST
 - **AND** os envios para o token do endpoint respondem 404
 
 ### Requirement: Endpoints Push gerenciados pela web
-A administração MUST aceitar definições com `type: push`, com `name`, `group`, `token`, `heartbeat.interval`, `alerts`, `maintenance-windows` e `enabled`. Uma definição Push com campos de endpoint ativo (`url`, `conditions`, `headers`, `client`, `method`, `body`, `interval` e demais) MUST ser rejeitada com 400, e uma definição ativa com `token` ou `heartbeat` também. Sem `token`, a criação MUST gerar um. O token MUST ser devolvido somente pelas rotas da administração.
+A administração MUST aceitar definições com `type: push`, com `name`, `group`, `token`, `heartbeat.interval`, `alerts`, `maintenance-windows` e `enabled`. Uma definição Push com campos de endpoint ativo (`url`, `conditions`, `headers`, `client`, `method`, `body`, `interval` e demais) MUST ser rejeitada com 400, e uma definição ativa com `token` ou `heartbeat` também. Uma definição ativa MUST aceitar `push`, com `enabled` e `token` opcional, e uma definição Push MUST rejeitar `push`. Sem `token`, a criação de um endpoint Push MUST gerar um. Os tokens MUST ser devolvidos somente pelas rotas da administração.
 
 Os endpoints Push gerenciados MUST ter o mesmo ciclo dos endpoints gerenciados ativos: versão e `If-Match`, conflito de chave com o arquivo, renomeação com o histórico, remoção, restauração dos alertas disparados e aplicação sem reinício. A ação `test` MUST responder 400 para uma definição Push. Os endpoints Push gerenciados MUST poder ser selecionados pelas status pages por grupo, por chave e em destaque, como os external endpoints do arquivo.
 
@@ -132,10 +136,27 @@ Os endpoints Push gerenciados MUST ter o mesmo ciclo dos endpoints gerenciados a
 - **WHEN** uma status page seleciona o grupo `jobs` e `jobs_backup` é um endpoint Push gerenciado
 - **THEN** a página pública mostra `jobs_backup` com seus resultados
 
-### Requirement: Mensagem dos resultados e verificações recentes
-O sistema MUST armazenar a mensagem de cada envio com o resultado, em qualquer status, limitada a 1024 bytes sem cortar caracteres UTF-8. Numa falha, a mensagem MUST também entrar nos erros do resultado, usados pelos alertas.
+### Requirement: Push em endpoints ativos
+Receber push MUST ser uma opção de cada endpoint ativo, desligada por padrão. Um push aceito para um endpoint ativo com a opção ligada MUST registrar um resultado no mesmo histórico das verificações do Gatus, com status, mensagem, duração e origem Push. Esse resultado MUST contar para o uptime, os eventos, as métricas e os alertas como as verificações. O processamento das verificações ativas e dos pushes de um mesmo endpoint MUST ser serializado, sem perder os contadores dos alertas. O heartbeat MUST NOT ser aplicado a endpoints ativos. Um push para um endpoint ativo com a opção desligada, parado, desabilitado ou removido MUST responder 404.
 
-A API protegida de status MUST devolver `message` em cada resultado. A página de detalhes do endpoint no dashboard MUST mostrar a tabela "Recent checks", do mais recente para o mais antigo, com status, data e hora e mensagem. A mensagem da tabela MUST ser, nesta ordem: a mensagem do envio; os erros; o status HTTP da verificação ativa.
+#### Scenario: Notificação da Akamai num serviço ativo
+- **WHEN** `erp_site` tem push ligado, verifica a URL a cada minuto com sucesso e a Akamai envia `status=down&msg=Latencia alta` às 10:00:20
+- **THEN** o histórico de `erp_site` mostra o push down às 10:00:20, com origem Push, entre as verificações up de 10:00:00 e 10:01:00
+- **AND** um alerta com `failure-threshold: 1` dispara com a mensagem `Latencia alta`
+
+#### Scenario: Push desligado
+- **WHEN** um administrador desliga o push de `erp_site`
+- **THEN** os envios para `erp_site` com a chave global ou com o token do endpoint respondem 404
+- **AND** as verificações do Gatus continuam registrando resultados
+
+#### Scenario: Push durante a verificação ativa
+- **WHEN** um push chega enquanto a verificação ativa do mesmo endpoint grava seu resultado
+- **THEN** os dois resultados são armazenados, e os contadores de falhas e sucessos seguidos refletem a ordem em que foram processados
+
+### Requirement: Mensagem dos resultados e verificações recentes
+O sistema MUST armazenar a mensagem e a origem Push de cada envio com o resultado, em qualquer status, com a mensagem limitada a 1024 bytes sem cortar caracteres UTF-8. Numa falha, a mensagem MUST também entrar nos erros do resultado, usados pelos alertas.
+
+A API protegida de status MUST devolver `message` em cada resultado. A página de detalhes do endpoint no dashboard MUST mostrar a tabela "Recent checks", do mais recente para o mais antigo, com status, data e hora, origem (Push ou verificação) e mensagem. A mensagem da tabela MUST ser, nesta ordem: a mensagem do envio; os erros; o status HTTP da verificação ativa.
 
 Os payloads das status pages públicas MUST NOT conter mensagens nem erros.
 

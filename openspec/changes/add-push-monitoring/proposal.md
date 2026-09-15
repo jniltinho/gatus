@@ -24,12 +24,18 @@ Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Quere
 
   O `POST /api/v1/endpoints/{key}/external` existente continua igual.
 - **Três escopos de chave:**
-  - **endpoint:** o token do endpoint Push, que identifica o endpoint sozinho;
-  - **grupo:** autoriza qualquer endpoint Push daquele grupo;
-  - **global:** autoriza qualquer endpoint Push.
+  - **endpoint:** o token do endpoint Push, ou o token de um endpoint ativo que recebe push, que identifica o endpoint sozinho;
+  - **grupo:** autoriza os endpoints daquele grupo que recebem push;
+  - **global:** autoriza todos os endpoints que recebem push.
 
   Chaves de grupo e global são geradas com 32 caracteres aleatórios, guardadas só como hash e mostradas uma única vez. Podem ser revogadas.
-- **Sem autocriação:** um envio para token desconhecido ou para chave de endpoint inexistente, desabilitado ou que não é Push responde 404 com a mensagem do Kuma ("Monitor not found or not active."). A resposta é igual em todos esses casos, para não revelar quais chaves existem.
+- **Sem autocriação:** um envio para token desconhecido ou para chave de endpoint inexistente ou desabilitado responde 404 com a mensagem do Kuma ("Monitor not found or not active."). A resposta é igual em todos esses casos, para não revelar quais chaves existem.
+- **Push também em endpoints ativos**, para serviços verificados pelo Gatus que também recebem notificações externas. Exemplo: alertas de métricas da Akamai chamando a URL com `?status=down&msg=...`.
+  - Receber push é uma opção de cada endpoint ativo, desligada por padrão: no formulário, a opção "Accept push" (receber push), com token próprio opcional; no YAML, a lista `push.endpoints`, com a chave do endpoint e o token opcional.
+  - Com a opção ligada, o endpoint ativo aceita a chave global e a de grupo em `/api/push/<chave>/<chave-do-endpoint>`, e o próprio token na URL do Kuma `/api/push/<token>`. Com a opção desligada, o envio responde 404.
+  - Endpoints do tipo Push sempre recebem push.
+  - Cada push vira um resultado no mesmo histórico, marcado como origem Push na tabela "Recent checks". Ele conta para o uptime e para os alertas junto com as verificações do Gatus, então o status pode alternar entre um push `down` e a verificação seguinte `up`.
+  - O heartbeat continua só nos endpoints do tipo Push.
 - **Endpoints Push pela administração:**
   - o formulário de endpoint ganha o tipo de monitor: ativos (HTTP(s), TCP, Ping, DNS e os demais inferidos pela URL) ou Push (passivo);
   - no Push, o formulário mostra a URL copiável, o botão para gerar um token novo, o intervalo de heartbeat, os alertas e um exemplo de `curl`;
@@ -56,6 +62,7 @@ Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Quere
 - **Fora do escopo:**
   - criar endpoints automaticamente no primeiro envio;
   - importar monitores do banco do Uptime Kuma: cada monitor Push é criado no Gatus com o mesmo token;
+  - webhooks com corpo JSON próprio, como o formato nativo de webhook da Akamai: a entrada é a query do Kuma;
   - o estado PENDING das tentativas (`Retries`) do Kuma: no Gatus, o equivalente é o `failure-threshold` dos alertas;
   - modo "upside down" e "manual" do Kuma;
   - mudar o label `type` das métricas Prometheus dos external endpoints do YAML, o que quebraria séries existentes.
@@ -76,6 +83,7 @@ Nenhuma mudança é **BREAKING**: a rota `POST /api/v1/endpoints/{key}/external`
   - a proteção da rota pública;
   - o heartbeat;
   - os endpoints Push gerenciados pela web;
+  - o push em endpoints ativos, no mesmo histórico;
   - a mensagem dos resultados e a tabela "Recent checks";
   - a presença dos endpoints Push nas status pages.
 
@@ -92,9 +100,9 @@ Nenhuma mudança é **BREAKING**: a rota `POST /api/v1/endpoints/{key}/external`
   - `api/push.go` (novo): rota, coringas e limitador;
   - `config/push/` e `config/config_push.go`: seção `push.keys` e validação de tokens únicos;
   - `managedendpoint/`: `Parse` com `type`, `State` com o external endpoint, máscara e restauração de `token`, `Test` indisponível para Push;
-  - `watchdog/registry.go` e `watchdog/external_endpoint.go`: heartbeat no registro por chave, contadores sem corrida e correção do intervalo;
+  - `watchdog/registry.go`, `watchdog/endpoint.go` e `watchdog/external_endpoint.go`: heartbeat no registro por chave, lock por chave compartilhado entre verificações ativas e pushes, contadores sem corrida e correção do intervalo;
   - `statuspage/registry.go`: endpoints Push gerenciados em `Endpoints()`;
-  - `config/endpoint/result.go`: campo `Message`.
+  - `config/endpoint/result.go`: campos `Message` e `Origin`.
 - **Banco:**
   - tabela nova `push_keys` (escopo, grupo, hash, dica, autor e datas);
   - tabela nova `endpoint_result_messages`, ligada ao resultado com `ON DELETE CASCADE`;

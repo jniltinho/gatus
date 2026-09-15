@@ -23,7 +23,7 @@ A tela `/admin` MUST listar os endpoints ativos e Push, do arquivo de configura�
 As telas de criação e edição MUST oferecer um modo formulário e um modo YAML, preservando o conteúdo ao alternar entre eles.
 
 O formulário MUST começar pelo tipo de monitor:
-- **ativos** (HTTP(s), TCP, Ping, DNS e os demais inferidos pela URL): nome, grupo, URL, método, intervalo, condições, headers, alertas entre os tipos configurados e estado habilitado;
+- **ativos** (HTTP(s), TCP, Ping, DNS e os demais inferidos pela URL): nome, grupo, URL, método, intervalo, condições, headers, alertas entre os tipos configurados, estado habilitado e a opção "Accept push" (receber push), desligada por padrão, que ao ser ligada mostra o token opcional, a URL de push copiável e o exemplo com a chave global;
 - **Push (passivo):** nome, grupo, token, intervalo de heartbeat, alertas e estado habilitado.
 
 No tipo Push, a tela MUST mostrar:
@@ -56,6 +56,14 @@ Depois de salvar, a tela MUST usar a chave nova. Segredos mascarados MUST ser ex
 #### Scenario: Tipo Push
 - **WHEN** o administrador escolhe o tipo Push num endpoint novo
 - **THEN** o formulário esconde URL, método, condições e headers e mostra a URL de push copiável com um token gerado, o intervalo de heartbeat de 60 segundos e um exemplo de `curl`
+
+#### Scenario: Push num endpoint ativo
+- **WHEN** o administrador liga "Accept push" num endpoint HTTP
+- **THEN** o formulário mostra um token gerado, a URL de push copiável e o exemplo com a chave global, sem esconder URL, condições e headers
+
+#### Scenario: Push desligado no endpoint ativo
+- **WHEN** o administrador desliga "Accept push" num endpoint HTTP e salva
+- **THEN** a definição fica sem `push` e o endpoint deixa de aceitar envios
 
 #### Scenario: Token do Uptime Kuma
 - **WHEN** o administrador cola o token de um monitor Push do Uptime Kuma no campo de token
