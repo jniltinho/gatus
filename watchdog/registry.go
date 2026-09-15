@@ -48,9 +48,20 @@ var (
 // monitoredEndpoint is an endpoint being monitored by its own goroutine
 type monitoredEndpoint struct {
 	endpoint *endpoint.Endpoint
+	// external is the external endpoint whose heartbeat is monitored, when endpoint is nil (fork)
+	external *endpoint.ExternalEndpoint
 	source   Source
+	ctx      context.Context
 	cancel   context.CancelFunc
 	done     chan struct{} // closed once the monitoring goroutine has returned
+}
+
+// key returns the key of the monitored endpoint or external endpoint
+func (entry *monitoredEndpoint) key() string {
+	if entry.endpoint != nil {
+		return entry.endpoint.Key()
+	}
+	return entry.external.Key()
 }
 
 // endpointRegistry keeps track of the endpoints monitored during a monitoring cycle, so that each one can be
@@ -81,7 +92,7 @@ func (r *endpointRegistry) start(ep *endpoint.Endpoint, source Source) error {
 		return ErrEndpointAlreadyMonitored
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
-	entry := &monitoredEndpoint{endpoint: ep, source: source, cancel: cancel, done: make(chan struct{})}
+	entry := &monitoredEndpoint{endpoint: ep, source: source, ctx: ctx, cancel: cancel, done: make(chan struct{})}
 	r.entries[key] = entry
 	go func() {
 		defer close(entry.done)
@@ -103,9 +114,14 @@ func (r *endpointRegistry) stop(key string, source Source) error {
 	r.mu.Unlock()
 	entry.cancel()
 	entry.waitForExecution()
-	// Connections are only closed once the execution is done: closing them while the execution lazily creates the
-	// HTTP client would be a data race
-	entry.endpoint.Close()
+	// Fork: waits for a result being submitted or pushed, which is processed under the lock of the key; the next ones
+	// see the cancelled context and are discarded
+	lockEndpointResults(key)()
+	if entry.endpoint != nil {
+		// Connections are only closed once the execution is done: closing them while the execution lazily creates the
+		// HTTP client would be a data race
+		entry.endpoint.Close()
+	}
 	return nil
 }
 
@@ -126,7 +142,7 @@ func (r *endpointRegistry) close() {
 	for _, entry := range entries {
 		select {
 		case <-entry.done:
-			if entry.source != SourceConfig {
+			if entry.source != SourceConfig && entry.endpoint != nil {
 				entry.endpoint.Close()
 			}
 		case <-timer.C:
@@ -148,7 +164,7 @@ func (r *endpointRegistry) isMonitored(key string) bool {
 // been cancelled.
 func (entry *monitoredEndpoint) waitForExecution() {
 	timeout := client.GetDefaultConfig().Timeout
-	if entry.endpoint.ClientConfig != nil && entry.endpoint.ClientConfig.Timeout > 0 {
+	if entry.endpoint != nil && entry.endpoint.ClientConfig != nil && entry.endpoint.ClientConfig.Timeout > 0 {
 		timeout = entry.endpoint.ClientConfig.Timeout
 	}
 	timer := time.NewTimer(timeout + stopGracePeriod)
@@ -156,7 +172,7 @@ func (entry *monitoredEndpoint) waitForExecution() {
 	select {
 	case <-entry.done:
 	case <-timer.C:
-		logr.Warnf("[watchdog.waitForExecution] Timed out waiting for the in-flight execution of endpoint with key=%s; its result will be discarded", entry.endpoint.Key())
+		logr.Warnf("[watchdog.waitForExecution] Timed out waiting for the in-flight execution of endpoint with key=%s; its result will be discarded", entry.key())
 	}
 }
 

@@ -2,16 +2,18 @@ package watchdog
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
-	"gatus/v5/metrics"
-	"gatus/v5/storage/store"
 	"github.com/TwiN/logr"
 )
 
-func monitorExternalEndpointHeartbeat(ee *endpoint.ExternalEndpoint, cfg *config.Config, extraLabels []string, ctx context.Context) {
+// monitorExternalEndpointHeartbeat records a failure for every full heartbeat interval without an accepted push, until
+// ctx is cancelled
+func monitorExternalEndpointHeartbeat(ctx context.Context, ee *endpoint.ExternalEndpoint, cfg *config.Config) {
+	last := lastPush(ee.Key())
 	ticker := time.NewTicker(ee.Heartbeat.Interval)
 	defer ticker.Stop()
 	for {
@@ -20,64 +22,42 @@ func monitorExternalEndpointHeartbeat(ee *endpoint.ExternalEndpoint, cfg *config
 			logr.Warnf("[watchdog.monitorExternalEndpointHeartbeat] Canceling current execution of group=%s; endpoint=%s; key=%s", ee.Group, ee.Name, ee.Key())
 			return
 		case <-ticker.C:
-			executeExternalEndpointHeartbeat(ee, cfg, extraLabels)
+			executeExternalEndpointHeartbeat(ctx, ee, cfg, last)
 		}
 	}
 }
 
-func executeExternalEndpointHeartbeat(ee *endpoint.ExternalEndpoint, cfg *config.Config, extraLabels []string) {
+func executeExternalEndpointHeartbeat(ctx context.Context, ee *endpoint.ExternalEndpoint, cfg *config.Config, last *atomic.Int64) {
 	// Acquire semaphore to limit concurrent external endpoint monitoring
 	if err := monitoringSemaphore.Acquire(ctx, 1); err != nil {
-		// Only fails if context is cancelled (during shutdown)
+		// Only fails if context is cancelled (during shutdown, or because the heartbeat was stopped)
 		logr.Debugf("[watchdog.executeExternalEndpointHeartbeat] Context cancelled, skipping execution: %s", err.Error())
 		return
 	}
 	defer monitoringSemaphore.Release(1)
 	// If there's a connectivity checker configured, check if Gatus has internet connectivity
 	if cfg.Connectivity != nil && cfg.Connectivity.Checker != nil && !cfg.Connectivity.Checker.IsConnected() {
-		logr.Infof("[watchdog.monitorExternalEndpointHeartbeat] No connectivity; skipping execution")
+		logr.Infof("[watchdog.executeExternalEndpointHeartbeat] No connectivity; skipping execution")
 		return
 	}
-	logr.Debugf("[watchdog.monitorExternalEndpointHeartbeat] Checking heartbeat for group=%s; endpoint=%s; key=%s", ee.Group, ee.Name, ee.Key())
-	convertedEndpoint := ee.ToEndpoint()
-	hasReceivedResultWithinHeartbeatInterval, err := store.Get().HasEndpointStatusNewerThan(ee.Key(), time.Now().Add(-ee.Heartbeat.Interval))
-	if err != nil {
-		logr.Errorf("[watchdog.monitorExternalEndpointHeartbeat] Failed to check if endpoint has received a result within the heartbeat interval: %s", err.Error())
+	logr.Debugf("[watchdog.executeExternalEndpointHeartbeat] Checking heartbeat for group=%s; endpoint=%s; key=%s", ee.Group, ee.Name, ee.Key())
+	// Fork: the heartbeat depends on the last accepted push, not on the last result, which would also count the failures
+	// recorded by the heartbeat itself and record a failure only every other interval
+	if time.Since(time.Unix(0, last.Load())) < ee.Heartbeat.Interval {
+		logr.Infof("[watchdog.executeExternalEndpointHeartbeat] Checked heartbeat for group=%s; endpoint=%s; key=%s; success=true; errors=0", ee.Group, ee.Name, ee.Key())
 		return
 	}
-	if hasReceivedResultWithinHeartbeatInterval {
-		// If we received a result within the heartbeat interval, we don't want to create a successful result, so we
-		// skip the rest. We don't have to worry about alerting or metrics, because if the previous heartbeat failed
-		// while this one succeeds, it implies that there was a new result pushed, and that result being pushed
-		// should've resolved the alert.
-		logr.Infof("[watchdog.monitorExternalEndpointHeartbeat] Checked heartbeat for group=%s; endpoint=%s; key=%s; success=%v; errors=%d", ee.Group, ee.Name, ee.Key(), hasReceivedResultWithinHeartbeatInterval, 0)
-		return
-	}
-	// All code after this point assumes the heartbeat failed
 	result := &endpoint.Result{
 		Timestamp: time.Now(),
 		Success:   false,
 		Errors:    []string{"heartbeat: no update received within " + ee.Heartbeat.Interval.String()},
 	}
-	if cfg.Metrics {
-		metrics.PublishMetricsForEndpoint(convertedEndpoint, result, extraLabels)
+	if ctx.Err() != nil {
+		return
 	}
-	UpdateEndpointStatus(convertedEndpoint, result)
-	logr.Infof("[watchdog.monitorExternalEndpointHeartbeat] Checked heartbeat for group=%s; endpoint=%s; key=%s; success=%v; errors=%d; duration=%s", ee.Group, ee.Name, ee.Key(), result.Success, len(result.Errors), result.Duration.Round(time.Millisecond))
-	inEndpointMaintenanceWindow := false
-	for _, maintenanceWindow := range ee.MaintenanceWindows {
-		if maintenanceWindow.IsUnderMaintenance() {
-			logr.Debug("[watchdog.monitorExternalEndpointHeartbeat] Under endpoint maintenance window")
-			inEndpointMaintenanceWindow = true
-		}
+	if err := ProcessExternalEndpointResult(ee, result, cfg, false); err != nil {
+		logr.Errorf("[watchdog.executeExternalEndpointHeartbeat] Failed to insert result in storage: %s", err.Error())
+		return
 	}
-	if !cfg.Maintenance.IsUnderMaintenance() && !inEndpointMaintenanceWindow {
-		HandleAlerting(convertedEndpoint, result, cfg.Alerting)
-		// Sync the failure/success counters back to the external endpoint
-		ee.NumberOfSuccessesInARow = convertedEndpoint.NumberOfSuccessesInARow
-		ee.NumberOfFailuresInARow = convertedEndpoint.NumberOfFailuresInARow
-	} else {
-		logr.Debug("[watchdog.monitorExternalEndpointHeartbeat] Not handling alerting because currently in the maintenance window")
-	}
-	logr.Debugf("[watchdog.monitorExternalEndpointHeartbeat] Waiting for interval=%s before checking heartbeat for group=%s endpoint=%s (key=%s) again", ee.Heartbeat.Interval, ee.Group, ee.Name, ee.Key())
+	logr.Infof("[watchdog.executeExternalEndpointHeartbeat] Checked heartbeat for group=%s; endpoint=%s; key=%s; success=false; errors=1", ee.Group, ee.Name, ee.Key())
 }

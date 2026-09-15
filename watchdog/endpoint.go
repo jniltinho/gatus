@@ -49,6 +49,9 @@ func executeEndpoint(ctx context.Context, ep *endpoint.Endpoint, cfg *config.Con
 	}
 	logr.Debugf("[watchdog.executeEndpoint] Monitoring group=%s; endpoint=%s; key=%s", ep.Group, ep.Name, ep.Key())
 	result := ep.EvaluateHealth()
+	// Fork: the results of the checks and of the pushes of an endpoint are processed one at a time
+	unlock := lockEndpointResults(ep.Key())
+	defer unlock()
 	if ctx.Err() != nil {
 		logr.Debugf("[watchdog.executeEndpoint] Discarding result of group=%s; endpoint=%s; key=%s because its monitoring was stopped", ep.Group, ep.Name, ep.Key())
 		return

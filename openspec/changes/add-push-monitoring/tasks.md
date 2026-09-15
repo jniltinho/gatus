@@ -1,34 +1,34 @@
 ## 1. Marco 1: rota de push, chaves do YAML, mensagem e heartbeat
 
-- [ ] 1.1 `config/push` e `config/config_push.go`:
+- [x] 1.1 `config/push` e `config/config_push.go`:
   - seção `push.keys` com `name` e `token`, e `push.endpoints` com a chave de endpoint ativo e token opcional;
   - validação de nome, charset, tamanho mínimo de 16 e duplicatas de nome e de token;
   - hash SHA-256 calculado na carga;
   - testes.
-- [ ] 1.2 `endpoint.Result.Message` e `Origin` e a tabela `endpoint_result_messages` (mensagem e origem) nos três dialetos:
+- [x] 1.2 `endpoint.Result.Message` e `Origin` e a tabela `endpoint_result_messages` (mensagem e origem) nos três dialetos:
   - gravação em `insertEndpointResultWithSuiteID` com limite de 1024 bytes UTF-8;
   - `LEFT JOIN` nas leituras de resultados;
   - store em memória;
   - teste de cascata na limpeza de resultados antigos;
   - `mysql_schema_test.go` e conformidade nos 4 bancos.
-- [ ] 1.3 Generalizar `watchdog/registry.go` para heartbeats (`StartExternalEndpoint` e parada por chave). `watchdog.Monitor` passa a registrar os external endpoints do YAML. Testes de parada e de não afetar outros endpoints.
-- [ ] 1.4 `watchdog.ProcessExternalResult` com lock por chave, compartilhado com `executeEndpoint` das verificações ativas:
+- [x] 1.3 Generalizar `watchdog/registry.go` para heartbeats (`StartExternalEndpoint` e parada por chave). `watchdog.Monitor` passa a registrar os external endpoints do YAML. Testes de parada e de não afetar outros endpoints.
+- [x] 1.4 `watchdog.ProcessExternalResult` com lock por chave, compartilhado com `executeEndpoint` das verificações ativas:
   - gravação, métricas, janelas de manutenção, alertas e contadores;
   - `watchdog.SubmitResult` para push em endpoint ativo registrado;
   - uso na rota antiga `POST /api/v1/endpoints/{key}/external`, sem mudar suas respostas;
   - testes de concorrência com `-race`.
-- [ ] 1.5 Heartbeat pelo último envio aceito:
+- [x] 1.5 Heartbeat pelo último envio aceito:
   - uma falha por intervalo sem envio, inclusive consecutivos;
   - contagem iniciada na carga;
   - testes de 3 intervalos seguidos e de envio que reinicia a contagem.
-- [ ] 1.6 Resolução de push: índice de tokens de endpoint do YAML (tokens repetidos fora do índice, com aviso) e hashes das chaves do YAML; autorização por token de endpoint e chave global, para endpoints Push e ativos com push ligado do YAML, com rejeição uniforme.
-- [ ] 1.7 `api/push.go`:
+- [x] 1.6 Resolução de push: índice de tokens de endpoint do YAML (tokens repetidos fora do índice, com aviso) e hashes das chaves do YAML; autorização por token de endpoint e chave global, para endpoints Push e ativos com push ligado do YAML, com rejeição uniforme.
+- [x] 1.7 `api/push.go`:
   - `All` em `/push/:token` e `/push/:token/:key` e coringas;
   - leitura de `status`, `msg` e `ping` com a semântica do Kuma, incluindo o `parseFloat`;
   - respostas `{"ok":true}` e 404 `{"ok":false,"msg":...}` com os textos do Kuma;
   - `Cache-Control: no-store` e logs sem token;
   - limitador de rejeitados com `trusted-proxies`.
-- [ ] 1.8 Testes da rota:
+- [x] 1.8 Testes da rota:
   - URL do Kuma com `status=up&msg=OK&ping=`, `status=down`, `status=warning`, sem query, `ping` com prefixo numérico, `ping=0`, `ping` fora do intervalo;
   - métodos `GET`, `POST`, `PUT` e `HEAD`;
   - token desconhecido e endpoint desabilitado;

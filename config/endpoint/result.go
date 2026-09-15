@@ -30,6 +30,12 @@ type Result struct {
 	// Errors encountered during the evaluation of the Endpoint's health
 	Errors []string `json:"errors,omitempty"`
 
+	// Message is the message of a pushed result (fork). It is never part of the public status pages.
+	Message string `json:"message,omitempty"`
+
+	// Origin is where the result comes from (fork): ResultOriginPush for pushed results, empty for the checks of Gatus
+	Origin string `json:"origin,omitempty"`
+
 	// ConditionResults are the results of each of the Endpoint's Condition
 	ConditionResults []*ConditionResult `json:"conditionResults,omitempty"`
 
