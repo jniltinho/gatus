@@ -34,4 +34,4 @@
   - página sem a opção sem a linha;
   - prints claro e escuro em `dist/prints/`.
 - [x] 3.4 `go test ./... -race` com PostgreSQL, MySQL e MariaDB, `make lint` e `openspec validate add-certificate-expiration --strict`.
-- [ ] 3.5 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub e arquivamento da change.
+- [x] 3.5 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub e arquivamento da change.
