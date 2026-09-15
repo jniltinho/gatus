@@ -34,7 +34,7 @@ The module path of the fork is `gatus/v5` (upstream: `github.com/TwiN/gatus/v5`)
 
 ## Endpoint administration
 
-Change: `openspec/changes/add-admin-endpoint-management/` (read `design.md` before touching these areas).
+Change (archived): `openspec/changes/archive/2026-09-15-add-admin-endpoint-management/` (read `design.md` before touching these areas); specs in `openspec/specs/admin-*`, `config-hot-reload`, `ui-square-style`, `ci-release-pipeline` and `agent-skills`.
 
 - Endpoints managed through the web are stored in the `managed_endpoints` table; `cfg.Endpoints` only contains the YAML and is not changed after the load.
 - The watchdog controls each endpoint through a registry (context and `done` per endpoint). Never change an `*endpoint.Endpoint` that is running: create a new object and restart it through the registry.
@@ -45,7 +45,7 @@ Change: `openspec/changes/add-admin-endpoint-management/` (read `design.md` befo
 
 ## Public status pages
 
-Change: `openspec/changes/add-public-status-pages/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md`).
+Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md`); specs in `openspec/specs/public-status-pages`, `status-page-*`.
 
 - The public payload only uses the types of `statuspage/payload.go`: never serialize `endpoint.Status` or `endpoint.Result` on a public route (hostname, errors and conditions would leak). The sanitization test decodes the JSON with `DisallowUnknownFields`.
 - The public routes (`/api/v1/status-pages/*` and `/status/*`) are in the unprotected block of `api/api.go`, before the static files and the security middleware. The catch-all of `/api/v1/status-pages` is always registered: a path reaching the middleware would respond 401 and open the login prompt of the browser.
@@ -58,7 +58,7 @@ Change: `openspec/changes/add-public-status-pages/` (read `design.md` before tou
 
 ## MySQL and MariaDB storage
 
-Change: `openspec/changes/add-mysql-storage/` (documentation in `docs/storage-mysql.md`).
+Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (documentation in `docs/storage-mysql.md`); spec in `openspec/specs/mysql-storage`.
 
 - The queries of `storage/store/sql` keep the PostgreSQL placeholders (`$N`): `mysql_connector.go` translates them, emulates `INSERT ... RETURNING <column>` and aborts a transaction at its first failed statement, like PostgreSQL. Never write `?` in a query.
 - What MySQL cannot run as written lives in `dialect_mysql.go` (`dialectQuery` for the upserts, early branches for the deletions of old rows). The schema is `specific_mysql.go`: foreign keys as table constraints (MySQL 8.4 ignores `REFERENCES` in a column), `VARCHAR(768)` keys, `MEDIUMTEXT`, `DATETIME(6)`, indexes inside `CREATE TABLE`.
