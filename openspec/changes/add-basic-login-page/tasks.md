@@ -23,12 +23,14 @@
   - limitador antes do bcrypt;
   - `Locals("username")`;
   - 401 com `Cache-Control: no-store`, e `WWW-Authenticate: Basic` só sem `Sec-Fetch-Site`, `Sec-Fetch-Mode` e `X-Requested-With`;
-  - `IsAuthenticated` reconhecendo basic sem contar falha;
+  - `IsAuthenticated` (usado por `/api/v1/config`) com o mesmo limitador: `Blocked` antes do bcrypt e `Failure` com senha errada;
+  - `IsAdmin` com basic igual ao resultado da autenticação;
+  - aviso no log, uma vez por IP, para `X-Forwarded-For` de IP fora de `trusted-proxies`;
   - só com basic sem OIDC.
   - Testes:
     - sessão, header, sem credencial, com e sem `Sec-Fetch-*`, cookie expirado com header válido;
     - sessão expirada, credencial trocada e logout em outra instância com o mesmo banco;
-    - 429 pelo header.
+    - 429 pelo header e força bruta por `/api/v1/config`, sem bcrypt com o IP bloqueado.
 - [ ] 1.5 Rotas `POST /api/v1/auth/login` e `POST /api/v1/auth/logout`, só com basic sem OIDC (404 nos outros casos):
   - token de 32 bytes, sessão nova a cada login, ignorando cookie recebido;
   - cookie `HttpOnly`/`SameSite=Strict`/`Secure` com TLS ou `X-Forwarded-Proto: https`;
@@ -39,7 +41,7 @@
   - limpeza das expiradas no login;
   - logs sem senha nem token.
   - Testes de API, incluindo login sem `Origin`, origem ruim, fixação e OIDC com basic.
-- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido e `authenticated` para basic (sessão ou header); rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo a auditoria da administração com o usuário da sessão.
+- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido, `authenticated` para basic (sessão ou header, sob o limitador) e `admin.authorized` só com autenticação; rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo `authorized: false` sem sessão e a auditoria da administração com o usuário da sessão.
 
 ## 2. Frontend: tela de login, redirecionamento e logout
 
@@ -51,17 +53,17 @@
 - [ ] 2.2 `App.vue`:
   - `meta.login` sem cabeçalho e sem link Admin, como `meta.public`;
   - com `login === "basic"` e sem autenticação, levar as rotas não públicas e não de login a `/login?redirect=<caminho>`;
-  - na rota `/login` autenticado, voltar ao `redirect` validado (decodificado, um único `/` inicial, sem `//`, `\`, esquema, caracteres de controle ou `/login`), e com `login !== "basic"` voltar a `/`;
+  - na rota `/login` autenticado, voltar ao `redirect` validado (decodificado até estabilizar, no máximo 3 vezes, sem `%` restante, com um único `/` inicial, sem `//`, `\`, esquema, caracteres de controle ou `/login`), e com `login !== "basic"` voltar a `/`;
   - botão "Logout" no cabeçalho;
   - OIDC sem mudança.
-  - Testes unitários da validação do `redirect`.
+  - Testes unitários da validação do `redirect`, incluindo dupla codificação (`/%252F%252Fhost`) e `%` restante.
 - [ ] 2.3 `X-Requested-With: XMLHttpRequest` e 401 levando a `/login` em `Home.vue`, `EndpointDetails.vue`, `SuiteDetails.vue` e `utils/adminApi.js`.
 - [ ] 2.4 Lint e `make frontend-build`.
 
 ## 3. Documentação, E2E e entrega
 
 - [ ] 3.1 Documentação:
-  - `docs/admin-endpoints.md`: tela de login, sessões, `session-ttl`, logout, `curl -u` com limite de falhas, limitador por instância, storage memory, `X-Forwarded-Proto` e rollback;
+  - `docs/admin-endpoints.md`: tela de login, sessões, `session-ttl`, logout, `curl -u` com limite de falhas, limitador por instância, `status-pages.trusted-proxies` obrigatório atrás de proxy para o limitador, storage memory, `X-Forwarded-Proto` e rollback;
   - `docs/README.md`: nota do fork em `security.basic`;
   - `README.md` e `AGENTS.fork.md`: autenticador, limitador, tabela e rotas.
 - [ ] 3.2 E2E com agent-browser em `test/e2e/login.sh`:
@@ -69,7 +71,7 @@
   - redirect para `/login` e de volta, e redirects recusados;
   - senha errada e 429;
   - logout;
-  - detalhes de endpoint;
+  - detalhes de endpoint e de suite (`/suites/:key`);
   - status page pública sem login;
   - `curl -u` funcionando;
   - prints claro e escuro em `dist/prints/`.

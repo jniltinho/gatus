@@ -22,13 +22,13 @@ O OIDC já tem uma tela de login; o basic não. Os pacotes de deploy do fork usa
   - cada requisição consulta a sessão no storage, sem cache, e trocar o usuário ou a senha do `security.basic` invalida as sessões existentes na mesma hora.
 - **Rotas protegidas** passam a aceitar a sessão ou o header `Authorization: Basic` (compatível com `curl -u`, scripts e integrações):
   - `WWW-Authenticate: Basic` só é enviado quando a requisição não tem `Sec-Fetch-Site`, `Sec-Fetch-Mode` nem `X-Requested-With`;
-  - o navegador nunca mais abre a janela nativa.
+  - as telas do fork não abrem mais a janela nativa, porque o frontend envia `X-Requested-With`; só uma navegação direta a uma URL da API, num navegador sem `Sec-Fetch-*`, ainda poderia abri-la.
 - **Frontend**:
-  - `/api/v1/config` informa `login: "basic"` e se a requisição está autenticada, pela sessão ou pelo header;
+  - `/api/v1/config` informa `login: "basic"` e se a requisição está autenticada, pela sessão ou pelo header, e `admin.authorized` só é verdadeiro com autenticação;
   - sem autenticação, o dashboard, os detalhes de endpoints e suites e a administração levam a `/login?redirect=<caminho>`, com validação estrita do `redirect`;
   - o cabeçalho ganha o botão **Logout**.
 - **Proteções**:
-  - limite de falhas de autenticação por IP (com `status-pages.trusted-proxies`), válido no login e nas falhas de `Authorization: Basic` das rotas protegidas, conferido antes do bcrypt;
+  - limite de falhas de autenticação por IP (com `status-pages.trusted-proxies`), válido no login, nas falhas de `Authorization: Basic` das rotas protegidas e em `/api/v1/config`, conferido antes do bcrypt, com aviso no log quando o proxy não está em `trusted-proxies`;
   - a mesma regra de origem da administração nas rotas de login e logout;
   - comparação de usuário e senha sem vazamento de tempo;
   - log de login com sucesso, falha e logout, sem senha nem token.
@@ -43,7 +43,7 @@ O OIDC já tem uma tela de login; o basic não. Os pacotes de deploy do fork usa
 - `basic-login-page`: tela de login, sessões por cookie guardadas no storage, login e logout, compatibilidade com `Authorization: Basic`, supressão da janela nativa no navegador, limite de falhas de autenticação e proteção de origem.
 
 ### Modified Capabilities
-- `admin-access-control`: a autorização de administradores com `security.basic` passa a aceitar a sessão da tela de login, além das credenciais basic.
+- `admin-access-control`: a autorização de administradores com `security.basic` passa a aceitar a sessão da tela de login, além das credenciais basic, e `admin.authorized` de `/api/v1/config` passa a exigir autenticação com basic.
 
 ## Impact
 

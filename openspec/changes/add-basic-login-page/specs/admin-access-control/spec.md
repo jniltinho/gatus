@@ -23,3 +23,18 @@ Toda requisição a `/api/v1/admin/*` MUST exigir autenticação e autorização
 - **WHEN** a configuração usa apenas `security.basic` e a requisição traz o cookie de uma sessão válida, sem `Authorization`
 - **THEN** a API de administração responde normalmente
 - **AND** a auditoria registra o usuário da sessão como autor
+
+### Requirement: Estado de administração exposto ao frontend
+`GET /api/v1/config` MUST incluir o objeto `admin` com `enabled` e `authorized`, onde `authorized` indica se a requisição atual pode usar a administração. Com apenas `security.basic`, `authorized` MUST ser `true` somente quando `enabled` for verdadeiro e a requisição estiver autenticada pela sessão da tela de login ou por `Authorization: Basic` correto, pois o único usuário basic é administrador.
+
+#### Scenario: Usuário OIDC sem permissão
+- **WHEN** um usuário com subject fora de `admin.allowed-subjects` consulta `GET /api/v1/config`
+- **THEN** a resposta contém `"admin": {"enabled": true, "authorized": false}`
+
+#### Scenario: Apenas basic auth sem autenticação
+- **WHEN** a configuração usa apenas `security.basic`, com `admin.enabled: true`, e `GET /api/v1/config` é consultado sem credenciais nem sessão
+- **THEN** a resposta contém `"admin": {"enabled": true, "authorized": false}`
+
+#### Scenario: Apenas basic auth com sessão
+- **WHEN** a configuração usa apenas `security.basic`, com `admin.enabled: true`, e `GET /api/v1/config` é consultado com o cookie de uma sessão válida
+- **THEN** a resposta contém `"admin": {"enabled": true, "authorized": true}`

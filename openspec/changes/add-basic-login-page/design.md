@@ -18,7 +18,7 @@ Estado atual da autenticação:
     - aceita `http://localhost:8081` com `ENVIRONMENT=dev`;
     - exige JSON/YAML só quando há corpo.
 - **Limitador das status pages:** `statuspage.Limiter` só tem `Hit`, que conta toda chamada permitida, com teto de chaves obrigatório. `statuspage.ClientIP` calcula o IP do cliente com `trusted-proxies`.
-- **Fiber:** roda com `Immutable: true` (`api/api.go`). Valores de headers, cookies e corpo já são cópias seguras entre requisições.
+- **Fiber:** roda com `Immutable: true` (`api/api.go`), que copia os valores de headers e cookies lidos por `Get` e `Cookies`. O corpo (`Body()`) não tem essa garantia: o JSON do login é lido de forma síncrona na própria requisição, sem guardar referências ao buffer.
 - **Configuração:** o YAML é lido com `yaml.Unmarshal` sem `KnownFields`, então campos desconhecidos são ignorados.
 - **Hot reload:** `main.go` para o controller, fecha o store (`store.Get().Close()`) e sobe tudo de novo. Goroutines sem cancelamento continuariam usando o store fechado.
 - **Tema:** `Settings.vue` e `PublicLayout.vue` leem o cookie de tema e alternam a classe `dark`. O visual é quadrado.
@@ -84,7 +84,7 @@ O novo middleware fica em arquivo novo em `security/` e é usado só com `securi
    - com credenciais erradas, registra a falha no limitador.
 3. Sem autenticação, responde 401 com `{"error":"authentication required"}` e `Cache-Control: no-store`. O header `WWW-Authenticate: Basic` só é enviado quando a requisição não tem `Sec-Fetch-Site`, `Sec-Fetch-Mode` nem `X-Requested-With`. Esse é o único critério, também usado nos testes, que precisam enviar esses headers para simular o navegador.
 
-`IsAuthenticated` passa a reconhecer a sessão basic válida e o header correto, sem registrar falha no limitador. `RequestAuthor` continua lendo `Locals("username")`. O token do OIDC nunca é validado pelo autenticador basic, porque as sessões ficam em stores diferentes.
+`IsAuthenticated`, usado pela rota desprotegida `/api/v1/config`, segue a mesma ordem e o mesmo limitador. Com `Authorization: Basic`, consulta `Blocked` antes do bcrypt, trata um IP bloqueado como não autenticado sem rodar o bcrypt e registra `Failure` com a senha errada. Assim nenhuma rota confere o header fora do limite. `IsAdmin` com basic passa a devolver o mesmo resultado da autenticação, para `admin.authorized` só ser verdadeiro com sessão ou header válido. `RequestAuthor` continua lendo `Locals("username")`. O token do OIDC nunca é validado pelo autenticador basic, porque as sessões ficam em stores diferentes.
 
 **Alternativas consideradas:**
 - **Nunca enviar `WWW-Authenticate`:** rejeitada, porque algumas ferramentas só mandam credenciais depois do desafio.
@@ -129,6 +129,7 @@ As rotas ficam no roteador não protegido e só existem com `security.basic` sem
   - `Failure(ip, now)` conta uma falha.
 - **Uso:** o IP vem de `statuspage.ClientIP` com `status-pages.trusted-proxies`. Depois de 10 falhas no mesmo minuto, o IP fica bloqueado até a janela reiniciar. O bloqueio vale para o login e para o header, inclusive com a senha certa.
 - **Alcance:** o limitador é por processo. Instâncias diferentes não compartilham a contagem, e uma recarga a zera. Isso fica documentado.
+- **Atrás de proxy:** sem o proxy em `status-pages.trusted-proxies`, todas as requisições parecem vir do IP do proxy, e 10 falhas de um atacante bloqueariam o login e o `curl -u` de todos. O autenticador registra no log, uma vez por IP, o mesmo aviso das status pages quando recebe `X-Forwarded-For` de um IP fora de `trusted-proxies`, e a documentação pede essa configuração.
 
 **Comparação:** usuário e senha são sempre conferidos juntos:
 - `subtle.ConstantTimeCompare` nos hashes SHA-256 do usuário recebido e do configurado;
@@ -149,7 +150,8 @@ O resultado só é decidido depois das duas comparações, sem retornar cedo por
 
 **`/api/v1/config`:**
 - ganha `login`: `"basic"`, `"oidc"` ou vazio;
-- `authenticated` passa a valer também para basic, pela sessão ou pelo header;
+- `authenticated` passa a valer também para basic, pela sessão ou pelo header, sob o limitador de falhas;
+- `admin.authorized` só é verdadeiro com autenticação;
 - o campo `oidc` continua existindo.
 
 **`App.vue`:**
@@ -157,7 +159,8 @@ O resultado só é decidido depois das duas comparações, sem retornar cedo por
 - **Rota `/login`:** já autenticado, volta ao `redirect` validado; com `login !== "basic"`, volta a `/`.
 - **Cabeçalho:** com `login === "basic"` e autenticação, ganha o botão "Logout" e mostra o link Admin como hoje.
 
-**Validação do `redirect`:** decodifica o valor e o aceita somente quando:
+**Validação do `redirect`:** decodifica o valor repetidamente, até ele parar de mudar (no máximo 3 vezes), e o aceita somente quando:
+- o valor decodificado não tem mais `%`;
 - começa com um único `/`;
 - não contém `//`, `\`, `:` antes do primeiro `/`, nem caracteres de controle;
 - não aponta para `/login`.
@@ -170,6 +173,7 @@ Nos outros casos, o destino é `/`.
 - **Mostrar o formulário no lugar do conteúdo, sem rota:** rejeitada, porque perde o `redirect` e o histórico do navegador.
 - **Centralizar o cartão na vertical:** rejeitada por pedido do dono, que quer o cartão a 15% do topo.
 - **Validar o `redirect` só pelo prefixo `/`:** rejeitada, porque `/%2F%2Fhost` e `/\host` passariam.
+- **Decodificar uma única vez:** rejeitada, porque `/%252F%252Fhost` viraria `/%2F%2Fhost`, sem `//`, e o router decodificaria de novo.
 
 ### D6. Configuração
 
