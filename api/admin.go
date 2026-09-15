@@ -102,6 +102,8 @@ func (h *adminHandler) update(c *fiber.Ctx) error {
 	if err != nil {
 		return adminServiceError(c, err)
 	}
+	// A renamed endpoint must not show up under its old key in the cached statuses anymore
+	_ = cache.DeleteKeysByPattern("endpoint-status-*")
 	return writeAdminDetail(c, http.StatusOK, detail)
 }
 
@@ -168,7 +170,10 @@ func adminServiceError(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, managedendpoint.ErrNotFound), errors.Is(err, common.ErrManagedEndpointNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, managedendpoint.ErrReadOnly), errors.Is(err, managedendpoint.ErrKeyConflict), errors.Is(err, common.ErrManagedEndpointAlreadyExists):
+	case errors.Is(err, managedendpoint.ErrReadOnly), errors.Is(err, managedendpoint.ErrKeyConflict), errors.Is(err, common.ErrManagedEndpointAlreadyExists),
+		errors.Is(err, common.ErrEndpointKeyInUse), errors.Is(err, common.ErrManagedStatusPageVersionMismatch):
+		// A managed status page changed by another instance during a rename is a conflict of the rename, not of the
+		// version of the endpoint
 		status = http.StatusConflict
 	case errors.Is(err, common.ErrManagedEndpointVersionMismatch):
 		status = http.StatusPreconditionFailed
@@ -180,8 +185,7 @@ func adminServiceError(c *fiber.Ctx, err error) error {
 		status = http.StatusServiceUnavailable
 	case errors.Is(err, managedendpoint.ErrEmptyDefinition), errors.Is(err, managedendpoint.ErrInvalidDefinition),
 		errors.Is(err, managedendpoint.ErrFieldNotAllowed), errors.Is(err, managedendpoint.ErrAlertProviderNotConfigured),
-		errors.Is(err, managedendpoint.ErrInvalidAlertOverride), errors.Is(err, managedendpoint.ErrExtraLabelNotAllowed),
-		errors.Is(err, managedendpoint.ErrKeyChanged):
+		errors.Is(err, managedendpoint.ErrInvalidAlertOverride), errors.Is(err, managedendpoint.ErrExtraLabelNotAllowed):
 		status = http.StatusBadRequest
 	}
 	if status == http.StatusInternalServerError {

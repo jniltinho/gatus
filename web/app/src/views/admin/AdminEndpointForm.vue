@@ -28,6 +28,19 @@
         </template>
       </div>
 
+      <div v-if="keyChange" role="status" data-testid="admin-key-change" class="mb-4 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+        <p>
+          Saving renames the key from <span class="font-mono">{{ endpointKey }}</span> to <span class="font-mono">{{ keyChange }}</span>.
+          The history is kept, but the URLs of the badges and of the details page change.
+        </p>
+        <p v-if="configPagesOfKey.length" class="mt-1" data-testid="admin-key-change-config-pages">
+          These status pages of the configuration file select the endpoint by key and stop showing it until the file is updated:
+          <template v-for="(page, index) in configPagesOfKey" :key="page.slug">
+            <span class="font-medium">{{ page.title }}</span> ({{ page.slug }}){{ index < configPagesOfKey.length - 1 ? ', ' : '' }}
+          </template>
+        </p>
+      </div>
+
       <div v-if="!readOnly" class="mb-4 flex border-b dark:border-gray-700" role="tablist">
         <button
           v-for="tab in tabs"
@@ -44,14 +57,11 @@
       <div v-if="mode === 'form' && !readOnly" class="space-y-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block text-sm font-medium text-foreground dark:text-gray-200">Name
-            <Input v-model="form.name" :disabled="isEdit" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
+            <Input v-model="form.name" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
           </label>
           <div class="text-sm font-medium text-foreground dark:text-gray-200">Group
-            <Input v-if="isEdit" v-model="form.group" disabled class="mt-1 dark:border-gray-700" data-testid="admin-field-group" />
-            <template v-else>
-              <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1" data-testid="admin-field-group-select" />
-              <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
-            </template>
+            <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1" data-testid="admin-field-group-select" />
+            <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
           </div>
           <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
             <Input v-model="form.url" placeholder="https://example.com/health" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
@@ -230,6 +240,17 @@ const title = computed(() => {
 })
 const alertTypeOptions = computed(() => alertTypes.value.map((type) => ({ label: type, value: type })))
 
+// Status pages of the configuration file that select the endpoint being edited by its current key
+const configPagesOfKey = ref([])
+// New key of a managed endpoint whose name or group changed in the form, or an empty string
+const keyChange = computed(() => {
+  if (!isEdit.value || readOnly.value || mode.value !== 'form' || !form.name.trim()) {
+    return ''
+  }
+  const key = buildEndpointKey(form.group.trim(), form.name.trim())
+  return key !== props.endpointKey ? key : ''
+})
+
 // Groups are trimmed, so a value with a leading space never matches an existing group
 const NEW_GROUP = ' new-group'
 const groupChoiceOptions = computed(() => [
@@ -349,6 +370,13 @@ const loadDetail = async () => {
   formFromDocument(baseDocument.value)
   if (readOnly.value) {
     mode.value = 'yaml'
+    return
+  }
+  try {
+    const { data: exposed } = await statusPagesApi.exposure({ key: props.endpointKey })
+    configPagesOfKey.value = ((exposed && exposed.statusPages) || []).filter((page) => page.origin === 'config' && page.reason === 'key')
+  } catch (e) {
+    configPagesOfKey.value = []
   }
 }
 
@@ -407,7 +435,15 @@ const save = async () => {
   busy.value = true
   try {
     if (isEdit.value) {
-      await adminApi.update(props.endpointKey, currentPayload(), version.value)
+      const { data } = await adminApi.update(props.endpointKey, currentPayload(), version.value)
+      const affected = (data && data.affectedConfigStatusPages) || []
+      if (affected.length) {
+        // Stays on the renamed endpoint, now under its new key, so that the affected pages can be read
+        await router.replace({ name: 'AdminEndpointEdit', params: { endpointKey: data.key } })
+        await loadDetail()
+        success.value = `Saved as ${data.key}. Update the key in these status pages of the configuration file: ${affected.map((page) => `${page.title} (${page.slug})`).join(', ')}.`
+        return
+      }
     } else {
       await adminApi.create(currentPayload())
     }
@@ -461,7 +497,8 @@ watch(() => [form.group, form.name], refreshExposure)
 onUnmounted(() => clearTimeout(exposureTimer))
 
 onMounted(async () => {
-  const groups = isEdit.value ? Promise.resolve() : loadGroupNames()
+  // Loaded before the detail, so that its group is recognized as an existing one
+  const groups = loadGroupNames()
   try {
     const { data } = await adminApi.metadata()
     alertTypes.value = (data && data.alertTypes) || []

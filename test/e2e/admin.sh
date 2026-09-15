@@ -147,27 +147,40 @@ agent-browser click "$(testid admin-save)" >/dev/null
 wait_for "$(testid admin-row-web_site)"
 shot 06-lista-com-endpoint
 
-step "Edição: segredo mascarado, nome bloqueado e novo intervalo"
+step "Edição: segredo mascarado, troca de grupo mantendo o histórico e novo intervalo"
+RESULTS_BEFORE=$(curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/endpoints/web_site/statuses" | grep -o '"timestamp"' | wc -l)
+[ "$RESULTS_BEFORE" -gt 0 ] || fail "esperado histórico em web_site antes da troca de grupo"
 agent-browser click "$(testid admin-open-web_site)" >/dev/null
 wait_for "$(testid admin-field-interval)"
 [ "$(agent-browser get value "$(testid admin-field-header-value-0)")" = "********" ] || fail "o segredo deveria aparecer mascarado"
 [ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-insecure]').checked")" = "true" ] || fail "client.insecure salvo deveria aparecer marcado"
 [ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-follow-redirects]').checked")" = "true" ] || fail "seguir redirecionamentos deveria continuar marcado"
-[ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-name]').disabled")" = "true" ] || fail "o nome deveria estar bloqueado"
+[ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-name]').disabled")" = "false" ] || fail "o nome deveria ser editável"
+agent-browser click "$(testid admin-field-group-select) button" >/dev/null
+wait_for "$(testid admin-group-option-web)"
+agent-browser click "$(testid admin-group-new)" >/dev/null
+wait_for "$(testid admin-field-group)"
+agent-browser fill "$(testid admin-field-group)" "clientes" >/dev/null
+wait_for "$(testid admin-key-change)"
+agent-browser get text "$(testid admin-key-change)" | grep -q "clientes_site" || fail "o aviso de troca de chave não mostra a chave nova"
 agent-browser fill "$(testid admin-field-interval)" "2m" >/dev/null
-shot 07-edicao
+shot 07-edicao-troca-de-grupo
+agent-browser scrollintoview "$(testid admin-save)" >/dev/null
 agent-browser click "$(testid admin-save)" >/dev/null
-wait_for "$(testid admin-row-web_site)"
+wait_for "$(testid admin-row-clientes_site)"
 wait_text "2m0s"
-DEFINITION=$(curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/web_site")
+DEFINITION=$(curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/clientes_site")
 echo "$DEFINITION" | grep -q '"version":2' || fail "esperada a versão 2 depois da edição"
+[ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/web_site")" = 404 ] || fail "a chave antiga ainda existe"
+RESULTS_AFTER=$(curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/endpoints/clientes_site/statuses" | grep -o '"timestamp"' | wc -l)
+[ "$RESULTS_AFTER" -ge "$RESULTS_BEFORE" ] || fail "o histórico não foi mantido na chave nova ($RESULTS_BEFORE antes, $RESULTS_AFTER depois)"
 
 step "Desabilitar e habilitar"
-agent-browser click "$(testid admin-toggle-web_site)" >/dev/null
-wait_text "web_site disabled"
+agent-browser click "$(testid admin-toggle-clientes_site)" >/dev/null
+wait_text "clientes_site disabled"
 shot 08-desabilitado
-agent-browser click "$(testid admin-toggle-web_site)" >/dev/null
-wait_text "web_site enabled"
+agent-browser click "$(testid admin-toggle-clientes_site)" >/dev/null
+wait_text "clientes_site enabled"
 
 step "Endpoint do arquivo de configuração somente leitura"
 agent-browser click "$(testid admin-open-core_health)" >/dev/null
@@ -176,7 +189,7 @@ shot 09-yaml-somente-leitura
 
 step "Tema escuro"
 agent-browser open "$BASE/admin" >/dev/null
-wait_for "$(testid admin-row-web_site)"
+wait_for "$(testid admin-row-clientes_site)"
 agent-browser eval "document.documentElement.classList.add('dark')" >/dev/null
 # Espera a transição de cores dos botões terminar antes da captura
 agent-browser wait 700 >/dev/null
@@ -190,17 +203,17 @@ shot 11-formulario-escuro
 
 step "Remoção: cancelar e confirmar"
 agent-browser open "$BASE/admin" >/dev/null
-wait_for "$(testid admin-remove-web_site)"
-agent-browser click "$(testid admin-remove-web_site)" >/dev/null
+wait_for "$(testid admin-remove-clientes_site)"
+agent-browser click "$(testid admin-remove-clientes_site)" >/dev/null
 wait_for "$(testid confirm-dialog)"
 shot 12-confirmar-remocao
 agent-browser click "$(testid confirm-cancel)" >/dev/null
-wait_for "$(testid admin-row-web_site)"
-agent-browser click "$(testid admin-remove-web_site)" >/dev/null
+wait_for "$(testid admin-row-clientes_site)"
+agent-browser click "$(testid admin-remove-clientes_site)" >/dev/null
 wait_for "$(testid confirm-accept)"
 agent-browser click "$(testid confirm-accept)" >/dev/null
-wait_text "web_site removed"
+wait_text "clientes_site removed"
 shot 13-removido
-[ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/web_site")" = 404 ] || fail "o endpoint removido ainda existe"
+[ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/clientes_site")" = 404 ] || fail "o endpoint removido ainda existe"
 
 echo "OK: $STEP etapas; capturas em $PRINTS"

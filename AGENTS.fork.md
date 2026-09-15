@@ -42,6 +42,15 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-admin-endpoint-manag
 - Managed endpoints go through strict validation: no environment variable expansion and no fields that use credentials or files of the server.
 - Administration writes are serialized with each other and with startup and hot reload.
 - Keep new code in new files whenever possible, to reduce conflicts with upstream.
+- Renaming (change `openspec/changes/rename-managed-endpoint/`, documentation in `docs/admin-endpoints.md#renaming`):
+  - a changed name or group renames the key with `RenameManagedEndpoint`, which moves the `endpoints` row (the history
+    follows `endpoint_id`) and the references of the managed status pages in the same transaction;
+  - the monitoring of the old key stops before the transaction, and the triggered alerts are restored by the old key
+    before it;
+  - `statuspage` takes part through `managedendpoint.KeyRenameParticipant`, registered in its `init`, because
+    `managedendpoint` cannot import it;
+  - lock order: lifecycle change, `managedendpoint.statesMutex`, `statuspage.mutex`, transaction. `statuspage` must
+    never take `statesMutex`.
 
 ## Public status pages
 

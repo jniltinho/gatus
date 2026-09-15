@@ -47,3 +47,41 @@ func TestInitializeStorage_PreservesManagedEndpointHistory(t *testing.T) {
 		t.Error("expected the managed endpoint to be loaded")
 	}
 }
+
+// The history of a renamed managed endpoint must be preserved under its new key on startup and reload (fork)
+func TestInitializeStorage_PreservesRenamedManagedEndpointHistory(t *testing.T) {
+	cfg := &config.Config{Storage: &storage.Config{Type: storage.TypeSQLite, Path: filepath.Join(t.TempDir(), "gatus.db"), MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50}}
+	if err := store.Initialize(cfg.Storage); err != nil {
+		t.Fatalf("failed to initialize store: %v", err)
+	}
+	original := &endpoint.Endpoint{Name: "site", Group: "web", URL: "https://example.org"}
+	renamed := &endpoint.Endpoint{Name: "site", Group: "clientes", URL: "https://example.org"}
+	for i := 0; i < 3; i++ {
+		if err := store.Get().InsertEndpointResult(original, &endpoint.Result{Success: true, Timestamp: time.Now().Add(time.Duration(i-3) * time.Minute)}); err != nil {
+			t.Fatalf("failed to insert result: %v", err)
+		}
+	}
+	managedEndpointStore, _ := store.GetManagedEndpointStore()
+	if err := managedEndpointStore.CreateManagedEndpoint(&common.ManagedEndpoint{Key: original.Key(), Definition: "name: site\ngroup: web\nurl: https://example.org\nconditions: [\"[STATUS] == 200\"]\n"}, nil); err != nil {
+		t.Fatalf("failed to create managed endpoint: %v", err)
+	}
+	rename := &common.ManagedEndpointRename{OldKey: original.Key(), Name: renamed.Name, Group: renamed.Group, MoveHistory: true}
+	if err := managedEndpointStore.RenameManagedEndpoint(&common.ManagedEndpoint{Key: renamed.Key(), Definition: "name: site\ngroup: clientes\nurl: https://example.org\nconditions: [\"[STATUS] == 200\"]\n"}, 1, rename, nil); err != nil {
+		t.Fatalf("failed to rename managed endpoint: %v", err)
+	}
+	store.Get().Close()
+
+	initializeStorage(cfg)
+	defer store.Get().Close()
+
+	params := paging.NewEndpointStatusParams().WithResults(1, 20)
+	if status, err := store.Get().GetEndpointStatusByKey(renamed.Key(), params); err != nil || len(status.Results) != 3 || status.Group != "clientes" {
+		t.Errorf("expected the history of the renamed managed endpoint to be preserved, got status=%v err=%v", status, err)
+	}
+	if _, err := store.Get().GetEndpointStatusByKey(original.Key(), params); err == nil {
+		t.Error("expected no history under the old key")
+	}
+	if managedendpoint.EndpointByKey(renamed.Key()) == nil || managedendpoint.EndpointByKey(original.Key()) != nil {
+		t.Error("expected the managed endpoint to be loaded under its new key only")
+	}
+}

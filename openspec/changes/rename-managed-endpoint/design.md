@@ -59,9 +59,11 @@ A validação em memória (`ConfigKeyOrigin` e as chaves gerenciadas) já rejeit
 `ManagedEndpointStore` ganha:
 
 ```go
-RenameManagedEndpoint(oldKey string, managedEndpoint *common.ManagedEndpoint, expectedVersion int64,
-    moveHistory bool, statusPages []*common.ManagedStatusPageUpdate, apply func() error) error
+RenameManagedEndpoint(managedEndpoint *common.ManagedEndpoint, expectedVersion int64,
+    rename *common.ManagedEndpointRename, apply func() error) error
 ```
+
+`common.ManagedEndpointRename` agrupa a chave antiga, o nome e o grupo novos, `MoveHistory` e as atualizações das status pages (`[]*common.ManagedStatusPageUpdate`), para não espalhar parâmetros posicionais.
 
 Numa transação `inTransaction`, ele:
 

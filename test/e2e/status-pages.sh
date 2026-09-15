@@ -274,6 +274,31 @@ exposure=$(js admin "document.querySelector('[data-testid=admin-endpoint-exposur
 grep -q "Team" <<<"$exposure" && grep -q "by group" <<<"$exposure" || fail "the exposure warning did not mention the Team page by group"
 admin screenshot "$PRINTS/11-admin-exposure.png" >/dev/null
 
+step "Administration: rename a managed endpoint featured on a managed page"
+curl -sf -u "$USERNAME:$PASSWORD" -H 'Content-Type: application/yaml' \
+  --data-binary $'name: site\ngroup: web\ninterval: 5s\nurl: '"$BASE"$'/health\nconditions: ["[STATUS] == 200"]\n' \
+  "$BASE/api/v1/admin/endpoints" >/dev/null || fail "the managed endpoint was not created"
+curl -sf -u "$USERNAME:$PASSWORD" -H 'Content-Type: application/json' \
+  --data '{"slug":"clients","title":"Clients","featured":["web_site"],"enabled":true}' \
+  "$BASE/api/v1/admin/status-pages" >/dev/null || fail "the clients page was not created"
+admin open "$BASE/admin/endpoints/web_site/edit" >/dev/null
+admin wait "$(testid admin-field-group-select)" >/dev/null || fail "the edition of web_site did not open"
+admin click "$(testid admin-field-group-select) button" >/dev/null
+admin wait "$(testid admin-group-new)" >/dev/null || fail "the group selector did not open"
+admin click "$(testid admin-group-new)" >/dev/null
+admin fill "$(testid admin-field-group)" "clientes" >/dev/null
+admin wait "$(testid admin-key-change)" >/dev/null || fail "the key change warning did not show up"
+admin screenshot "$PRINTS/12-admin-rename-warning.png" >/dev/null
+admin scrollintoview "$(testid admin-save)" >/dev/null
+admin click "$(testid admin-save)" >/dev/null
+admin wait "$(testid admin-row-clientes_site)" >/dev/null || fail "the renamed endpoint is not in the list"
+curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/status-pages/clients" | grep -q 'clientes_site' || fail "the clients page does not select the new key"
+public open "$BASE/status/clients" >/dev/null
+public wait "[data-testid=\"status-featured\"] [data-testid=\"status-endpoint-site\"]" >/dev/null || fail "the clients page did not show the renamed endpoint as featured"
+if curl -s "$BASE/api/v1/status-pages/clients" | grep -qE 'web_site|clientes_site'; then
+  fail "the public API exposed a key"
+fi
+
 step "Administration: dark mode and removal"
 admin set media dark >/dev/null
 admin open "$BASE/admin/status-pages" >/dev/null

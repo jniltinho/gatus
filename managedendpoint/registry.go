@@ -192,10 +192,18 @@ func publish(snapshot map[string]*State) {
 
 // putState replaces the state of a managed endpoint in a new snapshot. statesMutex must be held.
 func putState(state *State) {
+	replaceState(state.Stored.Key, state)
+}
+
+// replaceState removes the state stored under oldKey and adds state under its own key, in a single new snapshot, so
+// that a renamed managed endpoint is never listed under both keys. statesMutex must be held.
+func replaceState(oldKey string, state *State) {
 	next := make(map[string]*State)
 	if current := states.Load(); current != nil {
 		for key, value := range *current {
-			next[key] = value
+			if key != oldKey {
+				next[key] = value
+			}
 		}
 	}
 	next[state.Stored.Key] = state

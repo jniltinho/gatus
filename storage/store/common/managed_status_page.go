@@ -33,3 +33,13 @@ type ManagedStatusPage struct {
 	// UpdatedBy is the author of the last change (basic auth username or OIDC subject)
 	UpdatedBy string
 }
+
+// ManagedStatusPageUpdate is a change of the definition of a managed status page applied in the transaction of another
+// write, if the current version of the page is ExpectedVersion
+type ManagedStatusPageUpdate struct {
+	// StatusPage is the changed status page: Slug, Definition and UpdatedBy are written. On success, Version and
+	// UpdatedAt are set.
+	StatusPage *ManagedStatusPage
+
+	ExpectedVersion int64
+}

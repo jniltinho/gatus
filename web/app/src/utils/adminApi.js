@@ -99,6 +99,14 @@ export function describeAdminError(error) {
       return 'Authentication required.'
     case 403:
       return 'Administrator permission required.'
+    case 409:
+      if (error.message && error.message.includes('already has a managed endpoint or stored data')) {
+        return 'The new name and group are already used by another endpoint or by the history of a removed one. Choose another name or group.'
+      }
+      if (error.message && error.message.includes('managed status page version does not match')) {
+        return 'A status page that selects this endpoint was changed at the same time. Try again.'
+      }
+      return error.message || 'Conflict.'
     case 412:
       return 'The endpoint was changed by someone else since you opened it.'
     case 429:

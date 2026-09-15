@@ -141,6 +141,93 @@ func (s *Store) UpdateManagedEndpoint(managedEndpoint *common.ManagedEndpoint, e
 	return nil
 }
 
+// RenameManagedEndpoint replaces the definition of the managed endpoint stored under rename.OldKey and stores it under
+// managedEndpoint.Key, moving the endpoint data when rename.MoveHistory is true
+func (s *Store) RenameManagedEndpoint(managedEndpoint *common.ManagedEndpoint, expectedVersion int64, rename *common.ManagedEndpointRename, apply func() error) error {
+	now := time.Now().UnixMilli()
+	var createdAt int64
+	err := s.inTransaction(func(tx *sql.Tx) error {
+		var version int64
+		err := tx.QueryRow("SELECT version, created_at FROM managed_endpoints WHERE endpoint_key = $1", rename.OldKey).Scan(&version, &createdAt)
+		if errors.Is(err, sql.ErrNoRows) {
+			return common.ErrManagedEndpointNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if version != expectedVersion {
+			return common.ErrManagedEndpointVersionMismatch
+		}
+		if managedEndpoint.Key != rename.OldKey {
+			// Data under the new key may exist without a definition, e.g. the history of an endpoint removed from the
+			// configuration file before the next reload: it is neither merged nor deleted
+			for _, query := range []string{"SELECT COUNT(*) FROM managed_endpoints WHERE endpoint_key = $1", "SELECT COUNT(*) FROM endpoints WHERE endpoint_key = $1"} {
+				var count int64
+				if err := tx.QueryRow(query, managedEndpoint.Key).Scan(&count); err != nil {
+					return err
+				}
+				if count > 0 {
+					return common.ErrEndpointKeyInUse
+				}
+			}
+		}
+		result, err := tx.Exec(
+			"UPDATE managed_endpoints SET endpoint_key = $1, definition = $2, version = $3, updated_at = $4, updated_by = $5 WHERE endpoint_key = $6 AND version = $7",
+			managedEndpoint.Key, managedEndpoint.Definition, expectedVersion+1, now, managedEndpoint.UpdatedBy, rename.OldKey, expectedVersion,
+		)
+		if isUniqueViolation(err) {
+			return common.ErrEndpointKeyInUse
+		}
+		if err != nil {
+			return err
+		}
+		// Another transaction may have changed the row between the SELECT and the UPDATE
+		if rowsAffected, err := result.RowsAffected(); err != nil || rowsAffected != 1 {
+			return common.ErrManagedEndpointVersionMismatch
+		}
+		if rename.MoveHistory {
+			// Events, results, uptimes and triggered alerts reference endpoint_id, so they follow the renamed row
+			_, err := tx.Exec(
+				"UPDATE endpoints SET endpoint_key = $1, endpoint_name = $2, endpoint_group = $3 WHERE endpoint_key = $4",
+				managedEndpoint.Key, rename.Name, rename.Group, rename.OldKey,
+			)
+			if isUniqueViolation(err) {
+				return common.ErrEndpointKeyInUse
+			}
+			if err != nil {
+				return err
+			}
+		}
+		for _, update := range rename.StatusPages {
+			page := update.StatusPage
+			result, err := tx.Exec(
+				"UPDATE managed_status_pages SET definition = $1, version = $2, updated_at = $3, updated_by = $4 WHERE slug = $5 AND version = $6",
+				page.Definition, update.ExpectedVersion+1, now, page.UpdatedBy, page.Slug, update.ExpectedVersion,
+			)
+			if err != nil {
+				return err
+			}
+			if rowsAffected, err := result.RowsAffected(); err != nil || rowsAffected != 1 {
+				return common.ErrManagedStatusPageVersionMismatch
+			}
+		}
+		return nil
+	}, apply)
+	if err != nil {
+		return err
+	}
+	if s.writeThroughCache != nil {
+		_ = s.writeThroughCache.DeleteKeysByPattern(rename.OldKey + "*")
+		_ = s.writeThroughCache.DeleteKeysByPattern(managedEndpoint.Key + "*")
+	}
+	managedEndpoint.Version = expectedVersion + 1
+	managedEndpoint.CreatedAt, managedEndpoint.UpdatedAt = time.UnixMilli(createdAt), time.UnixMilli(now)
+	for _, update := range rename.StatusPages {
+		update.StatusPage.Version, update.StatusPage.UpdatedAt = update.ExpectedVersion+1, time.UnixMilli(now)
+	}
+	return nil
+}
+
 // DeleteManagedEndpoint deletes the managed endpoint if its current version is expectedVersion and, when
 // deleteEndpointData is true, the statuses, results, events, uptimes and triggered alerts of its key
 func (s *Store) DeleteManagedEndpoint(key string, expectedVersion int64, deleteEndpointData bool, apply func() error) error {
