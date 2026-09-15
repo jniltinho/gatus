@@ -372,6 +372,10 @@ Where:
 
 You must also pass the token as a `Bearer` token in the `Authorization` header.
 
+In the jniltinho/gatus fork, external endpoints also receive pushes in the format of the Uptime Kuma
+(`/api/push/<token>?status=up&msg=OK&ping=`), and Push endpoints and global keys can be managed through the web. See
+[push-monitoring.md](push-monitoring.md).
+
 
 ### Suites (ALPHA)
 Suites are collections of endpoints that are executed sequentially with a shared context.

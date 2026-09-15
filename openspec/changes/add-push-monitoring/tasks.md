@@ -79,13 +79,13 @@
   - `adminApi.js`, rotas e abas;
   - variantes `dark:`;
   - lint e `make frontend-build`.
-- [ ] 2.8 PR do marco 2 no `jniltinho/gatus`, com CI verde
+- [x] 2.8 PR do marco 2 no `jniltinho/gatus`, com CI verde
 
 ## 3. Marco 3: verificações recentes, documentação e E2E
 
-- [ ] 3.1 `EndpointDetails.vue`: tabela "Recent checks" (Status, Data e hora, origem e Mensagem na ordem do spec), com a paginação atual e as variantes `dark:`
-- [ ] 3.2 Teste de que os payloads públicos das status pages não trazem `message` nem erros de endpoints Push
-- [ ] 3.3 `docs/push-monitoring.md`:
+- [x] 3.1 `EndpointDetails.vue`: tabela "Recent checks" (Status, Data e hora, origem e Mensagem na ordem do spec), com a paginação atual e as variantes `dark:`
+- [x] 3.2 Teste de que os payloads públicos das status pages não trazem `message` nem erros de endpoints Push
+- [x] 3.3 `docs/push-monitoring.md`:
   - URL e parâmetros compatíveis com o Kuma;
   - escopos das chaves;
   - migração de scripts do Kuma com o mesmo token;
@@ -96,12 +96,12 @@
   - várias instâncias.
 
   Referências em `docs/README.md`, `docs/admin-endpoints.md` e `README.md`.
-- [ ] 3.4 `test/e2e/push.sh` com agent-browser:
+- [x] 3.4 `test/e2e/push.sh` com agent-browser:
   - criar endpoint Push pelo formulário e colar um token;
   - enviar `up`, `down` com mensagem e `up` com `curl`;
   - conferir a tabela "Recent checks" e capturar prints em `dist/prints/`;
   - criar e revogar uma chave global;
   - tema escuro.
-- [ ] 3.5 `AGENTS.fork.md` (rota pública, resolução, heartbeat no registro, tabela de mensagens) e `openspec/config.yaml` (contexto)
-- [ ] 3.6 `make lint test`, testes de `storage/store/sql` com PostgreSQL, MySQL e MariaDB, e `openspec validate add-push-monitoring --strict`
+- [x] 3.5 `AGENTS.fork.md` (rota pública, resolução, heartbeat no registro, tabela de mensagens) e `openspec/config.yaml` (contexto)
+- [x] 3.6 `make lint test`, testes de `storage/store/sql` com PostgreSQL, MySQL e MariaDB, e `openspec validate add-push-monitoring --strict`
 - [ ] 3.7 PR do marco 3 no `jniltinho/gatus`, com CI verde e merge, e release
