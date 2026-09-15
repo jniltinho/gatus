@@ -98,6 +98,7 @@ gofmt -w $(git diff --name-only -- '*.go')
 
 - Import conflicts (almost every Go file differs from upstream only by the module path): resolve them keeping the upstream content and apply the replacement above; check with `grep -rn 'github.com/TwiN/gatus/v5' --include='*.go' .` (no results) and `go build ./...`.
 - `go.mod`: keep `module gatus/v5`.
+- `go.mod`: keep the `replace` block of the TwiN modules (`third_party/github.com/TwiN/`). When the upstream requires another version of one of them, update its copy as described in `third_party/README.md` before `go mod tidy`; never remove the `replace` to download the module again.
 
 - Conflict in `web/static/`: accept either side and regenerate with `make frontend-install && make frontend-build`.
 - Workflows removed by the fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): keep them removed.

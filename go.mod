@@ -103,3 +103,13 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+// Fork: the TwiN modules are kept in the repository, so that building does not download them (see third_party/README.md)
+replace (
+	github.com/TwiN/deepmerge => ./third_party/github.com/TwiN/deepmerge
+	github.com/TwiN/g8/v2 => ./third_party/github.com/TwiN/g8
+	github.com/TwiN/gocache/v2 => ./third_party/github.com/TwiN/gocache
+	github.com/TwiN/health => ./third_party/github.com/TwiN/health
+	github.com/TwiN/logr => ./third_party/github.com/TwiN/logr
+	github.com/TwiN/whois => ./third_party/github.com/TwiN/whois
+)
