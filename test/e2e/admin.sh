@@ -116,6 +116,10 @@ step "Criação pelo formulário: validar, testar e alternar para YAML"
 agent-browser open "$BASE/admin/endpoints/new" >/dev/null
 wait_for "$(testid admin-field-name)"
 agent-browser fill "$(testid admin-field-name)" "site" >/dev/null
+agent-browser click "$(testid admin-field-group-select) button" >/dev/null
+wait_for "$(testid admin-group-option-core)"
+agent-browser click "$(testid admin-group-new)" >/dev/null
+wait_for "$(testid admin-field-group)"
 agent-browser fill "$(testid admin-field-group)" "web" >/dev/null
 agent-browser fill "$(testid admin-field-url)" "$BASE/health" >/dev/null
 agent-browser fill "$(testid admin-field-interval)" "1m" >/dev/null
@@ -127,6 +131,8 @@ wait_text "Valid definition"
 agent-browser click "$(testid admin-test)" >/dev/null
 wait_for "$(testid admin-test-result)"
 shot 04-formulario-testado
+# Depois do teste a página rola e as abas saem da tela: o click do agent-browser não rola até elas
+agent-browser scrollintoview "$(testid admin-mode-yaml)" >/dev/null
 agent-browser click "$(testid admin-mode-yaml)" >/dev/null
 wait_for "$(testid admin-yaml)"
 agent-browser get value "$(testid admin-yaml)" | grep -q "Bearer e2e-secret" || fail "o YAML gerado não contém o header digitado"

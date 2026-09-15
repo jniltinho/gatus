@@ -28,6 +28,7 @@
           ]"
           role="option"
           :aria-selected="modelValue === option.value"
+          :data-testid="option.testid"
         >
           <span class="absolute left-1.5 sm:left-2 flex h-3.5 w-3.5 items-center justify-center">
             <Check v-if="modelValue === option.value" class="h-3 w-3 sm:h-4 sm:w-4" />
