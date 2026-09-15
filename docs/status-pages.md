@@ -55,6 +55,9 @@ edit, preview, publish, unpublish and remove pages. They are stored in the `mana
 database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
 
 - A new page is created **disabled**, also through the API: check the preview and tick **Published**.
+- The form is split into sections (General, Groups and Endpoints): the slug has **Copy link** and **Open** buttons,
+  groups are cards with a counter, the list of endpoints has a search, an **Only selected** filter and the count of
+  featured endpoints (at most 10), and the preview of the saved version is collapsible.
 - The pages of the configuration file are shown in the list for reference only.
 - If the configuration file starts using the slug of a page managed through the web, the file wins: the web page is
   marked as in conflict and is not published until the file stops using the slug.
@@ -195,7 +198,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.9
+    image: jniltinho/gatus:v5.36.0-fork.10
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
