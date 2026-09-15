@@ -35,9 +35,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { Moon, Sun } from 'lucide-vue-next'
-
-const THEME_COOKIE_NAME = 'theme'
-const THEME_COOKIE_MAX_AGE = 31536000 // 1 year
+import { toggleTheme as toggleThemeCookie, wantsDarkMode } from '@/utils/theme'
 
 const templateValue = (value, placeholder) => (value && value !== placeholder ? value : '')
 
@@ -45,17 +43,9 @@ const logo = computed(() => templateValue(window.config?.logo, '{{ .UI.Logo }}')
 const header = computed(() => templateValue(window.config?.header, '{{ .UI.Header }}') || 'Gatus')
 const link = computed(() => templateValue(window.config?.link, '{{ .UI.Link }}') || null)
 
-const wantsDarkMode = () => {
-  const themeFromCookie = document.cookie.match(new RegExp(`${THEME_COOKIE_NAME}=(dark|light);?`))?.[1]
-  return themeFromCookie === 'dark' || (!themeFromCookie && (window.matchMedia('(prefers-color-scheme: dark)').matches || document.documentElement.classList.contains('dark')))
-}
-
 const darkMode = ref(wantsDarkMode())
 
 const toggleTheme = () => {
-  const theme = wantsDarkMode() ? 'light' : 'dark'
-  document.cookie = `${THEME_COOKIE_NAME}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=strict`
-  darkMode.value = theme === 'dark'
-  document.documentElement.classList.toggle('dark', darkMode.value)
+  darkMode.value = toggleThemeCookie()
 }
 </script>

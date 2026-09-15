@@ -222,6 +222,7 @@ import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
 import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
+import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -330,9 +331,14 @@ const fetchData = async () => {
   isRefreshing.value = true
   try {
     const response = await fetch(`/api/v1/endpoints/${route.params.key}/statuses?page=${currentPage.value}&pageSize=${resultPageSize}`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: PROTECTED_API_HEADERS
     })
-    
+    if (response.status === 401) {
+      notifyUnauthorized()
+      return
+    }
+
     if (response.status === 200) {
       const data = await response.json()
       endpointStatus.value = data

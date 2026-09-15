@@ -204,6 +204,7 @@ import Settings from '@/components/Settings.vue'
 import Loading from '@/components/Loading.vue'
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 import PastAnnouncements from '@/components/PastAnnouncements.vue'
+import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
 
 const props = defineProps({
   announcements: {
@@ -461,8 +462,13 @@ const fetchData = async () => {
   try {
     // Fetch endpoints
     const endpointResponse = await fetch(`/api/v1/endpoints/statuses?page=1&pageSize=${resultPageSize}`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: PROTECTED_API_HEADERS
     })
+    if (endpointResponse.status === 401) {
+      notifyUnauthorized()
+      return
+    }
     if (endpointResponse.status === 200) {
       const data = await endpointResponse.json()
       endpointStatuses.value = data
@@ -472,8 +478,13 @@ const fetchData = async () => {
     
     // Fetch suites
     const suiteResponse = await fetch(`/api/v1/suites/statuses?page=1&pageSize=${resultPageSize}`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: PROTECTED_API_HEADERS
     })
+    if (suiteResponse.status === 401) {
+      notifyUnauthorized()
+      return
+    }
     if (suiteResponse.status === 200) {
       const suiteData = await suiteResponse.json()
       suiteStatuses.value = suiteData || []

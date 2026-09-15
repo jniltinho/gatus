@@ -18,6 +18,9 @@ This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus) that adds:
   [docs/push-monitoring.md](docs/push-monitoring.md)
 - **TLS certificate expiration**: days until the certificate expires, discreetly below the name of the endpoint on the
   dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md)
+- **Login screen for `security.basic`**: a login page with logout instead of the browser dialog, with sessions stored
+  in the database and a limit of failed logins, while `curl -u` keeps working.
+  [docs/admin-endpoints.md](docs/admin-endpoints.md#login-screen)
 
 ![Gatus dashboard](.github/assets/dashboard-dark.jpg)
 

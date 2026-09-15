@@ -1,4 +1,6 @@
 // Client of the administration API of endpoints (/api/v1/admin)
+import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
+
 const BASE_URL = '/api/v1/admin'
 
 export class AdminApiError extends Error {
@@ -13,7 +15,7 @@ const encodeKey = (key) => encodeURIComponent(key)
 const withKey = (path, key) => (key ? `${path}?key=${encodeKey(key)}` : path)
 
 async function request(method, path, { body, contentType, version } = {}) {
-  const headers = {}
+  const headers = { ...PROTECTED_API_HEADERS }
   if (body !== undefined) {
     headers['Content-Type'] = contentType
   }
@@ -29,6 +31,9 @@ async function request(method, path, { body, contentType, version } = {}) {
     } catch (e) {
       data = { error: text }
     }
+  }
+  if (response.status === 401) {
+    notifyUnauthorized()
   }
   if (!response.ok) {
     throw new AdminApiError(response.status, (data && data.error) || response.statusText)

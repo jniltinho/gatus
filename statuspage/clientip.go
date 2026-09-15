@@ -110,7 +110,7 @@ func warnSharedRateLimit(generation uint64, remoteIP netip.Addr) bool {
 		if sharedRateLimitWarningGeneration.CompareAndSwap(warnedGeneration, generation) {
 			ip := remoteIP.Unmap().String()
 			sharedRateLimitWarningIP.Store(&ip)
-			logr.Warnf("[statuspage.ClientIP] Requests to the public status pages come from %s with X-Forwarded-For, but %s is not in status-pages.trusted-proxies: every client behind this proxy shares the same rate limit. Add it to status-pages.trusted-proxies if it is your reverse proxy", ip, ip)
+			logr.Warnf("[statuspage.ClientIP] Requests come from %s with X-Forwarded-For, but %s is not in status-pages.trusted-proxies: every client behind this proxy shares the same rate limit of the public status pages and the same limit of failed logins. Add it to status-pages.trusted-proxies if it is your reverse proxy", ip, ip)
 			return true
 		}
 	}

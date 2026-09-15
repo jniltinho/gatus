@@ -96,14 +96,16 @@ api_status() {
 
 agent-browser set viewport 1440 900 >/dev/null
 
-# A tela sem credenciais não é testada pelo navegador: o desafio basic auth abre a janela de login do navegador, que
-# fica pendente no modo headless. O 401 é verificado direto na API.
 step "API sem credenciais responde 401"
 [ "$(api_status "$BASE/api/v1/admin/endpoints")" = 401 ] || fail "esperado 401 sem credenciais"
 
-step "Lista com o endpoint do arquivo de configuração"
-agent-browser set credentials "$USERNAME" "$PASSWORD" >/dev/null
+# Sem sessão, a administração leva à tela de login do security.basic, que volta para a página pedida
+step "Lista com o endpoint do arquivo de configuração, depois da tela de login"
 agent-browser open "$BASE/admin" >/dev/null
+wait_for "$(testid login-username)"
+agent-browser fill "$(testid login-username)" "$USERNAME" >/dev/null
+agent-browser fill "$(testid login-password)" "$PASSWORD" >/dev/null
+agent-browser click "$(testid login-submit)" >/dev/null
 wait_for "$(testid admin-row-core_health)"
 shot 02-lista
 

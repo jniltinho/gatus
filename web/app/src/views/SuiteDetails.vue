@@ -154,6 +154,7 @@ import Settings from '@/components/Settings.vue'
 import Loading from '@/components/Loading.vue'
 import { generatePrettyTimeAgo } from '@/utils/time'
 import { formatDuration } from '@/utils/format'
+import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -191,9 +192,14 @@ const fetchData = async () => {
 
   try {
     const response = await fetch(`/api/v1/suites/${route.params.key}/statuses`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: PROTECTED_API_HEADERS
     })
 
+    if (response.status === 401) {
+      notifyUnauthorized()
+      return
+    }
     if (response.status === 200) {
       const data = await response.json()
       const oldSuite = suite.value

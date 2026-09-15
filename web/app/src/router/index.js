@@ -9,12 +9,20 @@ import AdminStatusPageForm from '@/views/admin/AdminStatusPageForm';
 import AdminPushKeys from '@/views/admin/AdminPushKeys';
 import StatusPage from '@/views/public/StatusPage';
 import StatusPageEndpoint from '@/views/public/StatusPageEndpoint';
+import LoginPage from '@/views/LoginPage';
 
 const routes = [
     {
         path: '/',
         name: 'Home',
         component: Home
+    },
+    // Login screen of security.basic (fork): no dashboard header, see App.vue
+    {
+        path: '/login',
+        name: 'Login',
+        component: LoginPage,
+        meta: { login: true }
     },
     {
         path: '/endpoints/:key',

@@ -2805,6 +2805,11 @@ endpoints:
 | `security.basic`                        | HTTP Basic configuration                                                           | `{}`          |
 | `security.basic.username`               | Username for Basic authentication.                                                 | Required `""` |
 | `security.basic.password-bcrypt-base64` | Password hashed with Bcrypt and then encoded with base64 for Basic authentication. | Required `""` |
+| `security.basic.session-ttl`            | Validity of the sessions of the login screen (jniltinho/gatus fork), from `5m` to `720h`. | `8h`          |
+
+In the jniltinho/gatus fork, the dashboard and the administration show a login screen with logout instead of the
+native dialog of the browser, with sessions stored in the database and a limit of failed logins, while
+`Authorization: Basic` keeps working for scripts. See [docs/admin-endpoints.md](admin-endpoints.md#login-screen).
 
 The example below will require that you authenticate with the username `john.doe` and the password `hunter2`:
 ```yaml

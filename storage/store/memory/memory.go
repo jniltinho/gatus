@@ -25,6 +25,10 @@ type Store struct {
 
 	maximumNumberOfResults int // maximum number of results that an endpoint can have
 	maximumNumberOfEvents  int // maximum number of events that an endpoint can have
+
+	// Sessions of the login screen of security.basic, by token hash (fork, see login_sessions.go)
+	loginSessionsMutex sync.RWMutex
+	loginSessions      map[string]common.LoginSession
 }
 
 // NewStore creates a new store using gocache.Cache

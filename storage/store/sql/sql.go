@@ -137,7 +137,11 @@ func (s *Store) createSchema() error {
 		return err
 	}
 	// Global push keys created through the administration API (see push_keys.go)
-	return s.createPushKeysSchema()
+	if err = s.createPushKeysSchema(); err != nil {
+		return err
+	}
+	// Sessions of the login screen of security.basic (see login_sessions.go)
+	return s.createLoginSessionsSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status

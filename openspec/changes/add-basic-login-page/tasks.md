@@ -1,13 +1,13 @@
 ## 1. Backend: sessões, autenticador, limitador e API
 
-- [ ] 1.1 `security.basic.session-ttl` (duração, padrão 8h, mínimo 5 minutos e máximo 30 dias) na validação da configuração, com testes de faixa.
-- [ ] 1.2 `store.LoginSessionStore` com a tabela `login_sessions`:
+- [x] 1.1 `security.basic.session-ttl` (duração, padrão 8h, mínimo 5 minutos e máximo 30 dias) na validação da configuração, com testes de faixa.
+- [x] 1.2 `store.LoginSessionStore` com a tabela `login_sessions`:
   - DDL por dialeto: `token_hash` `CHAR(64)` como chave primária (`TEXT` no SQLite), `username` `VARCHAR(255)` no MySQL, `credential_fingerprint` `CHAR(64)`, `created_at` e `expires_at` `BIGINT`, índice em `expires_at`;
   - `mysql_schema_test.go`;
   - store em memória;
   - criar, buscar, remover e remover expiradas;
   - testes nos 4 bancos e na memória.
-- [ ] 1.3 Limitador de falhas do pacote `security`:
+- [x] 1.3 Limitador de falhas do pacote `security`:
   - `Blocked` só consulta e `Failure` conta a falha;
   - janela de 1 minuto, teto de 10.000 chaves, IPv6 por /64 e sem goroutine;
   - IP de `statuspage.ClientIP` com `trusted-proxies`;
@@ -17,7 +17,7 @@
     - acertos que não contam;
     - reinício da janela;
     - comparador chamado nos dois ramos, sem medir tempo.
-- [ ] 1.4 Autenticador basic em arquivo novo de `security/`, no lugar do `basicauth`:
+- [x] 1.4 Autenticador basic em arquivo novo de `security/`, no lugar do `basicauth`:
   - sessão por cookie `gatus_session` consultada no storage sem cache, com limpeza de sessão expirada ou antiga na consulta;
   - fallback para `Authorization: Basic`, com cookie inválido que não bloqueia o header;
   - limitador antes do bcrypt;
@@ -31,7 +31,7 @@
     - sessão, header, sem credencial, com e sem `Sec-Fetch-*`, cookie expirado com header válido;
     - sessão expirada, credencial trocada e logout em outra instância com o mesmo banco;
     - 429 pelo header e força bruta por `/api/v1/config`, sem bcrypt com o IP bloqueado.
-- [ ] 1.5 Rotas `POST /api/v1/auth/login` e `POST /api/v1/auth/logout`, só com basic sem OIDC (404 nos outros casos):
+- [x] 1.5 Rotas `POST /api/v1/auth/login` e `POST /api/v1/auth/logout`, só com basic sem OIDC (404 nos outros casos):
   - token de 32 bytes, sessão nova a cada login, ignorando cookie recebido;
   - cookie `HttpOnly`/`SameSite=Strict`/`Secure` com TLS ou `X-Forwarded-Proto: https`;
   - logout aceitando corpo vazio e expirando o cookie com os mesmos atributos;
@@ -41,33 +41,33 @@
   - limpeza das expiradas no login;
   - logs sem senha nem token.
   - Testes de API, incluindo login sem `Origin`, origem ruim, fixação e OIDC com basic.
-- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido, `authenticated` para basic (sessão ou header, sob o limitador) e `admin.authorized` só com autenticação; rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo `authorized: false` sem sessão, uma única falha e uma única verificação de senha por consulta com senha errada, e a auditoria da administração com o usuário da sessão.
+- [x] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido, `authenticated` para basic (sessão ou header, sob o limitador) e `admin.authorized` só com autenticação; rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo `authorized: false` sem sessão, uma única falha e uma única verificação de senha por consulta com senha errada, e a auditoria da administração com o usuário da sessão.
 
 ## 2. Frontend: tela de login, redirecionamento e logout
 
-- [ ] 2.1 `views/Login.vue`:
+- [x] 2.1 `views/LoginPage.vue` (nome com duas palavras exigido pelo lint):
   - cartão quadrado `max-w-sm` centralizado na horizontal a `15vh` do topo, com logo, `ui.header`, usuário, senha e "Sign in";
   - erro genérico e mensagem para 429;
   - depois do 204, recarregar `GET /api/v1/config` e atualizar o estado do `App.vue` antes de seguir o `redirect`;
   - botão de tema com o mesmo cookie de `PublicLayout.vue`, e variantes `dark:`;
   - rota `/login` com `meta.login`.
-- [ ] 2.2 `App.vue`:
+- [x] 2.2 `App.vue`:
   - `meta.login` sem cabeçalho e sem link Admin, como `meta.public`;
   - com `login === "basic"` e sem autenticação, levar as rotas não públicas e não de login a `/login?redirect=<caminho>`;
   - na rota `/login` autenticado, voltar ao `redirect` validado (decodificado até estabilizar, no máximo 3 vezes, sem `%` restante, com um único `/` inicial, sem `//`, `\`, esquema, caracteres de controle ou `/login`), e com `login !== "basic"` voltar a `/`;
   - botão "Logout" no cabeçalho;
   - OIDC sem mudança.
   - Testes unitários da validação do `redirect`, incluindo dupla codificação (`/%252F%252Fhost`), `%` restante e `%` malformado (`/%ZZ`, `%`).
-- [ ] 2.3 `X-Requested-With: XMLHttpRequest` e 401 levando a `/login` em `Home.vue`, `EndpointDetails.vue`, `SuiteDetails.vue` e `utils/adminApi.js`.
-- [ ] 2.4 Lint e `make frontend-build`.
+- [x] 2.3 `X-Requested-With: XMLHttpRequest` e 401 levando a `/login` em `Home.vue`, `EndpointDetails.vue`, `SuiteDetails.vue` e `utils/adminApi.js`.
+- [x] 2.4 Lint e `make frontend-build`.
 
 ## 3. Documentação, E2E e entrega
 
-- [ ] 3.1 Documentação:
+- [x] 3.1 Documentação:
   - `docs/admin-endpoints.md`: tela de login, sessões, `session-ttl`, logout, `curl -u` com limite de falhas, limitador por instância, `status-pages.trusted-proxies` obrigatório atrás de proxy para o limitador, storage memory, `X-Forwarded-Proto` e rollback;
   - `docs/README.md`: nota do fork em `security.basic`;
   - `README.md` e `AGENTS.fork.md`: autenticador, limitador, tabela e rotas.
-- [ ] 3.2 E2E com agent-browser em `test/e2e/login.sh`:
+- [x] 3.2 E2E com agent-browser em `test/e2e/login.sh`:
   - sem janela nativa;
   - redirect para `/login` e de volta sem voltar ao login, e redirects recusados;
   - senha errada e 429;

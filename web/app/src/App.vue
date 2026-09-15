@@ -10,10 +10,13 @@
       <router-view />
     </PublicLayout>
 
-    <!-- Loading State -->
-    <div v-else-if="!retrievedConfig" class="flex items-center justify-center min-h-screen">
+    <!-- Loading State, and redirection from or to the login screen of security.basic (fork) -->
+    <div v-else-if="!retrievedConfig || pendingLoginRedirect" class="flex items-center justify-center min-h-screen">
       <Loading size="lg" />
     </div>
+
+    <!-- Login screen of security.basic (fork): no dashboard header -->
+    <router-view v-else-if="isLogin" :reload-config="reloadConfigAfterLogin" />
 
     <!-- Main App Container (fork: compact header, same height on the dashboard and on the administration) -->
     <!-- Fork: the lists of the administration fill the window on larger screens and scroll inside their tables -->
@@ -61,6 +64,18 @@
               >
                 Admin
               </router-link>
+              <!-- Logout of the login screen of security.basic (fork) -->
+              <button
+                v-if="showLogout"
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                :disabled="loggingOut"
+                data-testid="logout-button"
+                @click="logout"
+              >
+                <LogOut class="h-4 w-4" aria-hidden="true" />
+                Logout
+              </button>
               <!-- Navigation Links (Desktop) -->
               <nav v-if="buttons && buttons.length" class="hidden md:flex items-center gap-1">
                 <a
@@ -166,20 +181,22 @@
     </div>
 
     <!-- Tooltip -->
-    <Tooltip v-if="routerReady && !isPublic" :result="tooltip.result" :event="tooltip.event" :isPersistent="tooltipIsPersistent" />
+    <Tooltip v-if="routerReady && !isPublic && !isLogin" :result="tooltip.result" :event="tooltip.event" :isPersistent="tooltipIsPersistent" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Menu, X, LogIn } from 'lucide-vue-next'
+import { Menu, X, LogIn, LogOut } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import Social from './components/Social.vue'
 import Tooltip from './components/Tooltip.vue'
 import Loading from './components/Loading.vue'
 import PublicLayout from './components/public/PublicLayout.vue'
+import { PROTECTED_API_HEADERS, UNAUTHORIZED_EVENT } from '@/utils/auth'
+import { safeRedirect } from '@/utils/redirect'
 
 const route = useRoute()
 const router = useRouter()
@@ -187,6 +204,8 @@ const router = useRouter()
 // The layout depends on the route, so nothing is shown before the router resolves the first one
 const routerReady = ref(false)
 const isPublic = computed(() => route.meta.public === true)
+// Login screen of security.basic (fork)
+const isLogin = computed(() => route.meta.login === true)
 // Fork: the header is compact on every page (dashboard and administration), and the lists of the administration fill
 // the window
 const isAdminList = computed(() => route.meta.adminList === true)
@@ -200,7 +219,10 @@ const tooltip = ref({})
 const mobileMenuOpen = ref(false)
 const isOidcLoading = ref(false)
 const tooltipIsPersistent = ref(false)
+const loggingOut = ref(false)
 let configInterval = null
+// After a logout, the login screen opens without redirect back to the current page
+let loggedOut = false
 
 // Computed properties
 const logo = computed(() => {
@@ -223,6 +245,19 @@ const showAdminLink = computed(() => {
   return Boolean(config.value && config.value.admin && config.value.admin.enabled && config.value.admin.authorized)
 })
 
+const usesBasicLogin = computed(() => Boolean(config.value && config.value.login === 'basic'))
+
+const showLogout = computed(() => usesBasicLogin.value && config.value.authenticated === true)
+
+// With the login screen of security.basic, the protected screens wait for the redirection to /login without
+// authentication, and /login waits for the redirection back once authenticated or without security.basic
+const pendingLoginRedirect = computed(() => {
+  if (!usesBasicLogin.value) {
+    return isLogin.value
+  }
+  return isLogin.value ? config.value.authenticated === true : config.value.authenticated !== true
+})
+
 const loginSubtitle = computed(() => {
   return window.config && window.config.loginSubtitle && window.config.loginSubtitle !== '{{ .UI.LoginSubtitle }}' ? window.config.loginSubtitle : "System Monitoring Dashboard"
 })
@@ -240,6 +275,36 @@ const fetchConfig = async () => {
   } catch (error) {
     console.error('Failed to fetch config:', error)
     retrievedConfig.value = true
+  }
+}
+
+// Called by the login screen after a successful login: the session cookie is HttpOnly, so only the configuration tells
+// whether the session is used
+const reloadConfigAfterLogin = async () => {
+  loggedOut = false
+  await fetchConfig()
+  return config.value.authenticated === true
+}
+
+const logout = async () => {
+  if (loggingOut.value) {
+    return
+  }
+  loggingOut.value = true
+  try {
+    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include', headers: PROTECTED_API_HEADERS })
+  } catch (error) {
+    console.error('[App][logout] Failed to log out:', error)
+  }
+  loggedOut = true
+  await fetchConfig()
+  loggingOut.value = false
+}
+
+// A 401 of the protected API: the session expired or was closed elsewhere
+const handleUnauthorized = () => {
+  if (usesBasicLogin.value && !isPublic.value && !isLogin.value) {
+    fetchConfig()
   }
 }
 
@@ -289,12 +354,28 @@ watch([routerReady, isPublic], ([ready, isPublicRoute]) => {
   configInterval = setInterval(fetchConfig, 600000)
 })
 
+// Login screen of security.basic (fork): without authentication, the protected screens go to /login with the current
+// path as redirect, and /login goes back to the validated redirect once authenticated
+watch([routerReady, retrievedConfig, config, () => route.fullPath], () => {
+  if (!routerReady.value || !retrievedConfig.value || isPublic.value || !pendingLoginRedirect.value) {
+    return
+  }
+  if (isLogin.value) {
+    router.replace(usesBasicLogin.value ? safeRedirect(route.query.redirect) : '/')
+    return
+  }
+  const query = loggedOut ? {} : { redirect: route.fullPath }
+  loggedOut = false
+  router.replace({ path: '/login', query })
+})
+
 onMounted(() => {
   router.isReady().then(() => {
     routerReady.value = true
   })
   // Add click listener for closing persistent tooltips
   document.addEventListener('click', handleDocumentClick)
+  window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
 })
 
 // Clean up interval on unmount
@@ -305,5 +386,6 @@ onUnmounted(() => {
   }
   // Remove click listener
   document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
 })
 </script>

@@ -3,13 +3,12 @@ package security
 import (
 	"encoding/base64"
 	"net/http"
+	"sync"
 
 	g8 "github.com/TwiN/g8/v2"
 	"github.com/TwiN/logr"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/gofiber/fiber/v2/middleware/basicauth"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -24,11 +23,15 @@ type Config struct {
 	OIDC  *OIDCConfig  `yaml:"oidc,omitempty"`
 
 	gate *g8.Gate
+
+	// Limiter of the authentication failures of security.basic (fork, see basic_auth.go)
+	limiterOnce sync.Once
+	limiter     *failureLimiter
 }
 
 // ValidateAndSetDefaults returns whether the security configuration is valid or not and sets default values.
 func (c *Config) ValidateAndSetDefaults() bool {
-	return (c.Basic == nil || c.Basic.isValid()) && (c.OIDC == nil || c.OIDC.ValidateAndSetDefaults())
+	return (c.Basic == nil || c.Basic.validateAndSetDefaults()) && (c.OIDC == nil || c.OIDC.ValidateAndSetDefaults())
 }
 
 // RegisterHandlers registers all handlers required based on the security configuration
@@ -66,28 +69,11 @@ func (c *Config) ApplySecurityMiddleware(router fiber.Router) error {
 		c.gate = g8.New().WithAuthorizationService(authorizationService).WithCustomTokenExtractor(customTokenExtractorFunc)
 		router.Use(adaptor.HTTPMiddleware(c.gate.Protect))
 	} else if c.Basic != nil {
-		var decodedBcryptHash []byte
-		if len(c.Basic.PasswordBcryptHashBase64Encoded) > 0 {
-			var err error
-			decodedBcryptHash, err = base64.URLEncoding.DecodeString(c.Basic.PasswordBcryptHashBase64Encoded)
-			if err != nil {
-				return err
-			}
+		if _, err := base64.URLEncoding.DecodeString(c.Basic.PasswordBcryptHashBase64Encoded); err != nil {
+			return err
 		}
-		router.Use(basicauth.New(basicauth.Config{
-			Authorizer: func(username, password string) bool {
-				if len(c.Basic.PasswordBcryptHashBase64Encoded) > 0 {
-					if username != c.Basic.Username || bcrypt.CompareHashAndPassword(decodedBcryptHash, []byte(password)) != nil {
-						return false
-					}
-				}
-				return true
-			},
-			Unauthorized: func(ctx *fiber.Ctx) error {
-				ctx.Set("WWW-Authenticate", "Basic")
-				return ctx.Status(401).SendString("Unauthorized")
-			},
-		}))
+		// Login sessions of the login screen or Authorization: Basic, under the failure limiter (fork, see basic_auth.go)
+		router.Use(c.basicMiddleware)
 	}
 	return nil
 }
@@ -95,6 +81,9 @@ func (c *Config) ApplySecurityMiddleware(router fiber.Router) error {
 // IsAuthenticated checks whether the user is authenticated
 // If the Config does not warrant authentication, it will always return true.
 func (c *Config) IsAuthenticated(ctx *fiber.Ctx) bool {
+	if c.UsesBasicLogin() {
+		return c.authenticateBasic(ctx).authenticated
+	}
 	if c.gate != nil {
 		// TODO: Update g8 to support fasthttp natively? (see g8's fasthttp branch)
 		request, err := adaptor.ConvertRequest(ctx, false)

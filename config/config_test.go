@@ -58,6 +58,7 @@ import (
 	"gatus/v5/config/tunneling"
 	"gatus/v5/config/tunneling/sshtunnel"
 	"gatus/v5/config/web"
+	"gatus/v5/security"
 	"gatus/v5/storage"
 	"gopkg.in/yaml.v3"
 )
@@ -1779,6 +1780,42 @@ endpoints:
 `))
 	if err == nil {
 		t.Error("should've returned an error")
+	}
+}
+
+func TestParseAndValidateConfigBytesWithBasicSessionTTL(t *testing.T) {
+	scenarios := map[string]time.Duration{"": security.DefaultBasicSessionTTL, "5m": 5 * time.Minute, "720h": 720 * time.Hour, "1m": 0, "721h": 0}
+	for sessionTTL, expected := range scenarios {
+		t.Run("session-ttl-"+sessionTTL, func(t *testing.T) {
+			sessionTTLLine := ""
+			if sessionTTL != "" {
+				sessionTTLLine = "    session-ttl: " + sessionTTL
+			}
+			config, err := parseAndValidateConfigBytes([]byte(fmt.Sprintf(`
+security:
+  basic:
+    username: "admin"
+    password-bcrypt-base64: "JDJhJDEwJHRiMnRFakxWazZLdXBzRERQazB1TE8vckRLY05Yb1hSdnoxWU0yQ1FaYXZRSW1McmladDYu"
+%s
+endpoints:
+  - name: website
+    url: https://twin.sh/health
+    conditions:
+      - "[STATUS] == 200"
+`, sessionTTLLine)))
+			if expected == 0 {
+				if !errors.Is(err, ErrInvalidSecurityConfig) {
+					t.Errorf("expected ErrInvalidSecurityConfig, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if config.Security.Basic.SessionTTL != expected {
+				t.Errorf("expected session-ttl %s, got %s", expected, config.Security.Basic.SessionTTL)
+			}
+		})
 	}
 }
 

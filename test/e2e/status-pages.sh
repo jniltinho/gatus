@@ -230,9 +230,18 @@ public screenshot "$PRINTS/06-oidc-dashboard-control.png" >/dev/null
 public network unroute >/dev/null 2>&1 || true
 
 step "Administration: list with the pages of the configuration file"
-admin set credentials "$USERNAME" "$PASSWORD" >/dev/null
 admin set viewport 1280 900 >/dev/null
 admin set media light >/dev/null
+# Signs in through the login screen of security.basic
+login_screen() {
+  admin open "$BASE/login" >/dev/null
+  admin wait "$(testid login-username)" >/dev/null || fail "the login screen did not open"
+  admin fill "$(testid login-username)" "$USERNAME" >/dev/null
+  admin fill "$(testid login-password)" "$PASSWORD" >/dev/null
+  admin click "$(testid login-submit)" >/dev/null
+  admin wait "$(testid logout-button)" >/dev/null || fail "the login did not work"
+}
+login_screen
 admin open "$BASE/admin/status-pages" >/dev/null
 admin wait "$(testid status-page-row-config-services)" >/dev/null || fail "the list did not show the services page"
 admin wait "$(testid status-page-row-config-draft)" >/dev/null || fail "the list did not show the draft page"
