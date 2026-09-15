@@ -41,7 +41,7 @@ func TestConfigHandler_ServeHTTP(t *testing.T) {
 	if err != nil {
 		t.Error("expected err to be nil, but was", err)
 	}
-	if string(body) != `{"announcements":[],"authenticated":false,"oidc":true}` {
-		t.Error("expected body to be `{\"announcements\":[],\"authenticated\":false,\"oidc\":true}`, but was", string(body))
+	if string(body) != `{"announcements":[],"authenticated":false,"login":"oidc","oidc":true}` {
+		t.Error("expected body to be `{\"announcements\":[],\"authenticated\":false,\"login\":\"oidc\",\"oidc\":true}`, but was", string(body))
 	}
 }

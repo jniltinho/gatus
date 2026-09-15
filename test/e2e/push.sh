@@ -105,7 +105,16 @@ push "$BASE/api/push/$YAML_KEY/core_health?status=down&msg=from-yaml-key" | grep
 
 step "Push keys tab: the key of the file is read-only and a key is created through the web"
 admin set viewport 1280 900 >/dev/null
-admin set credentials "$USERNAME" "$PASSWORD" >/dev/null
+# Signs in through the login screen of security.basic
+login_screen() {
+  admin open "$BASE/login" >/dev/null
+  admin wait "$(testid login-username)" >/dev/null || fail "the login screen did not open"
+  admin fill "$(testid login-username)" "$USERNAME" >/dev/null
+  admin fill "$(testid login-password)" "$PASSWORD" >/dev/null
+  admin click "$(testid login-submit)" >/dev/null
+  admin wait "$(testid logout-button)" >/dev/null || fail "the login did not work"
+}
+login_screen
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-key-row-config-yaml-key)" >/dev/null || fail "the key of the file is not listed"
 admin fill "$(testid push-key-name)" "akamai" >/dev/null

@@ -5,7 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve --mode development",
     "build": "vue-cli-service build --modern --mode production",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test src/utils/*.test.mjs"
   },
   "dependencies": {
     "chart.js": "^4.5.1",

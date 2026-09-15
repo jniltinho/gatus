@@ -144,7 +144,7 @@ O resultado só é decidido depois das duas comparações, sem retornar cedo por
 
 ### D5. Tela de login e integração no frontend
 
-**Tela:** `views/Login.vue`, na rota `/login` com `meta.login`. A rota HTML `/login` só é registrada com `security.basic` sem OIDC.
+**Tela:** `views/LoginPage.vue`, na rota `/login` com `meta.login`. A rota HTML `/login` só é registrada com `security.basic` sem OIDC.
 - **Layout:** o `App.vue` trata `meta.login` como `meta.public`, sem o cabeçalho do dashboard e sem o link Admin. Um botão de tema no canto lê e grava o mesmo cookie de tema de `PublicLayout.vue`.
 - **Cartão:** quadrado `max-w-sm`, centralizado na horizontal com a margem superior de `15vh`, com logo, `ui.header`, usuário, senha, botão "Sign in" e erro genérico ou mensagem de 429. Tem variantes `dark:` e foco no campo de usuário.
 

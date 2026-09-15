@@ -85,6 +85,17 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 - Tests: `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL` (a user allowed to create databases: each test uses a database of its own). Local containers: `gatus-test-mysql` (mysql:8.4.11, port 53306) and `gatus-test-mariadb` (mariadb:10.11.19, port 53307). `conformance_test.go` compares every database with SQLite.
 - Do not run two `go test` processes of `storage/store/sql` at the same time with `GATUS_TEST_POSTGRES_URL`: the PostgreSQL database is shared and `Clear` removes the data of the other process.
 
+## Login screen of security.basic
+
+Change: `openspec/changes/add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`).
+
+- Only with `security.basic` without OIDC (`security.Config.UsesBasicLogin`). `security/basic_auth.go` replaces the Fiber `basicauth`: a login session (`gatus_session` cookie, `login_sessions` table with only the SHA-256 of the token) or `Authorization: Basic`, under the failure limiter of `security/limiter.go`.
+- The authentication runs once per request and is kept in the locals: the middleware, `IsAuthenticated` (`/api/v1/config`) and `IsAdmin` reuse it, so a wrong password counts one failure and runs bcrypt once. Never check the password outside of `checkCredentials`, nor before `Blocked`.
+- Sessions are read from the store on every request, without cache and without goroutine: the login and the lookup that finds an expired session delete it. The credential fingerprint (username and hash) invalidates the sessions when the credential changes.
+- `security` cannot import `statuspage` (cycle through `config`): `api/auth.go` computes the client IP with `statuspage.ClientIP` and `status-pages.trusted-proxies` and stores it in `security.LocalsClientIP`, before `/api/v1/config`, the login routes and the protected router.
+- `POST /api/v1/auth/login` and `/logout` are always registered in the unprotected block (404 without basic login), with the origin rules of `api/admin_middleware.go`. Never log passwords or tokens.
+- Frontend: `views/LoginPage.vue` (`meta.login`, no dashboard header), redirect validated by `utils/redirect.js` (`npm run test:unit`), calls to the protected API with `PROTECTED_API_HEADERS` and `notifyUnauthorized()` on 401 (`utils/auth.js`). Without these headers, a 401 carries `WWW-Authenticate: Basic` and the browser opens its native dialog.
+
 ## OpenSpec
 
 - Proposals in `openspec/changes/<change>/`; validate with `openspec validate <change> --strict`.
@@ -94,7 +105,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 
 - Use the `agent-browser` skill. With the standalone binary, set `AGENT_BROWSER_SKILLS_DIR` to the `skill-data` of the installed version before `agent-browser skills get core`.
 - Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
-- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh` and `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`). Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
+- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh`, `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`) and `test/e2e/login.sh`. The scripts sign in through the login screen (`login_screen`), not with `set credentials`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
 ## Syncing with upstream
 

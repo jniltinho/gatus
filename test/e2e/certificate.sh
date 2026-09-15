@@ -135,7 +135,16 @@ curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/endpoints/web_plain/statuses" | g
 
 step "Dashboard: discreet line below the name, only for the endpoint with TLS"
 admin set viewport 1280 900 >/dev/null
-admin set credentials "$USERNAME" "$PASSWORD" >/dev/null
+# Signs in through the login screen of security.basic
+login_screen() {
+  admin open "$BASE/login" >/dev/null
+  admin wait "$(testid login-username)" >/dev/null || fail "the login screen did not open"
+  admin fill "$(testid login-username)" "$USERNAME" >/dev/null
+  admin fill "$(testid login-password)" "$PASSWORD" >/dev/null
+  admin click "$(testid login-submit)" >/dev/null
+  admin wait "$(testid logout-button)" >/dev/null || fail "the login did not work"
+}
+login_screen
 admin open "$BASE/endpoints/web_site" >/dev/null
 admin wait "$(testid endpoint-certificate-expiration)" >/dev/null || fail "the dashboard did not show the certificate expiration"
 admin get text "$(testid endpoint-certificate-expiration)" | grep -Eq "$EXPIRES · " || fail "unexpected certificate line: $(admin get text "$(testid endpoint-certificate-expiration)")"

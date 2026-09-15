@@ -25,8 +25,8 @@ func (c *Config) RequestAuthor(ctx *fiber.Ctx) string {
 // IsAdmin returns whether the request is authorized to use the administration of endpoints.
 //
 // With OIDC, the subject of the session must be in admin.allowed-subjects. With basic authentication only, the single
-// basic user is an administrator, so this returns true whenever the administration is enabled: the authentication
-// itself is enforced by ApplySecurityMiddleware on the protected routes.
+// basic user is an administrator, so this returns whether the request is authenticated by a login session or by
+// Authorization: Basic, reusing the authentication of the request when it was already done.
 func (c *Config) IsAdmin(ctx *fiber.Ctx, adminConfig *admin.Config) bool {
 	if c == nil || !adminConfig.IsEnabled() {
 		return false
@@ -35,7 +35,7 @@ func (c *Config) IsAdmin(ctx *fiber.Ctx, adminConfig *admin.Config) bool {
 		subject, ok := c.sessionSubject(ctx)
 		return ok && adminConfig.IsSubjectAllowed(subject)
 	}
-	return c.Basic != nil
+	return c.Basic != nil && c.authenticateBasic(ctx).authenticated
 }
 
 // AdminMiddleware returns a middleware responding with 403 to requests that are not authorized to use the

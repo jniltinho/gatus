@@ -76,7 +76,9 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	// UNPROTECTED ROUTES //
 	////////////////////////
 	unprotectedAPIRouter := apiRouter.Group("/")
-	unprotectedAPIRouter.Get("/v1/config", ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig)
+	// IP address of the client for the failure limiter of security.basic (fork), see api/auth.go
+	clientIP := clientIPMiddleware(cfg.StatusPages.TrustedProxyPrefixes())
+	unprotectedAPIRouter.Get("/v1/config", clientIP, ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig)
 	unprotectedAPIRouter.Get("/v1/endpoints/:key/health/badge.svg", HealthBadge)
 	unprotectedAPIRouter.Get("/v1/endpoints/:key/health/badge.shields", HealthBadgeShields)
 	unprotectedAPIRouter.Get("/v1/endpoints/:key/uptimes/:duration", UptimeRaw)
@@ -91,8 +93,13 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	registerPushRoutes(unprotectedAPIRouter, cfg)
 	// Public status pages (fork): API, catch-all and SPA routes, see api/status_page.go
 	registerStatusPageRoutes(app, unprotectedAPIRouter, cfg)
+	// Login screen of security.basic (fork): login and logout, see api/auth.go
+	registerAuthRoutes(unprotectedAPIRouter, cfg, clientIP)
 	// SPA
 	app.Get("/", SinglePageApplication(cfg.UI))
+	if cfg.Security.UsesBasicLogin() {
+		app.Get("/login", SinglePageApplication(cfg.UI))
+	}
 	app.Get("/endpoints/:key", SinglePageApplication(cfg.UI))
 	app.Get("/suites/:key", SinglePageApplication(cfg.UI))
 	if cfg.Admin.IsEnabled() {
@@ -136,6 +143,9 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	if cfg.Security != nil {
 		if err := cfg.Security.RegisterHandlers(app); err != nil {
 			panic(err)
+		}
+		if cfg.Security.UsesBasicLogin() {
+			protectedAPIRouter.Use(clientIP)
 		}
 		if err := cfg.Security.ApplySecurityMiddleware(protectedAPIRouter); err != nil {
 			panic(err)

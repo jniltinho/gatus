@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,19 +11,31 @@ import (
 	"gatus/v5/config/admin"
 	"gatus/v5/security"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestConfigHandler_Admin(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicConfig := func() *security.Config {
+		return &security.Config{Basic: &security.BasicConfig{Username: "admin", PasswordBcryptHashBase64Encoded: base64.URLEncoding.EncodeToString(hash)}}
+	}
 	scenarios := []struct {
-		name               string
-		securityConfig     *security.Config
-		adminConfig        *admin.Config
-		expectedEnabled    bool
-		expectedAuthorized bool
+		name                  string
+		securityConfig        *security.Config
+		adminConfig           *admin.Config
+		withCredentials       bool
+		expectedEnabled       bool
+		expectedAuthorized    bool
+		expectedAuthenticated bool
+		expectedLogin         string
 	}{
-		{name: "admin-disabled", securityConfig: &security.Config{Basic: &security.BasicConfig{Username: "admin"}}},
-		{name: "basic-only", securityConfig: &security.Config{Basic: &security.BasicConfig{Username: "admin"}}, adminConfig: &admin.Config{Enabled: true}, expectedEnabled: true, expectedAuthorized: true},
-		{name: "oidc-without-session", securityConfig: &security.Config{OIDC: &security.OIDCConfig{IssuerURL: "https://sso.example.com/", RedirectURL: "http://localhost/authorization-code/callback", Scopes: []string{"openid"}}}, adminConfig: &admin.Config{Enabled: true, AllowedSubjects: []string{"ops@example.com"}}, expectedEnabled: true},
+		{name: "admin-disabled", securityConfig: basicConfig(), withCredentials: true, expectedAuthenticated: true, expectedLogin: "basic"},
+		{name: "basic-only-without-credentials", securityConfig: basicConfig(), adminConfig: &admin.Config{Enabled: true}, expectedEnabled: true, expectedLogin: "basic"},
+		{name: "basic-only-with-credentials", securityConfig: basicConfig(), adminConfig: &admin.Config{Enabled: true}, withCredentials: true, expectedEnabled: true, expectedAuthorized: true, expectedAuthenticated: true, expectedLogin: "basic"},
+		{name: "oidc-without-session", securityConfig: &security.Config{OIDC: &security.OIDCConfig{IssuerURL: "https://sso.example.com/", RedirectURL: "http://localhost/authorization-code/callback", Scopes: []string{"openid"}}}, adminConfig: &admin.Config{Enabled: true, AllowedSubjects: []string{"ops@example.com"}}, expectedEnabled: true, expectedLogin: "oidc"},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -32,13 +45,19 @@ func TestConfigHandler_Admin(t *testing.T) {
 			if err := cfg.Security.ApplySecurityMiddleware(app.Group("/protected")); err != nil {
 				t.Fatalf("failed to apply security middleware: %v", err)
 			}
-			response, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/v1/config", http.NoBody))
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/config", http.NoBody)
+			if scenario.withCredentials {
+				request.SetBasicAuth("admin", "secret")
+			}
+			response, err := app.Test(request)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
 			defer response.Body.Close()
 			var body struct {
-				Admin struct {
+				Login         string `json:"login"`
+				Authenticated bool   `json:"authenticated"`
+				Admin         struct {
 					Enabled    bool `json:"enabled"`
 					Authorized bool `json:"authorized"`
 				} `json:"admin"`
@@ -48,6 +67,9 @@ func TestConfigHandler_Admin(t *testing.T) {
 			}
 			if body.Admin.Enabled != scenario.expectedEnabled || body.Admin.Authorized != scenario.expectedAuthorized {
 				t.Errorf("expected enabled=%v authorized=%v, got enabled=%v authorized=%v", scenario.expectedEnabled, scenario.expectedAuthorized, body.Admin.Enabled, body.Admin.Authorized)
+			}
+			if body.Login != scenario.expectedLogin || body.Authenticated != scenario.expectedAuthenticated {
+				t.Errorf("expected login=%q authenticated=%v, got login=%q authenticated=%v", scenario.expectedLogin, scenario.expectedAuthenticated, body.Login, body.Authenticated)
 			}
 		})
 	}

@@ -59,6 +59,48 @@ or `/` in standard base64.
 With `security.basic`, the only basic user is the administrator. With `security.oidc`, only the subjects of
 `admin.allowed-subjects` can administer; the other authenticated users keep seeing the dashboard.
 
+## Login screen
+
+With `security.basic` and without `security.oidc`, the dashboard, the details pages and the administration open a login
+screen at `/login` instead of the native credentials dialog of the browser. After signing in, the browser goes back to
+the page it was opening, and the **Logout** button of the header closes the session. The public status pages keep
+opening without login.
+
+```yaml
+security:
+  basic:
+    username: admin
+    password-bcrypt-base64: "JDJhJDEwJHRiMnRFakxWazZLdXBzRERQazB1TE8vckRLY05Yb1hSdnoxWU0yQ1FaYXZRSW1McmladDYu"
+    # Validity of the sessions of the login screen: 8h by default, between 5m and 720h (30 days)
+    session-ttl: 12h
+```
+
+- **Sessions:** a successful login creates a session in the `login_sessions` table, where only the SHA-256 hash of the
+  token is stored. With `storage.type: memory`, sessions are kept in memory and every restart asks for a new login.
+  The `gatus_session` cookie is `HttpOnly`, `SameSite=Strict`, and `Secure` when the connection is TLS or
+  `X-Forwarded-Proto` is `https`.
+- Sessions survive restarts and reloads of the configuration. The logout, and a change of `username` or
+  `password-bcrypt-base64`, end them immediately on every instance that uses the same database.
+- **Scripts:** `Authorization: Basic` keeps working on every protected route, so `curl -u admin:your-password` needs no
+  change. Without credentials, the API answers 401 with `WWW-Authenticate: Basic`, except for the requests of browsers
+  and of the frontend (`Sec-Fetch-Site`, `Sec-Fetch-Mode` or `X-Requested-With`), which would open the native dialog.
+- **Failed logins:** 10 failures in the same minute from the same IP address (IPv6 addresses by /64) block the login
+  and `Authorization: Basic` from that address until the minute ends, with 429 and `Retry-After`, even with the right
+  password. Wrong credentials on the login screen, on `Authorization: Basic` and on `GET /api/v1/config` count. The
+  count belongs to each process: instances do not share it, and a reload of the configuration resets it.
+- **Behind a reverse proxy:** list the proxy in `status-pages.trusted-proxies` (see [Behind a reverse
+  proxy](#behind-a-reverse-proxy)), so that the limit counts the address of each client from `X-Forwarded-For`.
+  Otherwise every request seems to come from the proxy, and 10 failures of anyone block the login of everyone.
+
+| Method and route | Description |
+|------------------|-------------|
+| `POST /api/v1/auth/login` | JSON `{"username": "...", "password": "..."}` up to 4 KB: 204 with the session cookie, 401 wrong credentials, 429 blocked |
+| `POST /api/v1/auth/logout` | Closes the session of the cookie, if any, and expires the cookie (204) |
+
+Both routes answer with `Cache-Control: no-store`, follow the origin rules of the changes of the administration and
+answer 404 without `security.basic` or with `security.oidc`. `GET /api/v1/config` informs `login` (`basic`, `oidc` or
+empty) and `authenticated`.
+
 ## Usage
 
 - **List (`/admin`):** search by name, group or URL; shows the source (Web or YAML), endpoints in conflict with the YAML
@@ -171,9 +213,19 @@ forward these headers:
 ```nginx
 proxy_set_header Host $host;
 proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 ```
 
 If the public address uses a port different from the one forwarded in `Host`, list it in `admin.allowed-origins`.
+
+With the [login screen](#login-screen), list the proxy in `status-pages.trusted-proxies`, so that the limit of failed
+logins counts each client instead of the proxy. Gatus logs a warning when a private, loopback, link-local or CGNAT
+address sends `X-Forwarded-For` without being in that list:
+
+```yaml
+status-pages:
+  trusted-proxies: ["127.0.0.1"]
+```
 
 ## Multiple instances with the same PostgreSQL, MySQL or MariaDB
 
@@ -194,7 +246,12 @@ The original image ignores the `managed_endpoints` table: the endpoints managed 
 and their history is deleted on the first start. Before going back, back up the database and make sure the
 configuration file has at least one endpoint, otherwise the original image does not start.
 
+The original image and the previous fork versions ignore the `login_sessions` table and `security.basic.session-ttl`,
+which can stay in the configuration file, and ask for the credentials with the native dialog of the browser again.
+
 ## End-to-end tests
 
 `test/e2e/admin.sh` starts a local Gatus with a temporary SQLite database and goes through the screens with
 [agent-browser](https://github.com/vercel-labs/agent-browser), saving screenshots in `dist/prints/` (outside of git).
+`test/e2e/login.sh` covers the login screen: redirections, refused redirects, wrong password, limit of failed logins,
+logout, public status pages without login and `curl -u`.
