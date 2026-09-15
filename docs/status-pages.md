@@ -89,13 +89,16 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
 ## Endpoint details page
 
 `/status/<slug>/endpoints/<key>` is open without login for every endpoint shown on a published page, and has the layout
-of the endpoint details page of the dashboard (`/endpoints/<key>`):
+of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order of the monitor page of the Uptime Kuma:
 
-- current status, average response time and response time range of the latest checks, and time of the last check;
 - the bars of the latest checks;
+- current status, average response time and response time range of the latest checks, and time of the last check;
+- uptime badges;
 - **Response Time Trend**: the same chart as the dashboard, with the 24 hours / 7 days / 30 days selector and the
   unhealthy periods marked;
-- response time, uptime and health badges;
+- **Checks table**, collapsed by default: status, date and time and response time of the latest checks, without the
+  messages nor the errors;
+- response time and health badges;
 - the events (monitoring started, became healthy, was unhealthy for…), the latest 50.
 
 A key of an endpoint that is not on the page, or of a page that is not published, shows "Page not found". The page

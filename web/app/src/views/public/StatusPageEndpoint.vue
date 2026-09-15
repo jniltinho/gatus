@@ -38,18 +38,8 @@
           <StatusBadge :status="healthStatus" />
         </div>
 
-        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card v-for="card in summaryCards" :key="card.title">
-            <CardHeader class="pb-2">
-              <CardTitle class="text-sm font-medium text-muted-foreground">{{ card.title }}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="text-2xl font-bold">{{ card.value }}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
+        <!-- Fork: same order as the monitor page of the Uptime Kuma and the endpoint details page of the dashboard -->
+        <Card data-testid="status-endpoint-recent-checks">
           <CardHeader>
             <CardTitle>Recent Checks</CardTitle>
           </CardHeader>
@@ -60,36 +50,15 @@
           </CardContent>
         </Card>
 
-        <div v-if="hasResponseTimes" class="space-y-6">
-          <Card data-testid="status-endpoint-chart">
-            <CardHeader>
-              <div class="flex items-center justify-between gap-4">
-                <CardTitle>Response Time Trend</CardTitle>
-                <select
-                  v-model="chartDuration"
-                  aria-label="Period of the response time chart"
-                  class="border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring dark:border-gray-700"
-                  data-testid="status-endpoint-chart-duration"
-                >
-                  <option v-for="option in RESPONSE_TIME_DURATIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-              </div>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card v-for="card in summaryCards" :key="card.title">
+            <CardHeader class="pb-2">
+              <CardTitle class="text-sm font-medium text-muted-foreground">{{ card.title }}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" />
+              <div class="text-2xl font-bold">{{ card.value }}</div>
             </CardContent>
           </Card>
-
-          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card v-for="period in BADGE_PERIODS" :key="period.value">
-              <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium text-muted-foreground text-center">{{ period.label }}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <img :src="badgeURL(`response-times/${period.value}/badge.svg`)" :alt="`Average response time over the ${period.label.toLowerCase()}`" class="mx-auto mt-2" />
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         <Card>
@@ -105,6 +74,42 @@
             </div>
           </CardContent>
         </Card>
+
+        <Card v-if="hasResponseTimes" data-testid="status-endpoint-chart">
+          <CardHeader>
+            <div class="flex items-center justify-between gap-4">
+              <CardTitle>Response Time Trend</CardTitle>
+              <select
+                v-model="chartDuration"
+                aria-label="Period of the response time chart"
+                class="border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring dark:border-gray-700"
+                data-testid="status-endpoint-chart-duration"
+              >
+                <option v-for="option in RESPONSE_TIME_DURATIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" />
+          </CardContent>
+        </Card>
+
+        <Card v-if="results.length > 0" data-testid="status-endpoint-checks-table">
+          <div class="p-6">
+            <RecentChecksTable :results="results" :show-message="false" />
+          </div>
+        </Card>
+
+        <div v-if="hasResponseTimes" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card v-for="period in BADGE_PERIODS" :key="period.value">
+            <CardHeader class="pb-2">
+              <CardTitle class="text-sm font-medium text-muted-foreground text-center">{{ period.label }}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <img :src="badgeURL(`response-times/${period.value}/badge.svg`)" :alt="`Average response time over the ${period.label.toLowerCase()}`" class="mx-auto mt-2" />
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
@@ -151,6 +156,7 @@ import Loading from '@/components/Loading.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
+import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import { generatePrettyTimeAgo } from '@/utils/time'
 import { describeEvents, formatDateTime, relativeTimeLabel, RESPONSE_TIME_DURATIONS, SLUG_PATTERN } from '@/utils/statusPage'
 

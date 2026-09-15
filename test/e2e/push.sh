@@ -194,9 +194,17 @@ selector_count() {
 admin open "$BASE/endpoints/jobs_backup" >/dev/null
 admin wait "$(testid response-time-trend)" >/dev/null || fail "the Response Time Trend chart is not shown"
 admin wait "$(testid recent-checks-card)" >/dev/null
-[ "$(admin eval "Math.sign(document.querySelector('[data-testid=\"recent-checks-card\"]').getBoundingClientRect().top - document.querySelector('[data-testid=\"response-time-trend\"]').getBoundingClientRect().top)" | tr -d '"')" = 1 ] || fail "the Response Time Trend chart is not above the Recent Checks"
+top_of() {
+  admin eval "Math.round(document.querySelector('[data-testid=\"$1\"]').getBoundingClientRect().top + window.scrollY)" 2>/dev/null | tr -d '"'
+}
+# Same order as the monitor page of the Uptime Kuma: heartbeat bars, numbers, chart and table of checks
+BARS_TOP=$(top_of recent-checks-card)
+CHART_TOP=$(top_of response-time-trend)
+TABLE_TOP=$(top_of checks-table-card)
+[ "$BARS_TOP" -lt "$CHART_TOP" ] && [ "$CHART_TOP" -lt "$TABLE_TOP" ] || fail "expected the bars, the chart and the table of checks in this order ($BARS_TOP, $CHART_TOP, $TABLE_TOP)"
 [ "$(selector_count recent-checks-table)" = 0 ] || fail "the checks table should start collapsed"
-admin screenshot "$PRINTS/06-chart-above-recent-checks.png" >/dev/null
+admin wait 2000 >/dev/null
+admin screenshot --full "$PRINTS/06-kuma-order.png" >/dev/null
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
 admin wait "$(testid recent-checks-toggle)" >/dev/null || fail "the toggle of the checks table is not shown"
 [ "$(selector_count recent-checks-table)" = 0 ] || fail "the checks table should start collapsed"

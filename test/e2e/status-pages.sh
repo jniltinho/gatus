@@ -166,6 +166,15 @@ public wait "$(testid status-endpoint-details)" >/dev/null || fail "the details 
 grep -q "^panel" <<<"$(js public 'document.title')" || fail "document.title is not the name of the endpoint"
 public wait "[data-testid=\"status-endpoint-chart\"] canvas" >/dev/null || fail "the response time chart did not show up"
 public wait "$(testid status-endpoint-events)" >/dev/null || fail "the events did not show up"
+# Same order as the monitor page of the Uptime Kuma: bars, numbers, chart and table of checks, without messages
+top_public() {
+  js public "Math.round(document.querySelector('[data-testid=\"$1\"]').getBoundingClientRect().top + window.scrollY)"
+}
+[ "$(top_public status-endpoint-recent-checks)" -lt "$(top_public status-endpoint-chart)" ] && [ "$(top_public status-endpoint-chart)" -lt "$(top_public status-endpoint-checks-table)" ] || fail "expected the bars, the chart and the table of checks in this order"
+public click "$(testid recent-checks-toggle)" >/dev/null
+public wait "$(testid recent-check-0)" >/dev/null || fail "the public table of checks did not expand"
+[ "$(js public "document.querySelectorAll('[data-testid=\"recent-check-message\"]').length")" = 0 ] || fail "the public table of checks shows messages"
+public screenshot --full "$PRINTS/endpoint-details-kuma-order.png" >/dev/null
 grep -q "Monitoring started" <<<"$(body_text public)" || fail "the events do not have the texts of the dashboard"
 public eval "const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '7d'; select.dispatchEvent(new Event('change'))" >/dev/null
 public wait 1000 >/dev/null
