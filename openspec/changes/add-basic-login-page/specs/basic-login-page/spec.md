@@ -9,8 +9,9 @@ Com `security.basic` configurado e sem `security.oidc`, o frontend MUST oferecer
 
 Com credenciais erradas, a tela MUST mostrar uma mensagem genérica que não indique se o usuário existe. Com o limite de falhas estourado, a tela MUST pedir para tentar mais tarde.
 
-Depois do login, a tela MUST decodificar o `redirect` repetidamente, até ele parar de mudar (no máximo 3 vezes), e MUST levar a esse caminho somente quando o valor decodificado:
-- não tiver mais `%`;
+Depois de um login com sucesso, a tela MUST recarregar `GET /api/v1/config` antes de sair de `/login`, para o estado de autenticação da SPA refletir a nova sessão. Em seguida, MUST decodificar o `redirect` repetidamente, até ele parar de mudar (no máximo 3 vezes), e MUST levar a esse caminho somente quando:
+- nenhuma decodificação tiver falhado (`%` malformado);
+- o valor decodificado não tiver mais `%`;
 - começar com um único `/`;
 - não contiver `//`, `\`, esquema nem caracteres de controle;
 - não apontar para `/login`.
@@ -28,10 +29,11 @@ Nos outros casos, MUST levar ao dashboard `/`. Sem `security.basic`, ou com `sec
 
 #### Scenario: Login e redirecionamento
 - **WHEN** o visitante envia as credenciais corretas em `/login?redirect=/admin/status-pages`
-- **THEN** a SPA abre `/admin/status-pages`
+- **THEN** a SPA recarrega `GET /api/v1/config` e abre `/admin/status-pages`
+- **AND** não volta para `/login`
 
 #### Scenario: Redirecionamentos recusados
-- **WHEN** o visitante faz login com `redirect` igual a `//site-malicioso.exemplo`, `/%2F%2Fsite-malicioso.exemplo`, `/%252F%252Fsite-malicioso.exemplo`, `/\site-malicioso.exemplo`, `https://site-malicioso.exemplo` ou `/login`
+- **WHEN** o visitante faz login com `redirect` igual a `//site-malicioso.exemplo`, `/%2F%2Fsite-malicioso.exemplo`, `/%252F%252Fsite-malicioso.exemplo`, `/\site-malicioso.exemplo`, `https://site-malicioso.exemplo`, `/%ZZ` ou `/login`
 - **THEN** a SPA abre o dashboard `/` em todos os casos
 
 ### Requirement: Sessões de login
@@ -129,7 +131,7 @@ O sistema MUST contar as falhas de autenticação por IP de cliente, calculado c
 - as requisições às rotas protegidas com `Authorization: Basic` errado;
 - as consultas a `GET /api/v1/config` com `Authorization: Basic` errado.
 
-O limite MUST ser consultado antes da verificação da senha, e logins e headers corretos MUST NOT contar como falha. Depois de 10 falhas no mesmo minuto, o login e as requisições às rotas protegidas com `Authorization: Basic` desse IP MUST responder 429 com `Retry-After` até a janela reiniciar, inclusive com as credenciais corretas. Em `GET /api/v1/config`, o header de um IP bloqueado MUST ser tratado como não autenticado, sem verificar a senha. Quando uma requisição trouxer `X-Forwarded-For` de um IP fora de `status-pages.trusted-proxies`, o sistema MUST registrar um aviso no log, uma vez por IP. O usuário e a senha MUST ser conferidos juntos, com comparação em tempo constante do usuário e bcrypt sempre contra o hash configurado. A contagem MUST ser por processo, sem compartilhamento entre instâncias.
+O limite MUST ser consultado antes da verificação da senha, e logins e headers corretos MUST NOT contar como falha. Depois de 10 falhas no mesmo minuto, o login e as requisições às rotas protegidas com `Authorization: Basic` desse IP MUST responder 429 com `Retry-After` até a janela reiniciar, inclusive com as credenciais corretas. Em `GET /api/v1/config`, o header de um IP bloqueado MUST ser tratado como não autenticado, sem verificar a senha. Com o mesmo critério das status pages, o sistema MUST registrar um aviso no log, uma vez por geração da configuração, quando uma requisição trouxer `X-Forwarded-For` de uma conexão com IP privado, loopback, link-local ou CGNAT fora de `status-pages.trusted-proxies`. O usuário e a senha MUST ser conferidos juntos, com comparação em tempo constante do usuário e bcrypt sempre contra o hash configurado. A contagem MUST ser por processo, sem compartilhamento entre instâncias.
 
 #### Scenario: Força bruta no login
 - **WHEN** um IP envia 11 senhas erradas para `POST /api/v1/auth/login` no mesmo minuto
@@ -155,7 +157,7 @@ O limite MUST ser consultado antes da verificação da senha, e logins e headers
 - `"oidc"` com `security.oidc`;
 - vazio sem `security`.
 
-MUST manter `oidc`. `authenticated` MUST ser verdadeiro com uma sessão basic válida ou `Authorization: Basic` correto de um IP não bloqueado, e um header errado MUST contar como falha no limite. Com `security.basic`, `admin.authorized` MUST ser verdadeiro somente quando `authenticated` for verdadeiro. Com `login: "basic"` e sem autenticação, o frontend MUST levar as telas protegidas (dashboard, detalhes de endpoints e de suites e administração) para `/login` com o `redirect` do caminho atual. Um 401 recebido pelas chamadas do dashboard, dos detalhes de endpoints e de suites ou da administração MUST levar à mesma tela. Com `login: "basic"` e autenticação, o cabeçalho MUST mostrar o botão "Logout", que chama `POST /api/v1/auth/logout` e leva a `/login`. As status pages públicas MUST continuar abrindo sem login.
+MUST manter `oidc`. `authenticated` MUST ser verdadeiro com uma sessão basic válida ou `Authorization: Basic` correto de um IP não bloqueado, e um header errado MUST contar como falha no limite. `GET /api/v1/config` MUST autenticar uma única vez por requisição e derivar `authenticated` e `admin.authorized` desse resultado, de modo que uma senha errada conte uma falha e a senha seja verificada uma vez. Com `security.basic`, `admin.authorized` MUST ser verdadeiro somente quando `authenticated` for verdadeiro. Com `login: "basic"` e sem autenticação, o frontend MUST levar as telas protegidas (dashboard, detalhes de endpoints e de suites e administração) para `/login` com o `redirect` do caminho atual. Um 401 recebido pelas chamadas do dashboard, dos detalhes de endpoints e de suites ou da administração MUST levar à mesma tela. Com `login: "basic"` e autenticação, o cabeçalho MUST mostrar o botão "Logout", que chama `POST /api/v1/auth/logout` e leva a `/login`. As status pages públicas MUST continuar abrindo sem login.
 
 #### Scenario: Estado sem sessão
 - **WHEN** a configuração usa `security.basic` e um navegador sem sessão consulta `GET /api/v1/config`
@@ -164,6 +166,10 @@ MUST manter `oidc`. `authenticated` MUST ser verdadeiro com uma sessão basic v�
 #### Scenario: Administração sem sessão
 - **WHEN** a configuração usa `security.basic` com `admin.enabled: true` e um navegador sem sessão consulta `GET /api/v1/config`
 - **THEN** a resposta contém `"admin": {"enabled": true, "authorized": false}`
+
+#### Scenario: Uma verificação por consulta
+- **WHEN** a configuração usa `security.basic` com `admin.enabled: true` e uma consulta a `GET /api/v1/config` traz `Authorization: Basic` errado
+- **THEN** o contador de falhas do IP aumenta em exatamente 1 e a senha é verificada uma única vez
 
 #### Scenario: Estado com o header
 - **WHEN** a configuração usa `security.basic` e `curl -u admin:senha` consulta `GET /api/v1/config`

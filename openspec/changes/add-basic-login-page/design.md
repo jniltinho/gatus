@@ -84,7 +84,7 @@ O novo middleware fica em arquivo novo em `security/` e é usado só com `securi
    - com credenciais erradas, registra a falha no limitador.
 3. Sem autenticação, responde 401 com `{"error":"authentication required"}` e `Cache-Control: no-store`. O header `WWW-Authenticate: Basic` só é enviado quando a requisição não tem `Sec-Fetch-Site`, `Sec-Fetch-Mode` nem `X-Requested-With`. Esse é o único critério, também usado nos testes, que precisam enviar esses headers para simular o navegador.
 
-`IsAuthenticated`, usado pela rota desprotegida `/api/v1/config`, segue a mesma ordem e o mesmo limitador. Com `Authorization: Basic`, consulta `Blocked` antes do bcrypt, trata um IP bloqueado como não autenticado sem rodar o bcrypt e registra `Failure` com a senha errada. Assim nenhuma rota confere o header fora do limite. `IsAdmin` com basic passa a devolver o mesmo resultado da autenticação, para `admin.authorized` só ser verdadeiro com sessão ou header válido. `RequestAuthor` continua lendo `Locals("username")`. O token do OIDC nunca é validado pelo autenticador basic, porque as sessões ficam em stores diferentes.
+`IsAuthenticated`, usado pela rota desprotegida `/api/v1/config`, segue a mesma ordem e o mesmo limitador. Com `Authorization: Basic`, consulta `Blocked` antes do bcrypt, trata um IP bloqueado como não autenticado sem rodar o bcrypt e registra `Failure` com a senha errada. Assim nenhuma rota confere o header fora do limite. `IsAdmin` com basic passa a usar o resultado dessa mesma autenticação, guardado em `Locals` na primeira verificação da requisição, sem conferir o header de novo. `GetConfig` autentica uma única vez e deriva `authenticated` e `admin.authorized` desse resultado, então uma senha errada conta uma falha só e o bcrypt roda uma vez. `RequestAuthor` continua lendo `Locals("username")`. O token do OIDC nunca é validado pelo autenticador basic, porque as sessões ficam em stores diferentes.
 
 **Alternativas consideradas:**
 - **Nunca enviar `WWW-Authenticate`:** rejeitada, porque algumas ferramentas só mandam credenciais depois do desafio.
@@ -127,9 +127,9 @@ As rotas ficam no roteador não protegido e só existem com `security.basic` sem
 - **Métodos:**
   - `Blocked(ip, now)` só consulta e devolve o `Retry-After`;
   - `Failure(ip, now)` conta uma falha.
-- **Uso:** o IP vem de `statuspage.ClientIP` com `status-pages.trusted-proxies`. Depois de 10 falhas no mesmo minuto, o IP fica bloqueado até a janela reiniciar. O bloqueio vale para o login e para o header, inclusive com a senha certa.
+- **Uso:** `security` não pode importar `statuspage`, que importa `config`, que importa `security`. Por isso um middleware do pacote `api` calcula o IP do cliente com `statuspage.ClientIP` e `status-pages.trusted-proxies`, chama `statuspage.ObserveConnection` e guarda o IP em `Locals`, antes do autenticador, de `/api/v1/config` e das rotas de login. Depois de 10 falhas no mesmo minuto, o IP fica bloqueado até a janela reiniciar. O bloqueio vale para o login e para o header, inclusive com a senha certa.
 - **Alcance:** o limitador é por processo. Instâncias diferentes não compartilham a contagem, e uma recarga a zera. Isso fica documentado.
-- **Atrás de proxy:** sem o proxy em `status-pages.trusted-proxies`, todas as requisições parecem vir do IP do proxy, e 10 falhas de um atacante bloqueariam o login e o `curl -u` de todos. O autenticador registra no log, uma vez por IP, o mesmo aviso das status pages quando recebe `X-Forwarded-For` de um IP fora de `trusted-proxies`, e a documentação pede essa configuração.
+- **Atrás de proxy:** sem o proxy em `status-pages.trusted-proxies`, todas as requisições parecem vir do IP do proxy, e 10 falhas de um atacante bloqueariam o login e o `curl -u` de todos. O middleware que calcula o IP chama `statuspage.ObserveConnection`, com o mesmo critério das status pages. O aviso é registrado uma vez por geração da configuração, só quando o IP da conexão é privado, loopback, link-local ou CGNAT, está fora de `trusted-proxies` e a requisição traz `X-Forwarded-For`. Assim um `X-Forwarded-For` forjado não enche o log. A documentação pede essa configuração.
 
 **Comparação:** usuário e senha são sempre conferidos juntos:
 - `subtle.ConstantTimeCompare` nos hashes SHA-256 do usuário recebido e do configurado;
@@ -159,7 +159,10 @@ O resultado só é decidido depois das duas comparações, sem retornar cedo por
 - **Rota `/login`:** já autenticado, volta ao `redirect` validado; com `login !== "basic"`, volta a `/`.
 - **Cabeçalho:** com `login === "basic"` e autenticação, ganha o botão "Logout" e mostra o link Admin como hoje.
 
+**Depois do login:** com o 204, a tela recarrega `GET /api/v1/config` (com `credentials: 'include'`) e atualiza o estado do `App.vue` antes de seguir o `redirect`. Sem isso, a SPA continuaria com `authenticated: false` e voltaria a `/login`, porque o cookie `HttpOnly` não é visível ao JavaScript.
+
 **Validação do `redirect`:** decodifica o valor repetidamente, até ele parar de mudar (no máximo 3 vezes), e o aceita somente quando:
+- nenhuma decodificação falhou (`%` malformado, como `/%ZZ`, recusa o valor);
 - o valor decodificado não tem mais `%`;
 - começa com um único `/`;
 - não contém `//`, `\`, `:` antes do primeiro `/`, nem caracteres de controle;

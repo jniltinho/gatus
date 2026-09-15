@@ -24,8 +24,8 @@
   - `Locals("username")`;
   - 401 com `Cache-Control: no-store`, e `WWW-Authenticate: Basic` só sem `Sec-Fetch-Site`, `Sec-Fetch-Mode` e `X-Requested-With`;
   - `IsAuthenticated` (usado por `/api/v1/config`) com o mesmo limitador: `Blocked` antes do bcrypt e `Failure` com senha errada;
-  - `IsAdmin` com basic igual ao resultado da autenticação;
-  - aviso no log, uma vez por IP, para `X-Forwarded-For` de IP fora de `trusted-proxies`;
+  - `IsAdmin` com basic usando o resultado da autenticação da requisição (em `Locals`), sem conferir o header de novo;
+  - middleware do pacote `api` que calcula o IP do cliente (`statuspage.ClientIP`), chama `statuspage.ObserveConnection` e guarda o IP em `Locals`, antes do autenticador, de `/api/v1/config` e das rotas de login (`security` não pode importar `statuspage`);
   - só com basic sem OIDC.
   - Testes:
     - sessão, header, sem credencial, com e sem `Sec-Fetch-*`, cookie expirado com header válido;
@@ -41,13 +41,14 @@
   - limpeza das expiradas no login;
   - logs sem senha nem token.
   - Testes de API, incluindo login sem `Origin`, origem ruim, fixação e OIDC com basic.
-- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido, `authenticated` para basic (sessão ou header, sob o limitador) e `admin.authorized` só com autenticação; rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo `authorized: false` sem sessão e a auditoria da administração com o usuário da sessão.
+- [ ] 1.6 `/api/v1/config` com `login` (`basic`, `oidc` ou vazio), `oidc` mantido, `authenticated` para basic (sessão ou header, sob o limitador) e `admin.authorized` só com autenticação; rota HTML `/login` registrada só com basic sem OIDC. Testes de API, incluindo `authorized: false` sem sessão, uma única falha e uma única verificação de senha por consulta com senha errada, e a auditoria da administração com o usuário da sessão.
 
 ## 2. Frontend: tela de login, redirecionamento e logout
 
 - [ ] 2.1 `views/Login.vue`:
   - cartão quadrado `max-w-sm` centralizado na horizontal a `15vh` do topo, com logo, `ui.header`, usuário, senha e "Sign in";
   - erro genérico e mensagem para 429;
+  - depois do 204, recarregar `GET /api/v1/config` e atualizar o estado do `App.vue` antes de seguir o `redirect`;
   - botão de tema com o mesmo cookie de `PublicLayout.vue`, e variantes `dark:`;
   - rota `/login` com `meta.login`.
 - [ ] 2.2 `App.vue`:
@@ -56,7 +57,7 @@
   - na rota `/login` autenticado, voltar ao `redirect` validado (decodificado até estabilizar, no máximo 3 vezes, sem `%` restante, com um único `/` inicial, sem `//`, `\`, esquema, caracteres de controle ou `/login`), e com `login !== "basic"` voltar a `/`;
   - botão "Logout" no cabeçalho;
   - OIDC sem mudança.
-  - Testes unitários da validação do `redirect`, incluindo dupla codificação (`/%252F%252Fhost`) e `%` restante.
+  - Testes unitários da validação do `redirect`, incluindo dupla codificação (`/%252F%252Fhost`), `%` restante e `%` malformado (`/%ZZ`, `%`).
 - [ ] 2.3 `X-Requested-With: XMLHttpRequest` e 401 levando a `/login` em `Home.vue`, `EndpointDetails.vue`, `SuiteDetails.vue` e `utils/adminApi.js`.
 - [ ] 2.4 Lint e `make frontend-build`.
 
@@ -68,7 +69,7 @@
   - `README.md` e `AGENTS.fork.md`: autenticador, limitador, tabela e rotas.
 - [ ] 3.2 E2E com agent-browser em `test/e2e/login.sh`:
   - sem janela nativa;
-  - redirect para `/login` e de volta, e redirects recusados;
+  - redirect para `/login` e de volta sem voltar ao login, e redirects recusados;
   - senha errada e 429;
   - logout;
   - detalhes de endpoint e de suite (`/suites/:key`);
