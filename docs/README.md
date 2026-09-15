@@ -509,6 +509,10 @@ Here are some examples of conditions you can use:
 | `[CONNECTED]`              | Resolves into whether a connection could be established                                   | `true`                                       |
 | `[CERTIFICATE_EXPIRATION]` | Resolves into the duration before certificate expiration (valid units are "s", "m", "h".) | `24h`, `48h`, 0 (if not protocol with certs) |
 | `[DOMAIN_EXPIRATION]`      | Resolves into the duration before the domain expires (valid units are "s", "m", "h".)     | `24h`, `48h`, `1234h56m78s`                  |
+
+In the jniltinho/gatus fork, the expiration of the TLS certificate is also shown discreetly on the details page of the
+endpoint, without any condition, and on the status pages with `show-certificate-expiration: true`. See
+[status-pages.md](status-pages.md).
 | `[DNS_RCODE]`              | Resolves into the DNS status of the response                                              | `NOERROR`                                    |
 
 

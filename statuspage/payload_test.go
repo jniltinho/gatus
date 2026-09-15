@@ -103,6 +103,8 @@ type allowedEndpoint struct {
 		Success    bool   `json:"success"`
 		DurationMs int64  `json:"durationMs"`
 	} `json:"results"`
+	// Only published when the page shows the certificate expiration (fork)
+	CertificateExpiresInDays *int `json:"certificateExpiresInDays"`
 }
 
 func TestBuildPayload_Allowlist(t *testing.T) {

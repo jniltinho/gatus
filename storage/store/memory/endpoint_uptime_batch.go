@@ -46,7 +46,7 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 		}
 		summary := &common.EndpointSummary{Results: make([]common.ResultSummary, 0, len(results))}
 		for _, result := range results {
-			summary.Results = append(summary.Results, common.ResultSummary{Timestamp: result.Timestamp, Success: result.Success, Duration: result.Duration})
+			summary.Results = append(summary.Results, common.ResultSummary{Timestamp: result.Timestamp, Success: result.Success, Duration: result.Duration, CertificateExpiration: result.CertificateExpiration})
 		}
 		if endpointUptimes := uptimesOf(endpointStatus, now); endpointUptimes != nil {
 			summary.Uptimes = *endpointUptimes

@@ -16,6 +16,10 @@
                 <span v-if="endpointStatus.group && hostname">•</span>
                 <span v-if="hostname">{{ hostname }}</span>
               </div>
+              <!-- Fork: expiration of the TLS certificate, discreet like the "Cert Exp." of the Uptime Kuma -->
+              <p v-if="certificate" :class="['mt-1 text-xs', certificate.className]" data-testid="endpoint-certificate-expiration">
+                {{ certificate.text }} · {{ certificate.date }}
+              </p>
             </div>
             <StatusBadge :status="currentHealthStatus" />
           </div>
@@ -217,6 +221,7 @@ import Loading from '@/components/Loading.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
+import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
 
 const router = useRouter()
 const route = useRoute()
@@ -247,6 +252,19 @@ const currentHealthStatus = computed(() => {
 
 const hostname = computed(() => {
   return latestResult.value?.hostname || null
+})
+
+// Expiration of the TLS certificate, from the most recent result with a certificate of the first page (fork)
+const certificate = computed(() => {
+  const expiration = certificateOfResults(currentStatus.value && currentStatus.value.results)
+  if (!expiration) {
+    return null
+  }
+  return {
+    text: certificateText(expiration.days),
+    className: certificateClass(expiration.days),
+    date: expiration.expiresAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  }
 })
 
 const toggleShowAverageResponseTime = () => {

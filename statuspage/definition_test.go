@@ -42,3 +42,15 @@ func TestParseErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParse_ShowCertificateExpiration(t *testing.T) {
+	if page, err := Parse([]byte("slug: infra\ntitle: Infra\ngroups: [core]\nshow-certificate-expiration: true\n")); err != nil || !page.ShowCertificateExpiration {
+		t.Errorf("expected show-certificate-expiration to be accepted in YAML, got page=%+v err=%v", page, err)
+	}
+	if page, err := Parse([]byte(`{"slug": "apps", "title": "Apps", "groups": ["apps"], "show-certificate-expiration": true}`)); err != nil || !page.ShowCertificateExpiration {
+		t.Errorf("expected show-certificate-expiration to be accepted in JSON, got page=%+v err=%v", page, err)
+	}
+	if page, err := Parse([]byte("slug: infra\ntitle: Infra\ngroups: [core]\n")); err != nil || page.ShowCertificateExpiration {
+		t.Errorf("expected the certificate expiration to be hidden by default, got page=%+v err=%v", page, err)
+	}
+}

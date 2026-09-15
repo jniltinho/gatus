@@ -20,6 +20,10 @@
         </div>
       </dl>
     </div>
+    <!-- Fork: expiration of the TLS certificate, when the page shows it -->
+    <p v-if="showHeader && certificateDays !== null" :class="['mt-0.5 text-xs', certificateClass(certificateDays)]" :data-testid="`status-endpoint-certificate-${endpoint.name}`">
+      {{ certificateText(certificateDays) }}
+    </p>
     <table v-if="featured" class="mt-3 w-full text-sm" data-testid="status-featured-stats">
       <thead>
         <tr class="text-xs text-muted-foreground">
@@ -78,6 +82,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { endpointKey, formatDateTime, formatMilliseconds, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
+import { certificateClass, certificateText } from '@/utils/certificate'
 
 const props = defineProps({
   endpoint: { type: Object, required: true },
@@ -116,6 +121,9 @@ const lastResult = computed(() => {
 })
 
 const responseTime = computed(() => props.endpoint.responseTime || {})
+
+// Days until the TLS certificate expires, only published when the page shows it (fork)
+const certificateDays = computed(() => (Number.isInteger(props.endpoint.certificateExpiresInDays) ? props.endpoint.certificateExpiresInDays : null))
 
 const activeIndex = computed(() => (hoveredIndex.value !== null ? hoveredIndex.value : selectedIndex.value))
 const activeResult = computed(() => (activeIndex.value !== null ? displayedResults.value[activeIndex.value] : null))

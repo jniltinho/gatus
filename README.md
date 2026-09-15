@@ -16,6 +16,8 @@ This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus) that adds:
 - **Push monitoring compatible with the Uptime Kuma**: scripts and services report their status at
   `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys and push on active endpoints.
   [docs/push-monitoring.md](docs/push-monitoring.md)
+- **TLS certificate expiration**: days until the certificate expires, discreetly below the name of the endpoint on the
+  dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md)
 
 ![Gatus dashboard](.github/assets/dashboard-dark.jpg)
 

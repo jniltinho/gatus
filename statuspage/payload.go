@@ -58,6 +58,11 @@ type EndpointPayload struct {
 	Uptime       UptimePayload       `json:"uptime"`
 	ResponseTime ResponseTimePayload `json:"responseTime"`
 	Results      []ResultPayload     `json:"results"`
+
+	// CertificateExpiresInDays is the number of whole days until the TLS certificate of the endpoint expires, negative
+	// once it expired. It is only set when the page shows the certificate expiration and a published result has a
+	// certificate (fork).
+	CertificateExpiresInDays *int `json:"certificateExpiresInDays,omitempty"`
 }
 
 // UptimePayload is the uptime of an endpoint, between 0 and 1, or null without execution during the period
@@ -119,7 +124,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 	}
 	var pageStatuses []string
 	for _, ref := range selection.Featured {
-		endpointPayload := buildEndpointPayload(ref, summaries[ref.Key])
+		endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now)
 		payload.Featured = append(payload.Featured, FeaturedEndpointPayload{EndpointPayload: endpointPayload, Group: ref.Group})
 		pageStatuses = append(pageStatuses, endpointPayload.Status)
 	}
@@ -127,7 +132,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 		group := GroupPayload{Name: section.Group, Endpoints: make([]EndpointPayload, 0, len(section.Endpoints))}
 		groupStatuses := make([]string, 0, len(section.Endpoints))
 		for _, ref := range section.Endpoints {
-			endpointPayload := buildEndpointPayload(ref, summaries[ref.Key])
+			endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now)
 			group.Endpoints = append(group.Endpoints, endpointPayload)
 			groupStatuses = append(groupStatuses, endpointPayload.Status)
 		}
@@ -144,7 +149,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 func BuildEndpointDetailsPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, events []*endpoint.Event, now time.Time) *EndpointDetailsPayload {
 	payload := &EndpointDetailsPayload{
 		Page:            PageReferencePayload{Slug: page.Slug, Title: page.Title},
-		EndpointPayload: buildEndpointPayload(ref, summary),
+		EndpointPayload: buildEndpointPayload(page, ref, summary, now),
 		Group:           ref.Group,
 		UpdatedAt:       now.UTC(),
 		Events:          make([]EventPayload, 0, len(events)),
@@ -158,7 +163,7 @@ func BuildEndpointDetailsPayload(page *pageconfig.Page, ref EndpointRef, summary
 	return payload
 }
 
-func buildEndpointPayload(ref EndpointRef, summary *common.EndpointSummary) EndpointPayload {
+func buildEndpointPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, now time.Time) EndpointPayload {
 	endpointPayload := EndpointPayload{Name: ref.Name, Status: StatusUnknown, Results: []ResultPayload{}}
 	if summary == nil {
 		return endpointPayload
@@ -169,6 +174,9 @@ func buildEndpointPayload(ref EndpointRef, summary *common.EndpointSummary) Endp
 			Success:    result.Success,
 			DurationMs: result.Duration.Milliseconds(),
 		})
+	}
+	if page.ShowCertificateExpiration {
+		endpointPayload.CertificateExpiresInDays = certificateExpiresInDays(summary.Results, now)
 	}
 	if numberOfResults := len(summary.Results); numberOfResults > 0 {
 		if summary.Results[numberOfResults-1].Success {

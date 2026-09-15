@@ -182,6 +182,11 @@ type Page struct {
 	// It is still accepted so that the definitions saved by v5.36.0-fork.2 stay valid.
 	Charts []string `yaml:"charts,omitempty" json:"charts,omitempty"`
 
+	// ShowCertificateExpiration shows below the name of each endpoint how many days are left until its TLS certificate
+	// expires, like the "Show Certificate Expiry" option of the Uptime Kuma (fork). The same key is used in YAML and JSON,
+	// because the definitions managed through the administration are decoded as YAML.
+	ShowCertificateExpiration bool `yaml:"show-certificate-expiration,omitempty" json:"show-certificate-expiration,omitempty"`
+
 	// Enabled is whether the page is published. Pages of the configuration file default to true.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }

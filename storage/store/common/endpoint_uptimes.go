@@ -21,6 +21,10 @@ type ResultSummary struct {
 	Timestamp time.Time
 	Success   bool
 	Duration  time.Duration
+
+	// CertificateExpiration is the duration between the result and the expiration of the TLS certificate, or zero without
+	// certificate. Status pages only publish the days derived from it, when they are configured to (fork).
+	CertificateExpiration time.Duration
 }
 
 // EndpointSummary is the latest results and the uptimes of an endpoint, for the public status pages
