@@ -64,9 +64,12 @@ With `security.basic`, the only basic user is the administrator. With `security.
 - **List (`/admin`):** search by name, group or URL; shows the source (Web or YAML), endpoints in conflict with the YAML
   and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web.
 - **Form (`/admin/endpoints/new` and `/admin/endpoints/<key>/edit`):** form mode (name, group, URL, method, interval,
-  conditions, headers, alerts and enabled) and YAML mode, with the same keys as an item of `endpoints` in the
-  configuration file. When creating, the group is picked from the groups of the existing endpoints or typed as a new
-  group. The name and the group cannot be changed after creation.
+  conditions, headers, alerts, enabled, follow redirects and skip TLS certificate verification) and YAML mode, with the
+  same keys as an item of `endpoints` in the configuration file. When creating, the group is picked from the groups of
+  the existing endpoints or typed as a new group. The name and the group cannot be changed after creation.
+- **Follow redirects** (`client.ignore-redirect`, on by default) and **Skip TLS certificate verification**
+  (`client.insecure`) help with sites that redirect HTTP to HTTPS or send an incomplete certificate chain. The other
+  `client` options are only available in YAML mode.
 - **Validate** checks the definition without saving it. **Test** runs a single check, without storing the result or
   triggering alerts, and shows each condition. **Save** stores and applies it.
 - **Remove** deletes the definition and the whole history of the endpoint. Triggered alerts are not resolved with the

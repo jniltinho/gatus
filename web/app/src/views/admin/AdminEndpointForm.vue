@@ -62,10 +62,20 @@
           <label class="block text-sm font-medium text-foreground dark:text-gray-200">Interval
             <Input v-model="form.interval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
           </label>
-          <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200 sm:col-span-2">
-            <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
-            Enabled
-          </label>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
+            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
+              <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
+              Enabled
+            </label>
+            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.ignore-redirect">
+              <input v-model="form.followRedirects" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-follow-redirects" />
+              Follow redirects
+            </label>
+            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.insecure: accepts self-signed, expired or incomplete certificate chains">
+              <input v-model="form.insecure" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-insecure" />
+              Skip TLS certificate verification
+            </label>
+          </div>
         </div>
 
         <section>
@@ -201,6 +211,8 @@ const emptyForm = () => ({
   method: '',
   interval: '',
   enabled: true,
+  followRedirects: true,
+  insecure: false,
   conditions: ['[STATUS] == 200'],
   headers: [],
   alerts: [],
@@ -260,6 +272,8 @@ const formFromDocument = (document) => {
     method: document.method || '',
     interval: document.interval || '',
     enabled: document.enabled !== false,
+    followRedirects: !(document.client && document.client['ignore-redirect'] === true),
+    insecure: Boolean(document.client && document.client.insecure === true),
     conditions: Array.isArray(document.conditions) ? document.conditions.map(String) : [],
     headers: document.headers ? Object.entries(document.headers).map(([name, value]) => ({ name, value: String(value) })) : [],
     alerts: Array.isArray(document.alerts)
@@ -296,6 +310,11 @@ const documentFromForm = () => {
   } else {
     document.enabled = false
   }
+  // The other client options (e.g. oauth2, timeout) are only edited in YAML mode and kept as they are
+  const client = { ...(document.client || {}) }
+  setOrDelete(client, 'insecure', form.insecure ? true : null)
+  setOrDelete(client, 'ignore-redirect', form.followRedirects ? null : true)
+  setOrDelete(document, 'client', Object.keys(client).length ? client : null)
   const conditions = form.conditions.map((condition) => condition.trim()).filter(Boolean)
   setOrDelete(document, 'conditions', conditions.length ? conditions : null)
   const headers = {}
