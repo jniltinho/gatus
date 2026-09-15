@@ -87,7 +87,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 
 ## Login screen of security.basic
 
-Change: `openspec/changes/add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`).
+Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`); specs in `openspec/specs/basic-login-page` and `admin-access-control`.
 
 - Only with `security.basic` without OIDC (`security.Config.UsesBasicLogin`). `security/basic_auth.go` replaces the Fiber `basicauth`: a login session (`gatus_session` cookie, `login_sessions` table with only the SHA-256 of the token) or `Authorization: Basic`, under the failure limiter of `security/limiter.go`.
 - The authentication runs once per request and is kept in the locals: the middleware, `IsAuthenticated` (`/api/v1/config`) and `IsAdmin` reuse it, so a wrong password counts one failure and runs bcrypt once. Never check the password outside of `checkCredentials`, nor before `Blocked`.
