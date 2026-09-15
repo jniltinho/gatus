@@ -158,7 +158,7 @@ Receber push MUST ser uma opção de cada endpoint ativo, desligada por padrão.
 ### Requirement: Mensagem dos resultados e verificações recentes
 O sistema MUST armazenar a mensagem e a origem Push de cada envio com o resultado, em qualquer status, com a mensagem limitada a 1024 bytes sem cortar caracteres UTF-8. Numa falha, a mensagem MUST também entrar nos erros do resultado, usados pelos alertas.
 
-A API protegida de status MUST devolver `message` em cada resultado. A página de detalhes do endpoint no dashboard MUST mostrar a tabela "Recent checks", do mais recente para o mais antigo, com status, data e hora, origem (Push ou verificação) e mensagem. A mensagem da tabela MUST ser, nesta ordem: a mensagem do envio; os erros; o status HTTP da verificação ativa.
+A API protegida de status MUST devolver `message` em cada resultado. A página de detalhes do endpoint no dashboard MUST mostrar a tabela "Recent checks", do mais recente para o mais antigo, com status, data e hora, mensagem e origem (Push ou verificação), na ordem das colunas do Uptime Kuma seguida da origem. A mensagem da tabela MUST ser, nesta ordem: a mensagem do envio; os erros; o status HTTP da verificação ativa.
 
 Os payloads das status pages públicas MUST NOT conter mensagens nem erros.
 

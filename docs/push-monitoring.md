@@ -145,9 +145,12 @@ https://status.example.com/api/push/<global-key>/erp_site?status=down&msg=Latenc
 
 ## Dashboard
 
-The details page of an endpoint (`/endpoints/<key>`) shows the **Recent checks** table, from the most recent to the
-oldest, with the status, the date and time, the origin (Push or Check) and the message: the `msg` of the push, otherwise
-the errors, otherwise the HTTP status of the check. The public status pages never show messages nor errors.
+The details page of an endpoint (`/endpoints/<key>`) follows the order of the monitor page of the Uptime Kuma: the bars
+of **Recent Checks**, the numbers and the uptime, the **Response Time Trend** chart (when the results have a response
+time) and the table of checks, with the pagination. **Checks table** expands the table of the results of the page, from
+the most recent to the oldest, with the status, the date and time, the message (the `msg` of the push, otherwise the
+errors, otherwise the HTTP status of the check) and the origin (Push or Check). The table starts collapsed and the
+browser remembers whether it was expanded. The public status pages never show messages nor errors.
 
 ## Migrating scripts from the Uptime Kuma
 

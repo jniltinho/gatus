@@ -20,6 +20,45 @@
             <StatusBadge :status="currentHealthStatus" />
           </div>
 
+          <!-- Fork: same order as the monitor page of the Uptime Kuma: heartbeat bars, numbers, chart and table of checks -->
+          <Card data-testid="recent-checks-card">
+            <CardHeader>
+              <div class="flex items-center justify-between">
+                <CardTitle>Recent Checks</CardTitle>
+                <div class="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    @click="toggleShowAverageResponseTime"
+                    :title="showAverageResponseTime ? 'Show min-max response time' : 'Show average response time'"
+                  >
+                    <Activity v-if="showAverageResponseTime" class="h-5 w-5" />
+                    <Timer v-else class="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    @click="fetchData"
+                    title="Refresh data"
+                    :disabled="isRefreshing"
+                  >
+                    <RefreshCw :class="['h-4 w-4', isRefreshing && 'animate-spin']" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <EndpointCard
+                v-if="endpointStatus"
+                :endpoint="endpointStatus"
+                :maxResults="resultPageSize"
+                :showAverageResponseTime="showAverageResponseTime"
+                @showTooltip="showTooltip"
+                class="border-0 shadow-none bg-transparent p-0"
+              />
+            </CardContent>
+          </Card>
+
           <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader class="pb-2">
@@ -60,90 +99,6 @@
 
           <Card>
             <CardHeader>
-              <div class="flex items-center justify-between">
-                <CardTitle>Recent Checks</CardTitle>
-                <div class="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    @click="toggleShowAverageResponseTime"
-                    :title="showAverageResponseTime ? 'Show min-max response time' : 'Show average response time'"
-                  >
-                    <Activity v-if="showAverageResponseTime" class="h-5 w-5" />
-                    <Timer v-else class="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    @click="fetchData"
-                    title="Refresh data"
-                    :disabled="isRefreshing"
-                  >
-                    <RefreshCw :class="['h-4 w-4', isRefreshing && 'animate-spin']" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div class="space-y-4">
-                <EndpointCard 
-                  v-if="endpointStatus"
-                  :endpoint="endpointStatus"
-                  :maxResults="resultPageSize"
-                  :showAverageResponseTime="showAverageResponseTime"
-                  @showTooltip="showTooltip"
-                  class="border-0 shadow-none bg-transparent p-0"
-                />
-                <RecentChecksTable v-if="endpointStatus" :results="endpointStatus.results || []" />
-                <div v-if="endpointStatus && endpointStatus.key" class="pt-4 border-t">
-                  <Pagination @page="changePage" :numberOfResultsPerPage="resultPageSize" :currentPageProp="currentPage" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div v-if="showResponseTimeChartAndBadges" class="space-y-6">
-            <Card>
-              <CardHeader>
-                <div class="flex items-center justify-between">
-                  <CardTitle>Response Time Trend</CardTitle>
-                  <select 
-                    v-model="selectedChartDuration"
-                    class="text-sm bg-background border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="24h">24 hours</option>
-                    <option value="7d">7 days</option>
-                    <option value="30d">30 days</option>
-                  </select>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResponseTimeChart
-                  v-if="endpointStatus && endpointStatus.key"
-                  :endpointKey="endpointStatus.key"
-                  :duration="selectedChartDuration"
-                  :serverUrl="serverUrl"
-                  :events="endpointStatus.events || []"
-                />
-              </CardContent>
-            </Card>
-
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card v-for="period in ['30d', '7d', '24h', '1h']" :key="period">
-                <CardHeader class="pb-2">
-                  <CardTitle class="text-sm font-medium text-muted-foreground text-center">
-                    {{ period === '30d' ? 'Last 30 days' : period === '7d' ? 'Last 7 days' : period === '24h' ? 'Last 24 hours' : 'Last hour' }}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <img :src="generateResponseTimeBadgeImageURL(period)" :alt="`${period} response time`" class="mx-auto mt-2" />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          <Card>
-            <CardHeader>
               <CardTitle>Uptime Statistics</CardTitle>
             </CardHeader>
             <CardContent>
@@ -157,6 +112,53 @@
               </div>
             </CardContent>
           </Card>
+
+          <Card v-if="showResponseTimeChartAndBadges" data-testid="response-time-trend">
+            <CardHeader>
+              <div class="flex items-center justify-between">
+                <CardTitle>Response Time Trend</CardTitle>
+                <select
+                  v-model="selectedChartDuration"
+                  class="text-sm bg-background border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="24h">24 hours</option>
+                  <option value="7d">7 days</option>
+                  <option value="30d">30 days</option>
+                </select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponseTimeChart
+                v-if="endpointStatus && endpointStatus.key"
+                :endpointKey="endpointStatus.key"
+                :duration="selectedChartDuration"
+                :serverUrl="serverUrl"
+                :events="endpointStatus.events || []"
+              />
+            </CardContent>
+          </Card>
+
+          <Card data-testid="checks-table-card">
+            <div class="p-6 space-y-4">
+              <RecentChecksTable v-if="endpointStatus" :results="endpointStatus.results || []" />
+              <div v-if="endpointStatus && endpointStatus.key" class="pt-4 border-t">
+                <Pagination @page="changePage" :numberOfResultsPerPage="resultPageSize" :currentPageProp="currentPage" />
+              </div>
+            </div>
+          </Card>
+
+          <div v-if="showResponseTimeChartAndBadges" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card v-for="period in ['30d', '7d', '24h', '1h']" :key="period">
+              <CardHeader class="pb-2">
+                <CardTitle class="text-sm font-medium text-muted-foreground text-center">
+                  {{ period === '30d' ? 'Last 30 days' : period === '7d' ? 'Last 7 days' : period === '24h' ? 'Last 24 hours' : 'Last hour' }}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <img :src="generateResponseTimeBadgeImageURL(period)" :alt="`${period} response time`" class="mx-auto mt-2" />
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader>
