@@ -172,6 +172,44 @@ admin click "$(testid admin-field-type) button" >/dev/null
 [ "$(admin eval "document.querySelectorAll('[data-testid=\"admin-type-http\"]').length")" = 0 ] || fail "an active type was offered for a push endpoint"
 admin screenshot --full "$PRINTS/05-push-endpoint-edit.png" >/dev/null
 
+step "Push endpoint with the token of an Uptime Kuma monitor and the Recent checks table"
+KUMA_TOKEN='keSDu7G855jvVat1xWiY2Gk4CkL1End5'
+admin open "$BASE/admin/endpoints/new" >/dev/null
+admin wait "$(testid admin-field-type)" >/dev/null
+admin click "$(testid admin-field-type) button" >/dev/null
+admin click "$(testid admin-type-push)" >/dev/null
+admin wait "$(testid admin-field-push-token)" >/dev/null
+admin fill "$(testid admin-field-name)" "kuma-backup" >/dev/null
+admin fill "$(testid admin-field-push-token)" "$KUMA_TOKEN" >/dev/null
+admin get value "$(testid admin-push-url)" | grep -q "/api/push/$KUMA_TOKEN?status=up&msg=OK&ping=" || fail "the push URL does not use the pasted token"
+admin click "$(testid admin-save)" >/dev/null
+admin wait "$(testid admin-row-_kuma-backup)" >/dev/null || fail "the push endpoint with the pasted token was not created"
+for message in "status=up&msg=Backup OK" "status=down&msg=Falha no backup: disco cheio" "status=up&msg=Backup recuperado"; do
+  push -G "$BASE/api/push/$KUMA_TOKEN" --data-urlencode "${message%%&*}" --data-urlencode "${message#*&}" | grep -q '"ok":true' || fail "push '$message' was not accepted"
+  sleep 0.2
+done
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid recent-check-2)" >/dev/null || fail "the Recent checks table does not have the 3 pushes"
+recent_message() {
+  admin get text "$(testid "recent-check-$1") $(testid recent-check-message)"
+}
+[ "$(recent_message 0)" = "Backup recuperado" ] || fail "unexpected most recent check: $(recent_message 0)"
+[ "$(recent_message 1)" = "Falha no backup: disco cheio" ] || fail "unexpected second check: $(recent_message 1)"
+[ "$(recent_message 2)" = "Backup OK" ] || fail "unexpected third check: $(recent_message 2)"
+admin get text "$(testid recent-check-1)" | grep -q "Down" || fail "the failure is not shown as Down"
+admin get text "$(testid recent-check-1)" | grep -q "Push" || fail "the origin is not shown as Push"
+admin scrollintoview "$(testid recent-checks-table)" >/dev/null
+admin screenshot "$PRINTS/06-recent-checks.png" >/dev/null
+admin set media dark >/dev/null
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid recent-check-2)" >/dev/null
+admin scrollintoview "$(testid recent-checks-table)" >/dev/null
+admin screenshot "$PRINTS/07-recent-checks-dark.png" >/dev/null
+admin open "$BASE/admin/push-keys" >/dev/null
+admin wait "$(testid push-keys-table)" >/dev/null
+admin screenshot --full "$PRINTS/08-push-keys-dark.png" >/dev/null
+admin set media light >/dev/null
+
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-key-revoke-akamai)" >/dev/null

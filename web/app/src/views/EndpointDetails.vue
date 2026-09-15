@@ -94,6 +94,7 @@
                   @showTooltip="showTooltip"
                   class="border-0 shadow-none bg-transparent p-0"
                 />
+                <RecentChecksTable v-if="endpointStatus" :results="endpointStatus.results || []" />
                 <div v-if="endpointStatus && endpointStatus.key" class="pt-4 border-t">
                   <Pagination @page="changePage" :numberOfResultsPerPage="resultPageSize" :currentPageProp="currentPage" />
                 </div>
@@ -212,6 +213,7 @@ import Settings from '@/components/Settings.vue'
 import Pagination from '@/components/Pagination.vue'
 import Loading from '@/components/Loading.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
+import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
 
 const router = useRouter()

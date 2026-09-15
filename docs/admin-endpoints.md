@@ -70,8 +70,11 @@ With `security.basic`, the only basic user is the administrator. With `security.
 - **Follow redirects** (`client.ignore-redirect`, on by default) and **Skip TLS certificate verification**
   (`client.insecure`) help with sites that redirect HTTP to HTTPS or send an incomplete certificate chain. The other
   `client` options are only available in YAML mode.
+- **Monitor type:** the active types (HTTP, TCP, ICMP, DNS, SSH) or **Push (passive)**, which receives pushes in the
+  format of the Uptime Kuma. **Accept push** makes an active endpoint also receive pushes. The **Push keys** tab manages
+  the global keys. See [docs/push-monitoring.md](push-monitoring.md).
 - **Validate** checks the definition without saving it. **Test** runs a single check, without storing the result or
-  triggering alerts, and shows each condition. **Save** stores and applies it.
+  triggering alerts, and shows each condition (not available for Push endpoints). **Save** stores and applies it.
 - **Remove** deletes the definition and the whole history of the endpoint. Triggered alerts are not resolved with the
   alerting providers.
 

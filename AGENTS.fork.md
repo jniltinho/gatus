@@ -65,6 +65,16 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/
 - In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
 - The interface texts are in English, like the rest of the Gatus UI.
 
+## Push monitoring
+
+Change: `openspec/changes/add-push-monitoring/` (read `design.md` before touching these areas; documentation in `docs/push-monitoring.md`).
+
+- The push route (`api/push.go`: `/api/push/:token`, `/api/push/:token/:key` and the catch-alls) is in the unprotected block of `api/api.go`, like the status pages: a path reaching the security middleware would respond 401. Inputs and responses must stay identical to the Uptime Kuma (`status`, `msg`, `ping` with the `parseFloat` rules, `{"ok":...}` bodies, 404 for every rejection).
+- `push.Resolver` resolves every push from atomic snapshots, never from the database: the YAML (`cfg.ExternalEndpoints` and `push.endpoints`), `managedendpoint` (push index published with the states) and `pushkey` (global keys, compared by SHA-256 hash, published only after the commit). Never log tokens or keys.
+- Heartbeats of Push endpoints run in the watchdog registry by key (`StartExternalEndpoint`), counting from the last accepted push (`lastPush`), not from the last stored result. Results of checks, pushes and heartbeats of a key are serialized by `lockEndpointResults`; pushes to registered endpoints go through `watchdog.SubmitEndpointResult`.
+- The message and the origin of a result are in the fork table `endpoint_result_messages` (`ON DELETE CASCADE`), not in `endpoint_results`. The public payloads of the status pages must never carry `message` nor errors.
+- Managed definitions: `type: push` decodes into `endpoint.ExternalEndpoint`; the `push` option of active definitions is removed before the strict decoding. `token` and `push.token` are masked, and the detail returns `pushToken`.
+
 ## MySQL and MariaDB storage
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (documentation in `docs/storage-mysql.md`); spec in `openspec/specs/mysql-storage`.
@@ -84,7 +94,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 
 - Use the `agent-browser` skill. With the standalone binary, set `AGENT_BROWSER_SKILLS_DIR` to the `skill-data` of the installed version before `agent-browser skills get core`.
 - Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
-- Scripts: `test/e2e/admin.sh` and `test/e2e/status-pages.sh`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
+- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh` and `test/e2e/push.sh`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
 ## Syncing with upstream
 
