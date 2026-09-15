@@ -93,6 +93,7 @@ gofmt -w $(git diff --name-only -- '*.go')
 - Conflict in `web/static/`: accept either side and regenerate with `make frontend-install && make frontend-build`.
 - Workflows removed by the fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): keep them removed.
 - `AGENTS.md`: accept the upstream version and keep the line pointing to this file.
+- `README.md`: the fork keeps a short README (summary, quick start and links); the full documentation of Gatus, taken from the upstream README, lives in `docs/README.md`. On a conflict or upstream change in `README.md`, keep the fork README and apply the upstream changes to `docs/README.md`, with the relative links one level up (`../.github/assets/`, `../.examples/`) and without the fork section. The upstream `AGENTS.md` rule "add to README.md" (alerting providers, for example) means `docs/README.md` in the fork.
 - Update `UPSTREAM_BASE` in the `Makefile` to the incorporated upstream commit and run `make lint test`.
 - MySQL storage: run the tests of `storage/store/sql` with `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL`, and review the new upstream queries that use `RETURNING` with more than one column, `ON CONFLICT`, `LIMIT` in a subquery, `REFERENCES` in a column definition, `CREATE INDEX IF NOT EXISTS` or MySQL reserved words (quote them, like `"condition"`).
 - The next release uses the new upstream version as its base (`vX.Y.Z-fork.1`).
