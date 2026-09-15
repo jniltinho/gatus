@@ -248,6 +248,11 @@ admin click "$(testid status-page-group-core)" >/dev/null
 admin fill "$(testid status-page-endpoint-search)" "panel" >/dev/null
 admin click "$(testid status-page-endpoint-_panel)" >/dev/null
 admin click "$(testid status-page-featured-_panel)" >/dev/null
+[ "$(js admin "Math.abs(document.querySelector('[data-testid=\"status-page-copy-link\"]').getBoundingClientRect().height - document.querySelector('[data-testid=\"status-page-field-slug\"]').getBoundingClientRect().height)")" = 0 ] || fail "the Copy link button does not have the height of the slug field"
+admin fill "$(testid status-page-endpoint-search)" "" >/dev/null
+admin click "$(testid status-page-only-selected)" >/dev/null
+[ "$(js admin "document.querySelectorAll('[data-testid^=\"status-page-endpoint-_\"], [data-testid^=\"status-page-endpoint-core_\"]').length")" = 1 ] || fail "Only selected should list only the selected endpoint"
+admin click "$(testid status-page-only-selected)" >/dev/null
 admin click "$(testid status-page-validate)" >/dev/null
 admin wait --text "The page will show 3 endpoints" >/dev/null || fail "the validation did not count the 3 endpoints"
 admin screenshot --full "$PRINTS/08-admin-validation.png" >/dev/null

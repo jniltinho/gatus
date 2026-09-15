@@ -11,12 +11,7 @@
     </template>
 
     <template #toolbar>
-      <div class="flex flex-wrap items-center gap-3">
-        <Input v-model="search" placeholder="Search by name, group or URL" class="h-9 max-w-md dark:border-gray-700" data-testid="admin-search" />
-        <span class="text-xs text-muted-foreground dark:text-gray-400" data-testid="admin-count">
-          {{ search.trim() ? `${filteredItems.length} of ${items.length}` : items.length }} {{ items.length === 1 ? 'endpoint' : 'endpoints' }}
-        </span>
-      </div>
+      <Input v-model="search" placeholder="Search by name, group or URL" class="h-9 max-w-md dark:border-gray-700" data-testid="admin-search" />
     </template>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
@@ -67,6 +62,10 @@
       </tbody>
     </table>
 
+    <template #footer>
+      <span data-testid="admin-count">{{ search.trim() ? `${filteredItems.length} of ${items.length}` : items.length }} {{ items.length === 1 ? 'endpoint' : 'endpoints' }}</span><span v-if="webCount"> · {{ webCount }} managed through the web</span><span v-if="configCount"> · {{ configCount }} from the configuration file</span>
+    </template>
+
     <template #overlay>
       <ConfirmDialog
         :open="pendingRemoval !== null"
@@ -109,6 +108,9 @@ const filteredItems = computed(() => {
     [item.name, item.group, item.url].some((value) => (value || '').toLowerCase().includes(query))
   )
 })
+
+const webCount = computed(() => items.value.filter((item) => item.source === 'admin').length)
+const configCount = computed(() => items.value.length - webCount.value)
 
 const removalMessage = computed(() => {
   if (!pendingRemoval.value) {
