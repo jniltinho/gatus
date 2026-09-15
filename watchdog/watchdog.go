@@ -53,7 +53,10 @@ func Monitor(cfg *config.Config) {
 		// If the external endpoint does not use heartbeat, then it does not need to be monitored periodically, because
 		// alerting is checked every time an external endpoint is pushed to Gatus, unlike normal endpoints.
 		if externalEndpoint.IsEnabled() && externalEndpoint.Heartbeat.Interval > 0 {
-			go monitorExternalEndpointHeartbeat(externalEndpoint, cfg, extraLabels, ctx)
+			// Fork: the heartbeat is in the registry, so that it can be stopped by key
+			if err := endpoints.startExternal(externalEndpoint, SourceConfig); err != nil {
+				logr.Errorf("[watchdog.Monitor] Failed to start the heartbeat of external endpoint with key=%s: %s", externalEndpoint.Key(), err.Error())
+			}
 		}
 	}
 	for _, suite := range cfg.Suites {

@@ -21,6 +21,7 @@ import (
 	"gatus/v5/config/endpoint"
 	"gatus/v5/config/key"
 	"gatus/v5/config/maintenance"
+	"gatus/v5/config/push"
 	"gatus/v5/config/remote"
 	"gatus/v5/config/statuspage"
 	"gatus/v5/config/suite"
@@ -90,6 +91,9 @@ type Config struct {
 
 	// StatusPages is the configuration of the public status pages
 	StatusPages *statuspage.Config `yaml:"status-pages,omitempty"`
+
+	// Push is the configuration of the push monitoring: global push keys and endpoints that receive push (fork)
+	Push *push.Config `yaml:"push,omitempty"`
 
 	// Security is the configuration for securing access to Gatus
 	Security *security.Config `yaml:"security,omitempty"`
@@ -354,6 +358,9 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 			return nil, err
 		}
 		if err := ValidateStatusPagesConfig(config); err != nil {
+			return nil, err
+		}
+		if err := ValidatePushConfig(config); err != nil {
 			return nil, err
 		}
 		ValidateAndSetConcurrencyDefaults(config)

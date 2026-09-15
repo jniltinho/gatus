@@ -129,7 +129,11 @@ func (s *Store) createSchema() error {
 		return err
 	}
 	// Public status pages managed through the administration API (see managed_status_pages.go)
-	return s.createManagedStatusPagesSchema()
+	if err = s.createManagedStatusPagesSchema(); err != nil {
+		return err
+	}
+	// Messages and origins of the endpoint results (see endpoint_result_messages.go)
+	return s.createEndpointResultMessagesSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status
@@ -664,6 +668,10 @@ func (s *Store) insertEndpointResultWithSuiteID(tx *sql.Tx, endpointID int64, re
 	if err != nil {
 		return err
 	}
+	// Fork: message and origin of the result, e.g. of a push
+	if err = s.insertEndpointResultMessage(tx, endpointResultID, result); err != nil {
+		return err
+	}
 	return s.insertConditionResults(tx, endpointResultID, result.ConditionResults)
 }
 
@@ -845,6 +853,11 @@ func (s *Store) getEndpointResultsByEndpointID(tx *sql.Tx, endpointID int64, pag
 	if len(idResultMap) == 0 {
 		// If there's no result, we'll just return an empty/nil slice
 		return
+	}
+	// Fork: messages and origins of the results
+	if err = s.loadEndpointResultMessages(tx, idResultMap); err != nil {
+		logr.Errorf("[sql.getEndpointResultsByEndpointID] Silently failed to retrieve the messages of the results of endpointID=%d: %s", endpointID, err.Error())
+		err = nil
 	}
 	// Get condition results
 	args := make([]interface{}, 0, len(idResultMap))
