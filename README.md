@@ -40,7 +40,7 @@ Have any feedback or questions? [Create a discussion](https://github.com/TwiN/ga
 ## jniltinho/gatus fork
 
 This fork adds **endpoint administration through the web**: create, edit, disable and remove endpoints at `/admin`,
-stored in SQLite or PostgreSQL, without restarting Gatus. Configuration, usage, API and limitations in
+stored in SQLite, PostgreSQL, MySQL or MariaDB, without restarting Gatus. Configuration, usage, API and limitations in
 [docs/admin-endpoints.md](docs/admin-endpoints.md). Fork releases: `v<upstream-version>-fork.<N>` tags and the
 `jniltinho/gatus` image on Docker Hub.
 
@@ -48,6 +48,11 @@ It also adds **public status pages**: pages open without login at `/status/<slug
 endpoints, defined in the configuration file or managed through the web, while the dashboard stays protected. Each
 endpoint of a page opens a public details page with its response time chart and events.
 Configuration, reverse proxy, API and security in [docs/status-pages.md](docs/status-pages.md).
+
+It also adds a **MySQL and MariaDB storage** (`storage.type: mysql`, MySQL 8.4+ and MariaDB 10.11+, since
+`v5.36.0-fork.4`), with the same behavior as PostgreSQL, including the administration and the status pages. DSN,
+supported versions, limits and tests in [docs/storage-mysql.md](docs/storage-mysql.md), and a Docker Compose example in
+[.examples/docker-compose-mariadb-storage](.examples/docker-compose-mariadb-storage).
 
 The Go module of the fork is named `gatus/v5` and does not depend on the original repository: build the binary with
 `make build` or use the tarballs and the image of the [releases](https://github.com/jniltinho/gatus/releases) (the fork
