@@ -78,4 +78,4 @@
 
 - [x] 7.1 `make lint test` e testes de `storage/store/sql` com `GATUS_TEST_POSTGRES_URL`, `GATUS_TEST_MYSQL_URL` e `GATUS_TEST_MARIADB_URL`
 - [x] 7.2 `openspec validate rename-managed-endpoint --strict`
-- [ ] 7.3 PR no `jniltinho/gatus` com CI verde e merge
+- [x] 7.3 PR no `jniltinho/gatus` com CI verde e merge
