@@ -104,4 +104,4 @@
   - tema escuro.
 - [x] 3.5 `AGENTS.fork.md` (rota pública, resolução, heartbeat no registro, tabela de mensagens) e `openspec/config.yaml` (contexto)
 - [x] 3.6 `make lint test`, testes de `storage/store/sql` com PostgreSQL, MySQL e MariaDB, e `openspec validate add-push-monitoring --strict`
-- [ ] 3.7 PR do marco 3 no `jniltinho/gatus`, com CI verde e merge, e release
+- [x] 3.7 PR do marco 3 no `jniltinho/gatus`, com CI verde e merge, e release

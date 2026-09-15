@@ -42,7 +42,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-admin-endpoint-manag
 - Managed endpoints go through strict validation: no environment variable expansion and no fields that use credentials or files of the server.
 - Administration writes are serialized with each other and with startup and hot reload.
 - Keep new code in new files whenever possible, to reduce conflicts with upstream.
-- Renaming (change `openspec/changes/rename-managed-endpoint/`, documentation in `docs/admin-endpoints.md#renaming`):
+- Renaming (change `openspec/changes/archive/2026-09-15-rename-managed-endpoint/`, documentation in `docs/admin-endpoints.md#renaming`):
   - a changed name or group renames the key with `RenameManagedEndpoint`, which moves the `endpoints` row (the history
     follows `endpoint_id`) and the references of the managed status pages in the same transaction;
   - the monitoring of the old key stops before the transaction, and the triggered alerts are restored by the old key
@@ -67,7 +67,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/
 
 ## Push monitoring
 
-Change: `openspec/changes/add-push-monitoring/` (read `design.md` before touching these areas; documentation in `docs/push-monitoring.md`).
+Change (archived): `openspec/changes/archive/2026-09-15-add-push-monitoring/` (read `design.md` before touching these areas; documentation in `docs/push-monitoring.md`); spec in `openspec/specs/push-monitoring`.
 
 - The push route (`api/push.go`: `/api/push/:token`, `/api/push/:token/:key` and the catch-alls) is in the unprotected block of `api/api.go`, like the status pages: a path reaching the security middleware would respond 401. Inputs and responses must stay identical to the Uptime Kuma (`status`, `msg`, `ping` with the `parseFloat` rules, `{"ok":...}` bodies, 404 for every rejection).
 - `push.Resolver` resolves every push from atomic snapshots, never from the database: the YAML (`cfg.ExternalEndpoints` and `push.endpoints`), `managedendpoint` (push index published with the states) and `pushkey` (global keys, compared by SHA-256 hash, published only after the commit). Never log tokens or keys.
