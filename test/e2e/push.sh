@@ -114,7 +114,8 @@ admin wait "$(testid push-key-token)" >/dev/null || fail "the created key was no
 GLOBAL_KEY=$(admin get value "$(testid push-key-token)")
 [ ${#GLOBAL_KEY} -eq 32 ] || fail "the created key does not have 32 characters"
 admin wait "$(testid push-key-row-admin-akamai)" >/dev/null || fail "the created key is not listed"
-admin screenshot --full "$PRINTS/01-push-keys.png" >/dev/null
+[ "$(admin eval "document.documentElement.scrollHeight <= window.innerHeight + 1" | tr -d '"')" = true ] || fail "the push keys page should fit the window, with the scroll inside its table"
+admin screenshot "$PRINTS/01-push-keys.png" >/dev/null
 authenticated "$BASE/api/v1/admin/push-keys" | grep -q "$GLOBAL_KEY" && fail "the list of keys exposed the token"
 
 step "New push endpoint: type Push, generated token, push URL and no Test button"
@@ -160,7 +161,8 @@ admin screenshot --full "$PRINTS/03-active-endpoint-accept-push.png" >/dev/null
 admin click "$(testid admin-save)" >/dev/null
 admin wait "$(testid admin-accepts-push-_cdn)" >/dev/null || fail "the list does not mark the active endpoint that accepts push"
 admin wait "$(testid admin-accepts-push-core_health)" >/dev/null || fail "the list does not mark the endpoint of the file that accepts push"
-admin screenshot --full "$PRINTS/04-endpoints.png" >/dev/null
+[ "$(admin eval "document.documentElement.scrollHeight <= window.innerHeight + 1" | tr -d '"')" = true ] || fail "the endpoints page should fit the window, with the scroll inside its table"
+admin screenshot "$PRINTS/04-endpoints.png" >/dev/null
 push "$BASE/api/push/$ACTIVE_TOKEN?status=up&msg=akamai" | grep -q '"ok":true' || fail "push to the active endpoint was not accepted"
 push "$BASE/api/push/$GLOBAL_KEY/_cdn?status=up&msg=akamai-global" | grep -q '"ok":true' || fail "push with the global key to the active endpoint was not accepted"
 

@@ -16,36 +16,37 @@
     </div>
 
     <!-- Main App Container -->
-    <div v-else-if="!config || !config.oidc || config.authenticated" class="relative">
+    <!-- Fork: the lists of the administration fill the window on larger screens and scroll inside their tables -->
+    <div v-else-if="!config || !config.oidc || config.authenticated" :class="['relative', isAdminList && 'md:flex md:h-screen md:flex-col md:overflow-hidden']">
       <!-- Header -->
-      <header class="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div class="container mx-auto px-4 py-4 max-w-7xl">
+      <header :class="['border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/60', isAdminList && 'md:shrink-0']">
+        <div :class="['container mx-auto px-4 max-w-7xl', isAdmin ? 'py-2' : 'py-4']">
           <div class="flex items-center justify-between">
             <!-- Logo and Title -->
             <div class="flex items-center gap-4">
-              <component 
-                :is="link ? 'a' : 'div'" 
-                :href="link" 
+              <component
+                :is="link ? 'a' : 'div'"
+                :href="link"
                 target="_blank"
                 :class="['flex items-center gap-3', link && 'hover:opacity-80 transition-opacity']"
               >
-                <div class="w-12 h-12 flex items-center justify-center">
-                  <img 
-                    v-if="logo" 
-                    :src="logo" 
-                    alt="Gatus" 
+                <div :class="['flex items-center justify-center', isAdmin ? 'w-8 h-8' : 'w-12 h-12']">
+                  <img
+                    v-if="logo"
+                    :src="logo"
+                    alt="Gatus"
                     class="w-full h-full object-contain"
                   />
-                  <img 
-                    v-else 
-                    src="./assets/logo.svg" 
-                    alt="Gatus" 
+                  <img
+                    v-else
+                    src="./assets/logo.svg"
+                    alt="Gatus"
                     class="w-full h-full object-contain"
                   />
                 </div>
                 <div>
-                  <h1 class="text-2xl font-bold tracking-tight">{{ header }}</h1>
-                  <p v-if="buttons && buttons.length" class="text-sm text-muted-foreground">
+                  <h1 :class="['font-bold tracking-tight', isAdmin ? 'text-lg' : 'text-2xl']">{{ header }}</h1>
+                  <p v-if="buttons && buttons.length && !isAdmin" class="text-sm text-muted-foreground">
                     System Monitoring Dashboard
                   </p>
                 </div>
@@ -65,10 +66,10 @@
               </router-link>
               <!-- Navigation Links (Desktop) -->
               <nav v-if="buttons && buttons.length" class="hidden md:flex items-center gap-1">
-                <a 
-                  v-for="button in buttons" 
-                  :key="button.name" 
-                  :href="button.link" 
+                <a
+                  v-for="button in buttons"
+                  :key="button.name"
+                  :href="button.link"
                   target="_blank"
                   class="px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
@@ -77,10 +78,10 @@
               </nav>
 
               <!-- Mobile Menu Button -->
-              <Button 
-                v-if="buttons && buttons.length" 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                v-if="buttons && buttons.length"
+                variant="ghost"
+                size="icon"
                 class="md:hidden"
                 @click="mobileMenuOpen = !mobileMenuOpen"
               >
@@ -91,14 +92,14 @@
           </div>
 
           <!-- Mobile Navigation -->
-          <nav 
-            v-if="buttons && buttons.length && mobileMenuOpen" 
+          <nav
+            v-if="buttons && buttons.length && mobileMenuOpen"
             class="md:hidden mt-4 pt-4 border-t space-y-1"
           >
-            <a 
-              v-for="button in buttons" 
-              :key="button.name" 
-              :href="button.link" 
+            <a
+              v-for="button in buttons"
+              :key="button.name"
+              :href="button.link"
               target="_blank"
               class="block px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
               @click="mobileMenuOpen = false"
@@ -110,12 +111,12 @@
       </header>
 
       <!-- Main Content -->
-      <main class="relative">
+      <main :class="['relative', isAdminList && 'md:flex md:min-h-0 md:flex-1 md:flex-col']">
         <router-view @showTooltip="showTooltip" :announcements="announcements" />
       </main>
 
       <!-- Footer -->
-      <footer class="border-t mt-auto">
+      <footer :class="['border-t mt-auto', isAdminList && 'md:hidden']">
         <div class="container mx-auto px-4 py-6 max-w-7xl">
           <div class="flex flex-col items-center gap-4">
             <div class="text-sm text-muted-foreground text-center">
@@ -151,7 +152,7 @@
               </p>
             </div>
           </div>
-          
+
           <a
             :href="`/oidc/login`"
             class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
@@ -189,6 +190,9 @@ const router = useRouter()
 // The layout depends on the route, so nothing is shown before the router resolves the first one
 const routerReady = ref(false)
 const isPublic = computed(() => route.meta.public === true)
+// Administration (fork): compact header on every page, and a layout that fills the window on the lists
+const isAdmin = computed(() => route.meta.admin === true)
+const isAdminList = computed(() => route.meta.adminList === true)
 let configLoadingStarted = false
 
 // State
