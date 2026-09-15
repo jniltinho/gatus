@@ -12,7 +12,7 @@
 - [x] 1.4 `EndpointSummaryBatchReader.GetEndpointSummaries(keys, maximumResults, now)` com `common.EndpointSummary` e `common.ResultSummary`: SQL numa transação de leitura com `ROW_NUMBER()` só com `success`, `duration` e `timestamp` e o uptime por helper com a transação; memória sob `RLock`; presença no mapa pela existência do endpoint no store, nunca pelo uptime (endpoint com resultados e sem execuções no período vem com uptimes `nil`); chaves sem registro fora do mapa e demais erros propagados; testes em SQLite, PostgreSQL e memória comparando com `GetEndpointStatusByKey`
 - [x] 1.5 Pacote `statuspage`: índice de endpoints publicáveis (YAML, external-endpoints e snapshot dos gerenciados, sem serializar objetos em monitoramento), seleção por grupo e chave, nome real do grupo para seleção por chave, seção sem grupo, ordem de exibição e limite de 200; testes
 - [x] 1.6 Registro copy-on-write das páginas (origem, versão, conflito, erro, revisão monotônica e geração do ciclo) e `statuspage.Load(cfg)` em `initializeStorage` depois de `managedendpoint.Load`, independente de `admin.enabled`; avisos de grupo e chave sem correspondência e log dos slugs publicados por origem na carga; falha de listagem publicando só o YAML e marcando a origem gerenciada como indisponível; `status-pages.enabled: false` despublicando todas; testes de conflito, recarga, gerenciada inválida, falha de listagem e administração desligada
-- [ ] 1.7 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
+- [x] 1.7 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge (PR #4)
 
 ## 2. Marco 2 — API pública
 
@@ -23,7 +23,7 @@
 - [x] 2.5 `api/status_page.go`: `GET /api/v1/status-pages/:slug` (com `status-pages.enabled`) e catch-all `All("/v1/status-pages")` e `All("/v1/status-pages/*")` sempre registrado, no grupo livre antes dos arquivos estáticos e de `ApplySecurityMiddleware`; `api/spa_render.go` com o template parseado uma vez por ciclo e rotas `GET/HEAD /status/:slug` e `/status/*` sempre 200
 - [x] 2.6 Cabeçalhos `X-Robots-Tag`, `X-Content-Type-Options`, `Referrer-Policy`, `Vary: Accept-Encoding` explícito e `Cache-Control` (`no-cache` no 200 da API, `no-store` em 404, 429 e 503); 404 idêntico sem consultar o storage; 503 genérico com o erro só no log; testes de status, corpo e cabeçalhos comparados (sem `Date`), com `GET` e `HEAD`, para inexistente, desabilitada, em conflito, inválida, slug malformado, slug vazio, `/a/b`, outro método e `enabled: false`
 - [x] 2.7 Testes de acesso sem credenciais com basic e com OIDC (emissor falso com `httptest.Server` servindo discovery e JWKS): sem 401, sem `WWW-Authenticate`, sem redirecionamento; `/api/v1/endpoints/statuses` continua com 401
-- [ ] 2.8 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
+- [x] 2.8 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge (PR #5)
 
 ## 3. Marco 3 — API de administração das status pages
 
@@ -31,7 +31,7 @@
 - [x] 3.2 `api/admin_status_pages.go` no grupo admin: listar (com `publicationEnabled`, `managedUnavailable` e `sharedRateLimitWarning`), `options`, `exposure` (400 sem `group` e sem `key`), `validate`, criar (201 com `ETag`), obter, alterar, habilitar, desabilitar e remover com `If-Match`, `preview` sem cache nem limitador e com semáforo próprio de 1 vaga; rotas fixas antes de `/:slug`
 - [x] 3.3 `api/admin_status_pages_errors.go`: mapeamento próprio (501, 409, 400, 412, 428, 503, 404, 201 e 500 sem texto)
 - [x] 3.4 Testes dos cenários da spec `status-page-management`: 401, 403 por subject e por CSRF, 413, 415, 428, 412, 409 com YAML e com gerenciada, 400 por campo desconhecido, troca e reserva de slug, 501, 503 durante ciclo sem gravação, falha de gravação sem publicação (store falso injetado no serviço), exposição sem parâmetros, criação sem `enabled` desabilitada, páginas do YAML somente leitura, remoção de gerenciada em conflito, pré-visualização de página desabilitada, exposição por grupo e por chave, administração com `status-pages.enabled: false`
-- [ ] 3.5 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
+- [x] 3.5 `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge (PR #6, junto dos marcos 4 a 7)
 
 ## 4. Marco 4 — Página pública no frontend
 
@@ -41,7 +41,7 @@
 - [x] 4.4 Acessibilidade: resumo `sr-only` por endpoint, barras com `aria-hidden`, tooltip por teclado e toque, `role="status"` só na faixa, contador fora de `aria-live`, `prefers-reduced-motion`
 - [x] 4.5 Conferir variantes `dark:` e o visual quadrado conforme a spec `ui-square-style` da change do admin; `make frontend-build` e commit de `web/static/`
 - [x] 4.6 Capturas com `agent-browser` da página pública (claro, escuro, 390 px) em `dist/prints/status-pages/`
-- [ ] 4.7 `make lint`, `go test ./... -race`; pull request, CI verde e merge
+- [x] 4.7 `make lint`, `go test ./... -race`; pull request, CI verde e merge (PR #6)
 
 ## 5. Marco 5 — Telas de administração das status pages
 
@@ -50,15 +50,15 @@
 - [x] 5.3 `views/admin/AdminStatusPageForm.vue`: slug somente leitura na edição, título, descrição, `enabled` (desmarcado ao criar), grupos e endpoints a partir de `/options` com busca, avisos de `/validate`, pré-visualização, tratamento de 412 sem perder o conteúdo
 - [x] 5.4 Aviso de exposição em `AdminEndpointForm.vue` com `/status-pages/exposure` ao abrir e ao mudar grupo ou nome
 - [x] 5.5 Conferir variantes `dark:` e visual quadrado; `make frontend-build` e commit de `web/static/`
-- [ ] 5.6 `make lint`, `go test ./... -race`; pull request, CI verde e merge
+- [x] 5.6 `make lint`, `go test ./... -race`; pull request, CI verde e merge (PR #6)
 
 ## 6. Marco 6 — Documentação, E2E e release
 
 - [x] 6.1 `docs/status-pages.md`: seção `status-pages`, páginas do YAML e pela web (gerenciada nasce desabilitada), payload público e o que nunca é exposto, inclusão automática por grupo e aviso de exposição, cache, limitador (o que conta), `trusted-proxies` para Docker com sub-rede fixa e gateway, `network_mode: host` e binário no host com o vhost nginx, aviso de limite compartilhado, slug não é controle de acesso, badges públicos, páginas publicadas com a administração desligada, iframe permitido, várias instâncias no PostgreSQL (inclusive atrás de balanceador), rollback; seção curta no `README.md`
 - [x] 6.2 Roteiro `test/e2e/status-pages.sh` com `agent-browser`: criar, pré-visualizar e publicar pelas telas; abrir a página numa sessão sem credenciais e conferir por `network requests` nenhuma chamada a `/api/v1/config` e nenhum 401; `/status/a%2Fb` e `/status/nao-existe`; 404 da API para desabilitada; OIDC simulado com `network route` e controle positivo em `/`; temas claro e escuro e 390 px; capturas em `dist/prints/status-pages/`
-- [ ] 6.3 `openspec validate add-public-status-pages --strict`, `make lint`, `go test ./... -race` com PostgreSQL, `test/e2e/admin.sh` e `test/e2e/status-pages.sh` verdes
-- [ ] 6.4 Pull request, CI verde e merge; publicar a próxima release pela skill `create-release` (tag, binários pelo workflow, imagem `jniltinho/gatus:<tag>` com `make docker-release`) e conferir release, tarballs e imagem
-- [ ] 6.5 Atualizar o servidor local de validação (`gatus-validacao`) para a nova imagem numa rede Docker com sub-rede fixa (ex.: `172.30.0.0/24`) e `status-pages.trusted-proxies: ["172.30.0.1/32"]`, com uma página de exemplo; conferir `/status/<slug>` sem credenciais, a API pública sem 401 e o admin com credenciais
+- [x] 6.3 `openspec validate add-public-status-pages --strict`, `make lint`, `go test ./... -race` com PostgreSQL, `test/e2e/admin.sh` e `test/e2e/status-pages.sh` verdes
+- [x] 6.4 Pull request, CI verde e merge; publicar a próxima release pela skill `create-release` (tag, binários pelo workflow, imagem `jniltinho/gatus:<tag>` com `make docker-release`) e conferir release, tarballs e imagem (PR #6 e release `v5.36.0-fork.2`)
+- [x] 6.5 Atualizar o servidor local de validação (`gatus-validacao`) para a nova imagem numa rede Docker com sub-rede fixa (ex.: `172.30.0.0/24`) e `status-pages.trusted-proxies: ["172.30.0.1/32"]`, com uma página de exemplo; conferir `/status/<slug>` sem credenciais, a API pública sem 401 e o admin com credenciais
 
 ## 7. Marco 7 — Endpoints em destaque e gráficos (pedido do dono)
 
@@ -68,11 +68,11 @@
 - [x] 7.4 `GET /api/v1/status-pages/:slug/response-times/:duration`: séries na ordem da página, sem chave, cache de 5 min, `singleflight`, semáforo, 404 idêntico para duração inválida; testes de serviço e HTTP
 - [x] 7.5 Página pública: cartões em destaque, gráfico no formato do `ResponseTimeChart` com seletor por gráfico, botão de gráfico nas linhas, tema escuro e 390 px; build e capturas
 - [x] 7.6 Formulário da administração: marcar destaque e gráfico nos endpoints resolvidos pela seleção, limites de 10, pré-visualização com destaques; build e capturas
-- [ ] 7.7 Documentação (em inglês), `config.yaml` padrão com um destaque e um gráfico de exemplo, E2E, `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge
+- [x] 7.7 Documentação (em inglês), `config.yaml` padrão com um destaque e um gráfico de exemplo, E2E, `make lint`, `go test ./... -race` com PostgreSQL; pull request, CI verde e merge (PR #6)
 
 ## 8. Marco 8 — Página pública de detalhes do endpoint (pedido do dono, substitui os gráficos embutidos)
 
 - [x] 8.1 D18 no design e spec `status-page-highlights` ajustada: página de detalhes para todos os endpoints, gráfico fora da status page, `charts` obsoleto
 - [x] 8.2 `GET /api/v1/status-pages/:slug/endpoints/:key` com `PublicEndpointDetails`: pertinência pela seleção antes da leitura, cache de 30 s, `singleflight`, semáforo, eventos só com tipo e horário; remoção de `chart`, `PublicResponseTimes` e da rota `response-times`; aviso de `charts` obsoleto na carga e na validação; testes de serviço, lista de permitidos e HTTP
 - [x] 8.3 View `StatusPageEndpoint.vue` no layout de `EndpointDetails.vue` com `ResponseTimeChart`, badges e eventos; links nas linhas e nos destaques; remoção de `ResponseTimeTrend`; formulário sem a coluna Chart e com o endereço público abrindo em nova aba; build e capturas
-- [ ] 8.4 `docs/status-pages.md`, `config.yaml` padrão e do servidor de validação sem `charts`, E2E com a página de detalhes; `make lint`, `go test ./... -race` com PostgreSQL, `test/e2e/status-pages.sh` e `test/e2e/admin.sh`; pull request, CI verde e merge
+- [x] 8.4 `docs/status-pages.md`, `config.yaml` padrão e do servidor de validação sem `charts`, E2E com a página de detalhes; `make lint`, `go test ./... -race` com PostgreSQL, `test/e2e/status-pages.sh` e `test/e2e/admin.sh`; pull request, CI verde e merge
