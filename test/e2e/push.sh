@@ -188,7 +188,19 @@ for message in "status=up&msg=Backup OK" "status=down&msg=Falha no backup: disco
   push -G "$BASE/api/push/$KUMA_TOKEN" --data-urlencode "${message%%&*}" --data-urlencode "${message#*&}" | grep -q '"ok":true' || fail "push '$message' was not accepted"
   sleep 0.2
 done
+selector_count() {
+  admin eval "document.querySelectorAll('[data-testid=\"$1\"]').length" 2>/dev/null | tr -d '"'
+}
+admin open "$BASE/endpoints/jobs_backup" >/dev/null
+admin wait "$(testid response-time-trend)" >/dev/null || fail "the Response Time Trend chart is not shown"
+admin wait "$(testid recent-checks-card)" >/dev/null
+[ "$(admin eval "Math.sign(document.querySelector('[data-testid=\"recent-checks-card\"]').getBoundingClientRect().top - document.querySelector('[data-testid=\"response-time-trend\"]').getBoundingClientRect().top)" | tr -d '"')" = 1 ] || fail "the Response Time Trend chart is not above the Recent Checks"
+[ "$(selector_count recent-checks-table)" = 0 ] || fail "the checks table should start collapsed"
+admin screenshot "$PRINTS/06-chart-above-recent-checks.png" >/dev/null
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid recent-checks-toggle)" >/dev/null || fail "the toggle of the checks table is not shown"
+[ "$(selector_count recent-checks-table)" = 0 ] || fail "the checks table should start collapsed"
+admin click "$(testid recent-checks-toggle)" >/dev/null
 admin wait "$(testid recent-check-2)" >/dev/null || fail "the Recent checks table does not have the 3 pushes"
 recent_message() {
   admin get text "$(testid "recent-check-$1") $(testid recent-check-message)"

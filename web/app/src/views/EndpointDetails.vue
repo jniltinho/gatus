@@ -58,13 +58,39 @@
             </Card>
           </div>
 
-          <Card>
+          <!-- Fork: the response time chart comes before the recent checks -->
+          <Card v-if="showResponseTimeChartAndBadges" data-testid="response-time-trend">
+            <CardHeader>
+              <div class="flex items-center justify-between">
+                <CardTitle>Response Time Trend</CardTitle>
+                <select
+                  v-model="selectedChartDuration"
+                  class="text-sm bg-background border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="24h">24 hours</option>
+                  <option value="7d">7 days</option>
+                  <option value="30d">30 days</option>
+                </select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ResponseTimeChart
+                v-if="endpointStatus && endpointStatus.key"
+                :endpointKey="endpointStatus.key"
+                :duration="selectedChartDuration"
+                :serverUrl="serverUrl"
+                :events="endpointStatus.events || []"
+              />
+            </CardContent>
+          </Card>
+
+          <Card data-testid="recent-checks-card">
             <CardHeader>
               <div class="flex items-center justify-between">
                 <CardTitle>Recent Checks</CardTitle>
                 <div class="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     @click="toggleShowAverageResponseTime"
                     :title="showAverageResponseTime ? 'Show min-max response time' : 'Show average response time'"
@@ -72,9 +98,9 @@
                     <Activity v-if="showAverageResponseTime" class="h-5 w-5" />
                     <Timer v-else class="h-5 w-5" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     @click="fetchData"
                     title="Refresh data"
                     :disabled="isRefreshing"
@@ -86,7 +112,7 @@
             </CardHeader>
             <CardContent>
               <div class="space-y-4">
-                <EndpointCard 
+                <EndpointCard
                   v-if="endpointStatus"
                   :endpoint="endpointStatus"
                   :maxResults="resultPageSize"
@@ -103,30 +129,6 @@
           </Card>
 
           <div v-if="showResponseTimeChartAndBadges" class="space-y-6">
-            <Card>
-              <CardHeader>
-                <div class="flex items-center justify-between">
-                  <CardTitle>Response Time Trend</CardTitle>
-                  <select 
-                    v-model="selectedChartDuration"
-                    class="text-sm bg-background border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="24h">24 hours</option>
-                    <option value="7d">7 days</option>
-                    <option value="30d">30 days</option>
-                  </select>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResponseTimeChart
-                  v-if="endpointStatus && endpointStatus.key"
-                  :endpointKey="endpointStatus.key"
-                  :duration="selectedChartDuration"
-                  :serverUrl="serverUrl"
-                  :events="endpointStatus.events || []"
-                />
-              </CardContent>
-            </Card>
 
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card v-for="period in ['30d', '7d', '24h', '1h']" :key="period">
