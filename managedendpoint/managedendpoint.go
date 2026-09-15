@@ -2,13 +2,12 @@
 package managedendpoint
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"sort"
 
+	"gatus/v5/alerting/alert"
 	"gatus/v5/alerting/provider"
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
@@ -49,42 +48,40 @@ type Context struct {
 
 	// AllowedExtraLabels are the extra labels registered for the Prometheus metrics
 	AllowedExtraLabels []string
+
+	// PushTokens are the push tokens used by the configuration file and by the other managed endpoints, with a
+	// description of what uses them (fork)
+	PushTokens map[string]string
+
+	// IsPushKeyToken returns whether a token is the token of a global push key (fork)
+	IsPushKeyToken func(token string) bool
 }
 
 // Prepared is a validated managed endpoint
 type Prepared struct {
-	// Endpoint is the validated endpoint, with default values, ready to be monitored
-	Endpoint *endpoint.Endpoint
+	// Parsed is the validated endpoint, with default values, ready to be monitored
+	Parsed
 
 	// Definition is the YAML definition to persist, without default values
 	Definition []byte
 }
 
-// Parse decodes a YAML or JSON definition into an endpoint, rejecting unknown fields.
-// Unlike the configuration file, environment variables are not expanded.
+// Parse decodes a YAML or JSON definition of an active endpoint, rejecting unknown fields and push endpoints (see
+// ParseDefinition). Unlike the configuration file, environment variables are not expanded.
 func Parse(definition []byte) (*endpoint.Endpoint, error) {
-	if len(bytes.TrimSpace(definition)) == 0 {
-		return nil, ErrEmptyDefinition
+	parsed, err := ParseDefinition(definition)
+	if err != nil {
+		return nil, err
 	}
-	decoder := yaml.NewDecoder(bytes.NewReader(definition))
-	decoder.KnownFields(true)
-	var ep endpoint.Endpoint
-	if err := decoder.Decode(&ep); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, ErrEmptyDefinition
-		}
-		return nil, fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
+	if parsed.Push != nil {
+		return nil, fmt.Errorf("%w: a push endpoint is not an active endpoint", ErrInvalidDefinition)
 	}
-	var extraDocument yaml.Node
-	if err := decoder.Decode(&extraDocument); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("%w: a single document is expected", ErrInvalidDefinition)
-	}
-	return &ep, nil
+	return parsed.Endpoint, nil
 }
 
 // Prepare parses and validates a definition, returning the endpoint to monitor and the definition to persist
 func Prepare(definition []byte, ctx Context) (*Prepared, error) {
-	ep, err := Parse(definition)
+	parsed, err := ParseDefinition(definition)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +95,18 @@ func Prepare(definition []byte, ctx Context) (*Prepared, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
 	}
-	if err := validate(ep, ctx); err != nil {
+	if parsed.Push != nil {
+		err = validatePush(parsed.Push, ctx)
+	} else {
+		err = validate(parsed.Endpoint, ctx)
+	}
+	if err != nil {
 		return nil, err
 	}
-	return &Prepared{Endpoint: ep, Definition: normalizedDefinition}, nil
+	if err := validatePushToken(parsed, ctx); err != nil {
+		return nil, err
+	}
+	return &Prepared{Parsed: *parsed, Definition: normalizedDefinition}, nil
 }
 
 // Effective returns the YAML definition of a validated endpoint, including its default values
@@ -156,7 +161,7 @@ func validate(ep *endpoint.Endpoint, ctx Context) error {
 		return err
 	}
 	// Provider default alerts must be merged before the endpoint defaults are set, like for the configuration file
-	if err := validateAlerts(ep, ctx.Config); err != nil {
+	if err := validateAlerts(ep.Alerts, ep.Group, ctx.Config); err != nil {
 		return err
 	}
 	if err := ep.ValidateAndSetDefaults(); err != nil {
@@ -165,7 +170,15 @@ func validate(ep *endpoint.Endpoint, ctx Context) error {
 	if err := config.ResolveTunnelForClientConfig(ctx.Config, ep.ClientConfig); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
 	}
-	endpointKey := ep.Key()
+	if err := validateKey(ep.Key(), ctx); err != nil {
+		return err
+	}
+	return checkExtraLabels(ep, ctx.AllowedExtraLabels)
+}
+
+// validateKey checks that the key of an endpoint can be stored and is not used by the configuration file or another
+// managed endpoint
+func validateKey(endpointKey string, ctx Context) error {
 	// Fork: MySQL and MariaDB cannot index longer keys
 	if err := config.CheckStorageKeyLength(ctx.Config.Storage, "endpoint", endpointKey); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidDefinition, err)
@@ -176,7 +189,7 @@ func validate(ep *endpoint.Endpoint, ctx Context) error {
 	if slices.Contains(ctx.ManagedKeys, endpointKey) {
 		return fmt.Errorf("%w by another managed endpoint: %s", ErrKeyConflict, endpointKey)
 	}
-	return checkExtraLabels(ep, ctx.AllowedExtraLabels)
+	return nil
 }
 
 func checkAllowedFields(ep *endpoint.Endpoint) error {
@@ -204,8 +217,8 @@ func fieldNotAllowed(field string) error {
 	return fmt.Errorf("%w: %s", ErrFieldNotAllowed, field)
 }
 
-func validateAlerts(ep *endpoint.Endpoint, cfg *config.Config) error {
-	for _, endpointAlert := range ep.Alerts {
+func validateAlerts(alerts []*alert.Alert, group string, cfg *config.Config) error {
+	for _, endpointAlert := range alerts {
 		if endpointAlert == nil {
 			return fmt.Errorf("%w: empty alert", ErrInvalidDefinition)
 		}
@@ -220,7 +233,7 @@ func validateAlerts(ep *endpoint.Endpoint, cfg *config.Config) error {
 			provider.MergeProviderDefaultAlertIntoEndpointAlert(defaultAlert, endpointAlert)
 		}
 		if len(endpointAlert.ProviderOverride) > 0 {
-			if err := alertProvider.ValidateOverrides(ep.Group, endpointAlert); err != nil {
+			if err := alertProvider.ValidateOverrides(group, endpointAlert); err != nil {
 				return fmt.Errorf("%w for alert of type %s: %w", ErrInvalidAlertOverride, endpointAlert.Type, err)
 			}
 		}

@@ -55,13 +55,13 @@ func registeredKeyRenameParticipant() KeyRenameParticipant {
 	return keyRenameParticipant
 }
 
-// restorePersistedTriggeredAlertsOfKey restores into ep the triggered alerts persisted for the endpoint named name in
-// group, the name and group ep had before being renamed. The persisted triggered alerts move to the new key with the
-// endpoint data, in the transaction of the rename.
-func restorePersistedTriggeredAlertsOfKey(ep *endpoint.Endpoint, name, group string) {
-	// Only the key and the alerts are read; the alerts are shared, so their restored state ends up in ep
-	lookup := &endpoint.Endpoint{Name: name, Group: group, Alerts: ep.Alerts}
+// restorePersistedTriggeredAlertsOfKey restores into the endpoint the triggered alerts persisted for the endpoint named
+// name in group, the name and group it had before being renamed. The persisted triggered alerts move to the new key with
+// the endpoint data, in the transaction of the rename.
+func restorePersistedTriggeredAlertsOfKey(parsed *Parsed, name, group string) {
+	// Only the key and the alerts are read; the alerts are shared, so their restored state ends up in the endpoint
+	lookup := &endpoint.Endpoint{Name: name, Group: group, Alerts: parsed.alerts()}
 	if watchdog.RestorePersistedTriggeredAlerts(lookup) > 0 {
-		ep.NumberOfSuccessesInARow, ep.NumberOfFailuresInARow = lookup.NumberOfSuccessesInARow, lookup.NumberOfFailuresInARow
+		parsed.setCounters(lookup.NumberOfSuccessesInARow, lookup.NumberOfFailuresInARow)
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	pushconfig "gatus/v5/config/push"
+	"gatus/v5/managedendpoint"
+	"gatus/v5/pushkey"
 	"github.com/TwiN/logr"
 )
 
@@ -20,6 +22,10 @@ type Target struct {
 
 	// External is the external endpoint that receives the push, or nil for an active endpoint monitored by Gatus
 	External *endpoint.ExternalEndpoint
+
+	// Managed is whether the endpoint is managed through the administration, in which case the push is only accepted
+	// while its monitoring runs
+	Managed bool
 }
 
 // Resolver resolves the endpoint of a push. It is immutable once created.
@@ -97,20 +103,33 @@ func (resolver *Resolver) Resolve(token, endpointKey string) (Target, string, bo
 		return Target{}, "", false
 	}
 	if len(endpointKey) == 0 {
-		key, exists := resolver.tokens[token]
-		if !exists {
-			return Target{}, "", false
+		if key, exists := resolver.tokens[token]; exists {
+			return resolver.targets[key], "", true
 		}
-		return resolver.targets[key], "", true
-	}
-	target, exists := resolver.targets[strings.ToLower(endpointKey)]
-	if !exists {
+		// Fork: endpoints managed through the administration
+		if managed, exists := managedendpoint.PushTargetByToken(token); exists {
+			return Target{Key: managed.Key, External: managed.Push, Managed: true}, "", true
+		}
 		return Target{}, "", false
 	}
-	if endpointToken := resolver.endpointTokens[target.Key]; len(endpointToken) > 0 && subtle.ConstantTimeCompare([]byte(endpointToken), []byte(token)) == 1 {
+	key := strings.ToLower(endpointKey)
+	target, exists := resolver.targets[key]
+	endpointToken := resolver.endpointTokens[key]
+	if !exists {
+		managed, managedExists := managedendpoint.PushTargetByKey(key)
+		if !managedExists {
+			return Target{}, "", false
+		}
+		target, endpointToken = Target{Key: managed.Key, External: managed.Push, Managed: true}, managedendpoint.PushTokenOf(key)
+	}
+	if len(endpointToken) > 0 && subtle.ConstantTimeCompare([]byte(endpointToken), []byte(token)) == 1 {
 		return target, "", true
 	}
 	if name, isGlobalKey := resolver.globalKeys[pushconfig.HashToken(token)]; isGlobalKey {
+		return target, name, true
+	}
+	// Global keys created through the administration
+	if name, isGlobalKey := pushkey.Lookup(token); isGlobalKey {
 		return target, name, true
 	}
 	return Target{}, "", false

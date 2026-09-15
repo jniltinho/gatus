@@ -13,10 +13,12 @@ import (
 	"gatus/v5/config/endpoint"
 	"gatus/v5/lifecycle"
 	"gatus/v5/metrics"
+	"gatus/v5/pushkey"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"gatus/v5/watchdog"
 	"github.com/TwiN/logr"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -55,21 +57,23 @@ var (
 
 // Item summarizes an endpoint for the administration list
 type Item struct {
-	Key            string     `json:"key"`
-	Name           string     `json:"name"`
-	Group          string     `json:"group"`
-	Type           string     `json:"type,omitempty"`
-	URL            string     `json:"url,omitempty"`
-	Interval       string     `json:"interval,omitempty"`
-	Enabled        bool       `json:"enabled"`
-	Source         string     `json:"source"`
-	Conflict       bool       `json:"conflict"`
-	ConflictOrigin string     `json:"conflictOrigin,omitempty"`
-	Error          string     `json:"error,omitempty"`
-	Version        int64      `json:"version,omitempty"`
-	CreatedAt      *time.Time `json:"createdAt,omitempty"`
-	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
-	UpdatedBy      string     `json:"updatedBy,omitempty"`
+	Key            string `json:"key"`
+	Name           string `json:"name"`
+	Group          string `json:"group"`
+	Type           string `json:"type,omitempty"`
+	URL            string `json:"url,omitempty"`
+	Interval       string `json:"interval,omitempty"`
+	Enabled        bool   `json:"enabled"`
+	Source         string `json:"source"`
+	Conflict       bool   `json:"conflict"`
+	ConflictOrigin string `json:"conflictOrigin,omitempty"`
+	Error          string `json:"error,omitempty"`
+	// AcceptsPush is whether the endpoint receives push (fork)
+	AcceptsPush bool       `json:"acceptsPush,omitempty"`
+	Version     int64      `json:"version,omitempty"`
+	CreatedAt   *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
+	UpdatedBy   string     `json:"updatedBy,omitempty"`
 }
 
 // Definition is an endpoint definition with its secrets masked, in YAML and as a JSON document with the YAML keys
@@ -88,6 +92,8 @@ type Detail struct {
 	// AffectedConfigStatusPages are the status pages of the configuration file that still select the old key, after a
 	// rename
 	AffectedConfigStatusPages []AffectedStatusPage `json:"affectedConfigStatusPages,omitempty"`
+	// PushToken is the push token of a managed endpoint that receives push, masked in its definition (fork)
+	PushToken string `json:"pushToken,omitempty"`
 }
 
 // Validation is the result of a successful validation
@@ -128,11 +134,14 @@ func NewService(cfg *config.Config) *Service {
 	return &Service{cfg: cfg}
 }
 
-// List returns the endpoints of the configuration file and the managed endpoints, ordered by key
+// List returns the endpoints and external endpoints of the configuration file and the managed endpoints, ordered by key
 func (s *Service) List() []*Item {
-	items := make([]*Item, 0, len(s.cfg.Endpoints))
+	items := make([]*Item, 0, len(s.cfg.Endpoints)+len(s.cfg.ExternalEndpoints))
 	for _, ep := range s.cfg.Endpoints {
-		items = append(items, configItem(ep))
+		items = append(items, s.configItem(ep))
+	}
+	for _, externalEndpoint := range s.cfg.ExternalEndpoints {
+		items = append(items, configExternalItem(externalEndpoint))
 	}
 	for _, state := range List() {
 		items = append(items, adminItem(state))
@@ -157,7 +166,18 @@ func (s *Service) Get(key string) (*Detail, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Detail{Item: *configItem(ep), Definition: definition, Effective: definition}, nil
+		return &Detail{Item: *s.configItem(ep), Definition: definition, Effective: definition}, nil
+	}
+	if externalEndpoint := s.cfg.GetExternalEndpointByKey(key); externalEndpoint != nil {
+		marshalled, err := yaml.Marshal(externalEndpoint)
+		if err != nil {
+			return nil, err
+		}
+		definition, err := maskedDefinition(marshalled)
+		if err != nil {
+			return nil, err
+		}
+		return &Detail{Item: *configExternalItem(externalEndpoint), Definition: definition, Effective: definition}, nil
 	}
 	return nil, ErrNotFound
 }
@@ -173,24 +193,28 @@ func (s *Service) Validate(raw []byte, key string) (*Validation, error) {
 	if err != nil {
 		return nil, err
 	}
-	effective, err := endpointDefinition(prepared.Endpoint)
+	effective, err := effectiveDefinition(&prepared.Parsed)
 	if err != nil {
 		return nil, err
 	}
-	return &Validation{Definition: definition, Effective: effective}, nil
+	maskedEffective, err := maskedDefinition(effective)
+	if err != nil {
+		return nil, err
+	}
+	return &Validation{Definition: definition, Effective: maskedEffective}, nil
 }
 
 // ParseDefinition decodes a definition strictly and returns it as a document with the YAML keys. It neither validates
 // the endpoint nor reads stored data, so it only returns what was submitted: it is used to convert a definition being
 // edited without exposing or masking secrets.
 func (s *Service) ParseDefinition(raw []byte) (map[string]any, error) {
-	if _, err := Parse(raw); err != nil {
+	if _, err := ParseDefinition(raw); err != nil {
 		return nil, err
 	}
 	return ToDocument(raw)
 }
 
-// Create creates a managed endpoint and starts monitoring it
+// Create creates a managed endpoint and starts monitoring it. A push endpoint without token gets a generated one.
 func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 	end, ok := lifecycle.TryBeginChange()
 	if !ok {
@@ -203,25 +227,29 @@ func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 	if !ok {
 		return nil, ErrStorageNotSupported
 	}
+	raw, err := withGeneratedPushToken(raw)
+	if err != nil {
+		return nil, err
+	}
 	prepared, err := s.prepare(raw, "")
 	if err != nil {
 		return nil, err
 	}
-	key := prepared.Endpoint.Key()
+	key := prepared.Key()
 	// Generated before the endpoint starts being monitored (see State.Effective)
-	effective, err := Effective(prepared.Endpoint)
+	effective, err := effectiveDefinition(&prepared.Parsed)
 	if err != nil {
 		return nil, err
 	}
 	// Uses the storage outside of the transaction, so it must run before it
-	watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
+	restoreTriggeredAlerts(&prepared.Parsed)
 	stored := &common.ManagedEndpoint{Key: key, Definition: string(prepared.Definition), UpdatedBy: author}
 	started := false
 	err = managedEndpointStore.CreateManagedEndpoint(stored, func() error {
-		if err := startMonitoring(prepared.Endpoint); err != nil {
+		if err := startMonitoring(&prepared.Parsed); err != nil {
 			return err
 		}
-		started = prepared.Endpoint.IsEnabled()
+		started = prepared.IsEnabled()
 		return nil
 	})
 	if err != nil {
@@ -230,7 +258,7 @@ func (s *Service) Create(raw []byte, author string) (*Detail, error) {
 		}
 		return nil, err
 	}
-	state := &State{Stored: stored, Endpoint: prepared.Endpoint, Effective: effective}
+	state := newStateFromPrepared(stored, prepared, effective)
 	putState(state)
 	logr.Infof("[managedendpoint.Create] Managed endpoint with key=%s created by %s", key, auditAuthor(author))
 	return adminDetail(state)
@@ -294,28 +322,31 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	if !ok {
 		return nil, ErrStorageNotSupported
 	}
-	submitted, err := Parse(raw)
+	submitted, err := ParseDefinition(raw)
 	if err != nil {
 		return nil, err
+	}
+	storedParsed, storedErr := ParseDefinition([]byte(state.Stored.Definition))
+	if storedErr == nil && storedParsed.IsPush() != submitted.IsPush() {
+		return nil, ErrTypeChanged
 	}
 	// The key of the definition is validated against the configuration file and the other managed endpoints
 	prepared, err := s.prepare(raw, key)
 	if err != nil {
 		return nil, err
 	}
-	newKey := prepared.Endpoint.Key()
+	newKey := prepared.Key()
 	// A changed name or group renames the endpoint, even when the key stays the same (e.g. "My API" and "my-api")
-	storedEndpoint, storedErr := Parse([]byte(state.Stored.Definition))
-	renaming := newKey != key || (storedErr == nil && (storedEndpoint.Name != submitted.Name || storedEndpoint.Group != submitted.Group))
+	renaming := newKey != key || (storedErr == nil && (storedParsed.Name() != submitted.Name() || storedParsed.Group() != submitted.Group()))
 	// The data of the key of a managed endpoint in conflict belongs to the endpoint of the configuration file
 	conflict := state.InConflict()
 	// Generated before the endpoint starts being monitored (see State.Effective)
-	effective, err := Effective(prepared.Endpoint)
+	effective, err := effectiveDefinition(&prepared.Parsed)
 	if err != nil {
 		return nil, err
 	}
-	previousEndpoint := state.Endpoint
-	wasMonitored := previousEndpoint != nil && watchdog.IsEndpointMonitored(key)
+	previous := state.Parsed()
+	wasMonitored := previous.IsValid() && watchdog.IsEndpointMonitored(key)
 	// The monitoring is stopped before the transaction: with SQLite, an in-flight execution writing its result would
 	// otherwise wait for the connection held by the transaction
 	if wasMonitored {
@@ -325,19 +356,19 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	}
 	restartPrevious := func() {
 		if wasMonitored {
-			_ = watchdog.StartEndpoint(previousEndpoint, watchdog.SourceAdmin)
+			_ = startMonitoring(previous)
 		}
 	}
 	// Uses the storage outside of the transaction, so it must run before it. The triggered alerts are still stored under
 	// the old key until the rename is committed.
 	switch {
 	case !renaming:
-		watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
+		restoreTriggeredAlerts(&prepared.Parsed)
 	case conflict:
 	case storedErr == nil:
-		restorePersistedTriggeredAlertsOfKey(prepared.Endpoint, storedEndpoint.Name, storedEndpoint.Group)
-	case previousEndpoint != nil:
-		restorePersistedTriggeredAlertsOfKey(prepared.Endpoint, previousEndpoint.Name, previousEndpoint.Group)
+		restorePersistedTriggeredAlertsOfKey(&prepared.Parsed, storedParsed.Name(), storedParsed.Group())
+	case previous.IsValid():
+		restorePersistedTriggeredAlertsOfKey(&prepared.Parsed, previous.Name(), previous.Group())
 	}
 	var plan *KeyRenamePlan
 	if renaming && !conflict && newKey != key {
@@ -351,14 +382,14 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	updated := &common.ManagedEndpoint{Key: newKey, Definition: string(prepared.Definition), UpdatedBy: author}
 	started := false
 	apply := func() error {
-		if err := startMonitoring(prepared.Endpoint); err != nil {
+		if err := startMonitoring(&prepared.Parsed); err != nil {
 			return err
 		}
-		started = prepared.Endpoint.IsEnabled()
+		started = prepared.IsEnabled()
 		return nil
 	}
 	if renaming {
-		rename := &common.ManagedEndpointRename{OldKey: key, Name: prepared.Endpoint.Name, Group: prepared.Endpoint.Group, MoveHistory: !conflict}
+		rename := &common.ManagedEndpointRename{OldKey: key, Name: prepared.Name(), Group: prepared.Group(), MoveHistory: !conflict}
 		if plan != nil {
 			rename.StatusPages = plan.StatusPages
 		}
@@ -382,7 +413,7 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	if !conflict {
 		metrics.DeleteMetricsForEndpointKey(key)
 	}
-	newState := &State{Stored: updated, Endpoint: prepared.Endpoint, Effective: effective}
+	newState := newStateFromPrepared(updated, prepared, effective)
 	replaceState(key, newState)
 	if renaming {
 		logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s renamed to key=%s by %s", key, newKey, auditAuthor(author))
@@ -419,16 +450,17 @@ func (s *Service) Delete(key string, expectedVersion int64, author string) (int,
 		return 0, ErrStorageNotSupported
 	}
 	conflict := state.InConflict()
-	wasMonitored := !conflict && state.Endpoint != nil && watchdog.IsEndpointMonitored(key)
+	previous := state.Parsed()
+	wasMonitored := !conflict && previous.IsValid() && watchdog.IsEndpointMonitored(key)
 	if wasMonitored {
 		if err := watchdog.StopEndpoint(key, watchdog.SourceAdmin); err != nil && !errors.Is(err, watchdog.ErrEndpointNotMonitored) {
 			return 0, fmt.Errorf("%w: %w", ErrApplyFailed, err)
 		}
 	}
 	triggeredAlerts := 0
-	if !conflict && state.Endpoint != nil {
+	if !conflict {
 		// Safe to read: the monitoring of the endpoint has stopped
-		for _, endpointAlert := range state.Endpoint.Alerts {
+		for _, endpointAlert := range previous.alerts() {
 			if endpointAlert.Triggered {
 				triggeredAlerts++
 			}
@@ -436,7 +468,7 @@ func (s *Service) Delete(key string, expectedVersion int64, author string) (int,
 	}
 	if err := managedEndpointStore.DeleteManagedEndpoint(key, expectedVersion, !conflict, nil); err != nil {
 		if wasMonitored {
-			_ = watchdog.StartEndpoint(state.Endpoint, watchdog.SourceAdmin)
+			_ = startMonitoring(previous)
 		}
 		return 0, err
 	}
@@ -449,7 +481,7 @@ func (s *Service) Delete(key string, expectedVersion int64, author string) (int,
 }
 
 // Test validates a definition and evaluates it once, without persisting results, sending alerts or publishing
-// metrics. See Validate for the meaning of key.
+// metrics. See Validate for the meaning of key. Push endpoints cannot be tested.
 func (s *Service) Test(raw []byte, key string) (*TestResult, error) {
 	select {
 	case testSlots <- struct{}{}:
@@ -460,6 +492,9 @@ func (s *Service) Test(raw []byte, key string) (*TestResult, error) {
 	prepared, err := s.prepare(raw, key)
 	if err != nil {
 		return nil, err
+	}
+	if prepared.Push != nil {
+		return nil, ErrPushNotTestable
 	}
 	ep := prepared.Endpoint
 	if ep.ClientConfig != nil && (ep.ClientConfig.Timeout <= 0 || ep.ClientConfig.Timeout > testTimeout) {
@@ -532,7 +567,7 @@ func (s *Service) prepare(raw []byte, key string) (*Prepared, error) {
 	if len(key) > 0 {
 		managedKeys = keysExcept(managedKeys, key)
 		if state := Get(key); state != nil {
-			if _, err := Parse(raw); err != nil {
+			if _, err := ParseDefinition(raw); err != nil {
 				return nil, err
 			}
 			submitted, err := ToDocument(raw)
@@ -549,23 +584,66 @@ func (s *Service) prepare(raw []byte, key string) (*Prepared, error) {
 			}
 		}
 	}
-	return Prepare(raw, Context{Config: s.cfg, ManagedKeys: managedKeys, AllowedExtraLabels: metrics.RegisteredExtraLabels()})
+	return Prepare(raw, Context{
+		Config:             s.cfg,
+		ManagedKeys:        managedKeys,
+		AllowedExtraLabels: metrics.RegisteredExtraLabels(),
+		PushTokens:         s.pushTokens(key),
+		IsPushKeyToken:     isPushKeyToken,
+	})
 }
 
-func startMonitoring(ep *endpoint.Endpoint) error {
-	if !ep.IsEnabled() {
-		return nil
+// pushTokens returns the push tokens used by the configuration file and by the managed endpoints other than
+// excludedKey, with a description of what uses them
+func (s *Service) pushTokens(excludedKey string) map[string]string {
+	tokens := make(map[string]string)
+	for _, externalEndpoint := range s.cfg.ExternalEndpoints {
+		if len(externalEndpoint.Token) > 0 {
+			tokens[externalEndpoint.Token] = "an external endpoint of the configuration file"
+		}
 	}
-	if err := watchdog.StartEndpoint(ep, watchdog.SourceAdmin); err != nil {
-		return fmt.Errorf("%w: %w", ErrApplyFailed, err)
+	if s.cfg.Push != nil {
+		for _, token := range s.cfg.Push.Tokens() {
+			tokens[token] = "the push configuration of the configuration file"
+		}
 	}
-	return nil
+	for _, state := range List() {
+		if state.Stored.Key == excludedKey {
+			continue
+		}
+		if token := state.Parsed().PushToken(); len(token) > 0 {
+			tokens[token] = "another managed endpoint"
+		}
+	}
+	return tokens
 }
 
-func configItem(ep *endpoint.Endpoint) *Item {
+func isPushKeyToken(token string) bool {
+	_, isKey := pushkey.Lookup(token)
+	return isKey
+}
+
+// configItem describes an endpoint of the configuration file
+func (s *Service) configItem(ep *endpoint.Endpoint) *Item {
 	item := &Item{Key: ep.Key(), Name: ep.Name, Group: ep.Group, Type: string(ep.Type()), URL: maskURL(ep.URL), Enabled: ep.IsEnabled(), Source: SourceConfig}
 	if ep.Interval > 0 {
 		item.Interval = ep.Interval.String()
+	}
+	if s.cfg.Push != nil {
+		for _, pushEndpoint := range s.cfg.Push.Endpoints {
+			if pushEndpoint.Key == item.Key {
+				item.AcceptsPush = true
+			}
+		}
+	}
+	return item
+}
+
+// configExternalItem describes an external endpoint of the configuration file, which receives push
+func configExternalItem(externalEndpoint *endpoint.ExternalEndpoint) *Item {
+	item := &Item{Key: externalEndpoint.Key(), Name: externalEndpoint.Name, Group: externalEndpoint.Group, Type: ItemTypePush, Enabled: externalEndpoint.IsEnabled(), Source: SourceConfig, AcceptsPush: true}
+	if externalEndpoint.Heartbeat.Interval > 0 {
+		item.Interval = externalEndpoint.Heartbeat.Interval.String()
 	}
 	return item
 }
@@ -574,13 +652,22 @@ func adminItem(state *State) *Item {
 	item := &Item{Key: state.Stored.Key, Source: SourceAdmin, Version: state.Stored.Version, UpdatedBy: state.Stored.UpdatedBy}
 	createdAt, updatedAt := state.Stored.CreatedAt, state.Stored.UpdatedAt
 	item.CreatedAt, item.UpdatedAt = &createdAt, &updatedAt
-	ep := state.Endpoint
-	if ep == nil {
+	parsed := state.Parsed()
+	if !parsed.IsValid() {
 		// In conflict or invalid: describe it from its definition, as far as possible
-		ep, _ = Parse([]byte(state.Stored.Definition))
+		if storedParsed, err := ParseDefinition([]byte(state.Stored.Definition)); err == nil {
+			parsed = storedParsed
+		}
 	}
-	if ep != nil {
-		item.Name, item.Group, item.URL, item.Enabled = ep.Name, ep.Group, maskURL(ep.URL), ep.IsEnabled()
+	switch {
+	case parsed.Push != nil:
+		item.Name, item.Group, item.Type, item.Enabled, item.AcceptsPush = parsed.Push.Name, parsed.Push.Group, ItemTypePush, parsed.Push.IsEnabled(), true
+		if parsed.Push.Heartbeat.Interval > 0 {
+			item.Interval = parsed.Push.Heartbeat.Interval.String()
+		}
+	case parsed.Endpoint != nil:
+		ep := parsed.Endpoint
+		item.Name, item.Group, item.URL, item.Enabled, item.AcceptsPush = ep.Name, ep.Group, maskURL(ep.URL), ep.IsEnabled(), parsed.ReceivesPush()
 		if len(ep.URL) > 0 {
 			item.Type = string(ep.Type())
 		}
@@ -609,15 +696,14 @@ func adminDetail(state *State) (*Detail, error) {
 			return nil, err
 		}
 	}
-	return detail, nil
-}
-
-func endpointDefinition(ep *endpoint.Endpoint) (*Definition, error) {
-	effective, err := Effective(ep)
-	if err != nil {
-		return nil, err
+	parsed := state.Parsed()
+	if !parsed.IsValid() {
+		if storedParsed, err := ParseDefinition([]byte(state.Stored.Definition)); err == nil {
+			parsed = storedParsed
+		}
 	}
-	return maskedDefinition(effective)
+	detail.PushToken = parsed.PushToken()
+	return detail, nil
 }
 
 func maskedDefinition(definition []byte) (*Definition, error) {

@@ -109,12 +109,15 @@ func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []n
 		if !result.Success {
 			result.Errors = []string{result.Message}
 		}
-		if target.External != nil {
+		// The registry processes the pushes of the monitored endpoints and heartbeats, so that none is accepted once they
+		// are stopped; external endpoints of the configuration file without heartbeat are not in the registry
+		err = watchdog.SubmitEndpointResult(target.Key, result)
+		notMonitored := errors.Is(err, watchdog.ErrEndpointNotMonitored) || errors.Is(err, watchdog.ErrMonitoringStopped)
+		if notMonitored && target.External != nil && !target.Managed {
 			err = watchdog.ProcessExternalEndpointResult(target.External, result, cfg, true)
-		} else {
-			err = watchdog.SubmitEndpointResult(target.Key, result)
+			notMonitored = false
 		}
-		if errors.Is(err, watchdog.ErrEndpointNotMonitored) || errors.Is(err, watchdog.ErrMonitoringStopped) {
+		if notMonitored {
 			return rejectPush(c, trustedProxies, pushNotFoundMessage)
 		}
 		if err != nil {

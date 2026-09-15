@@ -19,6 +19,7 @@ import (
 	"gatus/v5/config/maintenance"
 	"gatus/v5/lifecycle"
 	"gatus/v5/managedendpoint"
+	"gatus/v5/pushkey"
 	"gatus/v5/security"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
@@ -76,10 +77,12 @@ func newAdminTestEnvironment(t *testing.T) *adminTestEnvironment {
 		// Other tests of the package use the default memory store
 		_ = store.Initialize(nil)
 		_, _ = managedendpoint.Load(&config.Config{})
+		pushkey.Load(&config.Config{})
 	})
 	if _, err := managedendpoint.Load(cfg); err != nil {
 		t.Fatalf("failed to load managed endpoints: %v", err)
 	}
+	pushkey.Load(cfg)
 	watchdog.Monitor(cfg)
 	t.Cleanup(func() { watchdog.Shutdown(cfg) })
 	return &adminTestEnvironment{app: New(cfg).Router(), serverURL: server.URL, slowURL: slowServer.URL, slowServed: slowServed}

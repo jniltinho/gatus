@@ -12,6 +12,7 @@ import (
 	"gatus/v5/lifecycle"
 	"gatus/v5/managedendpoint"
 	"gatus/v5/metrics"
+	"gatus/v5/pushkey"
 	"gatus/v5/statuspage"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
@@ -146,6 +147,8 @@ func initializeStorage(cfg *config.Config) {
 	}
 	// Public status pages, after the managed endpoints that they can select
 	statuspage.Load(cfg)
+	// Global push keys of the configuration file and of the administration (fork)
+	pushkey.Load(cfg)
 	// Clean up the triggered alerts from the storage provider and load valid triggered endpoint alerts
 	numberOfPersistedTriggeredAlertsLoaded := 0
 	for _, ep := range cfg.Endpoints {

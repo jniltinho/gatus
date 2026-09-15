@@ -78,6 +78,28 @@ export const statusPagesApi = {
   preview: (slug) => request('GET', `/status-pages/${encodeSlug(slug)}/preview`),
 }
 
+// Client of the administration API of the global push keys (/api/v1/admin/push-keys, fork)
+export const pushKeysApi = {
+  list: () => request('GET', '/push-keys'),
+  create: (name) => request('POST', '/push-keys', jsonPayload({ name })),
+  remove: (id) => request('DELETE', `/push-keys/${encodeURIComponent(id)}`),
+}
+
+export function describePushKeyError(error) {
+  switch (error && error.status) {
+    case 400:
+      return 'The name of the key must have between 1 and 64 characters.'
+    case 404:
+      return 'The push key no longer exists.'
+    case 409:
+      return 'A push key with this name already exists.'
+    case 501:
+      return 'The configured storage does not support push keys managed through the web.'
+    default:
+      return describeAdminError(error)
+  }
+}
+
 export function describeStatusPageError(error) {
   switch (error && error.status) {
     case 409:
@@ -105,6 +127,9 @@ export function describeAdminError(error) {
       }
       if (error.message && error.message.includes('managed status page version does not match')) {
         return 'A status page that selects this endpoint was changed at the same time. Try again.'
+      }
+      if (error.message && error.message.includes('push token is already used')) {
+        return 'This push token is already used by another endpoint or by a push key. Generate another token.'
       }
       return error.message || 'Conflict.'
     case 412:
