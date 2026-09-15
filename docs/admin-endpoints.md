@@ -37,7 +37,17 @@ admin:
 endpoints: []
 ```
 
-To generate `password-bcrypt-base64`:
+To generate `password-bcrypt-base64`, use [generate-admin-password.py](generate-admin-password.py), which only needs
+Python 3:
+
+```bash
+python3 docs/generate-admin-password.py --username admin   # asks for the password and prints the config.yaml block
+python3 docs/generate-admin-password.py                    # prints only the value
+printf '%s' 'your-password' | python3 docs/generate-admin-password.py --stdin
+```
+
+It uses the Python `bcrypt` module when it is installed and computes bcrypt in pure Python otherwise (a few seconds
+with the default cost of 10). The result is the same as with `htpasswd`:
 
 ```bash
 htpasswd -bnBC 10 "" 'your-password' | tr -d ':\n' | sed 's/$2y/$2a/' | base64 -w0 | tr '+/' '-_'
