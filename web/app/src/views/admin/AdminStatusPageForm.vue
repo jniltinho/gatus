@@ -82,6 +82,13 @@
                 </span>
               </span>
             </label>
+            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm sm:col-span-2 dark:border-gray-700">
+              <input v-model="form.showCertificateExpiration" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-certificate-expiration" />
+              <span>
+                <span class="block font-medium text-foreground dark:text-gray-200">Show certificate expiration</span>
+                <span class="block text-xs text-muted-foreground dark:text-gray-400">Shows below the name of each endpoint how many days are left until its TLS certificate expires.</span>
+              </span>
+            </label>
           </div>
         </section>
 
@@ -261,7 +268,7 @@ let copiedTimer = null
 const MAXIMUM_FEATURED = 10
 
 // The deprecated charts are not part of the form: saving a page removes them
-const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [] })
+const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false })
 const form = reactive(emptyForm())
 
 // Message shown after the route changes from the creation to the edition of the created page
@@ -334,6 +341,8 @@ const currentDocument = () => ({
   groups: [...form.groups],
   endpoints: [...form.endpoints],
   featured: [...form.featured],
+  // Only sent when checked, like the other optional fields of the definition (fork)
+  ...(form.showCertificateExpiration ? { 'show-certificate-expiration': true } : {}),
   enabled: form.enabled
 })
 
@@ -352,7 +361,8 @@ const loadDetail = async () => {
       enabled: data.origin === 'config' ? definition.enabled !== false : definition.enabled === true,
       groups: definition.groups || [],
       endpoints: definition.endpoints || [],
-      featured: definition.featured || []
+      featured: definition.featured || [],
+      showCertificateExpiration: definition['show-certificate-expiration'] === true
     })
   }
 }

@@ -52,9 +52,9 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 		}
 		args, placeholders := appendPlaceholders([]any{maximumResults}, ids)
 		rows, err := tx.Query(`
-			SELECT endpoint_id, success, duration, timestamp
+			SELECT endpoint_id, success, duration, certificate_expiration, timestamp
 			FROM (
-				SELECT endpoint_id, endpoint_result_id, success, duration, timestamp,
+				SELECT endpoint_id, endpoint_result_id, success, duration, certificate_expiration, timestamp,
 					ROW_NUMBER() OVER (PARTITION BY endpoint_id ORDER BY endpoint_result_id DESC) AS rn
 				FROM endpoint_results
 				WHERE endpoint_id IN (`+placeholders+`)
@@ -68,7 +68,7 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 		for rows.Next() {
 			var id int64
 			var result common.ResultSummary
-			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.Timestamp); err != nil {
+			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.CertificateExpiration, &result.Timestamp); err != nil {
 				_ = rows.Close()
 				return nil, err
 			}

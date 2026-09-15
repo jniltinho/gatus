@@ -16,6 +16,8 @@ This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus) that adds:
 - **Push monitoring compatible with the Uptime Kuma**: scripts and services report their status at
   `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys and push on active endpoints.
   [docs/push-monitoring.md](docs/push-monitoring.md)
+- **TLS certificate expiration**: days until the certificate expires, discreetly below the name of the endpoint on the
+  dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md)
 
 ![Gatus dashboard](.github/assets/dashboard-dark.jpg)
 
@@ -25,7 +27,7 @@ With Docker, using a fixed version (the fork does not publish `latest`):
 
 ```bash
 mkdir -p config && curl -sL -o config/config.yaml https://raw.githubusercontent.com/jniltinho/gatus/master/config.yaml
-docker run -d --name gatus -p 127.0.0.1:8080:8080 -v "$PWD/config:/config" jniltinho/gatus:v5.36.0-fork.10
+docker run -d --name gatus -p 127.0.0.1:8080:8080 -v "$PWD/config:/config" jniltinho/gatus:v5.36.0-fork.11
 ```
 
 Open http://127.0.0.1:8080.
@@ -34,7 +36,7 @@ Without Docker, download `gatus_<version>_linux_<amd64|arm64>.tar.gz` from the
 [releases](https://github.com/jniltinho/gatus/releases) and run:
 
 ```bash
-tar xzf gatus_5.36.0-fork.10_linux_amd64.tar.gz
+tar xzf gatus_5.36.0-fork.11_linux_amd64.tar.gz
 GATUS_CONFIG_PATH=config.yaml ./gatus
 ```
 

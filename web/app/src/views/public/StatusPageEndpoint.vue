@@ -34,6 +34,10 @@
             <p class="mt-2 text-muted-foreground">
               <span v-if="details.group">Group: {{ details.group }} · </span>Updated {{ relativeTimeLabel(details.updatedAt, now) }}
             </p>
+            <!-- Fork: expiration of the TLS certificate, when the page shows it -->
+            <p v-if="certificateDays !== null" :class="['mt-1 text-xs', certificateClass(certificateDays)]" data-testid="status-endpoint-certificate">
+              {{ certificateText(certificateDays) }}
+            </p>
           </div>
           <StatusBadge :status="healthStatus" />
         </div>
@@ -159,6 +163,7 @@ import EndpointRow from '@/components/public/EndpointRow.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import { generatePrettyTimeAgo } from '@/utils/time'
 import { describeEvents, formatDateTime, relativeTimeLabel, RESPONSE_TIME_DURATIONS, SLUG_PATTERN } from '@/utils/statusPage'
+import { certificateClass, certificateText } from '@/utils/certificate'
 
 const REFRESH_INTERVAL_MS = 60000
 const CLOCK_INTERVAL_MS = 10000
@@ -195,6 +200,8 @@ const validAddress = computed(() => SLUG_PATTERN.test(slug.value) && key.value.l
 const results = computed(() => (details.value && details.value.results) || [])
 const lastResult = computed(() => (results.value.length > 0 ? results.value[results.value.length - 1] : null))
 const events = computed(() => (details.value ? describeEvents(details.value.events || []) : []))
+// Days until the TLS certificate expires, only published when the page shows it (fork)
+const certificateDays = computed(() => (details.value && Number.isInteger(details.value.certificateExpiresInDays) ? details.value.certificateExpiresInDays : null))
 // Like the dashboard, which shows the chart as soon as a result has a duration: results faster than 1 ms have a
 // durationMs of 0 in the public payload, but still have points in the chart
 const hasResponseTimes = computed(() => results.value.length > 0)

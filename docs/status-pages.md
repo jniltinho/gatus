@@ -24,6 +24,7 @@ status-pages:
       description: "External websites and APIs"
       groups: [sites, apis]
       featured: [sites_github]           # shown at the top of the page, with more details
+      show-certificate-expiration: true  # days until the TLS certificate expires, below the name
     - slug: infrastructure
       title: "Infrastructure"
       groups: [dns]
@@ -40,6 +41,7 @@ status-pages:
 | `endpoints` | Up to 200 keys in the `group_name` format (the same key as the badges). |
 | `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
 | `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
+| `show-certificate-expiration` | Optional, defaults to `false`. Shows below the name of each endpoint how many days are left until its TLS certificate expires, like the *Show Certificate Expiry* option of Uptime Kuma. |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
 A page must select at least one group, endpoint or featured endpoint. A group or key that does not exist yet does not invalidate the page:
@@ -70,6 +72,9 @@ database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
 - **Featured** endpoints first, in cards with the uptime and the average response time over 24 hours, 7 days and
   30 days, the last response time, the check bars and a **View details** link.
 - The name of every endpoint links to its details page (see below).
+- With `show-certificate-expiration: true`, a small line below the name of each endpoint with a TLS certificate says how
+  many days are left until it expires ("Certificate expires in 73 days"), in the secondary color, amber from 14 days and
+  red from 7 days or once expired. The date is not published. HTTP, TCP and ICMP endpoints without TLS show nothing.
 - Sections in the order of `groups`, then the groups only reached through `endpoints` (in alphabetical order) and, last,
   **Other services** with the endpoints without group. Within each section, endpoints are sorted by name.
 - Endpoints of the file, external endpoints and endpoints managed through the web, as long as they are enabled. Suites
@@ -94,6 +99,7 @@ than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods ar
 `/status/<slug>/endpoints/<key>` is open without login for every endpoint shown on a published page, and has the layout
 of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order of the monitor page of the Uptime Kuma:
 
+- the days until the TLS certificate expires, below the title, when the page has `show-certificate-expiration: true`;
 - the bars of the latest checks;
 - current status, average response time and response time range of the latest checks, and time of the last check;
 - uptime badges;
@@ -132,6 +138,10 @@ refreshes every 60 seconds and pauses while the tab is hidden.
   }]
 }
 ```
+
+With `show-certificate-expiration: true`, every endpoint with a TLS certificate also has `certificateExpiresInDays`: the
+whole number of days until the certificate expires (negative once it expired), from the most recent check with a
+certificate. The same field is in the endpoint details API.
 
 `GET /api/v1/status-pages/<slug>/endpoints/<key>` responds, also without authentication, the details of an endpoint
 shown on the page, with its latest events (type and time only):
@@ -198,7 +208,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.10
+    image: jniltinho/gatus:v5.36.0-fork.11
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

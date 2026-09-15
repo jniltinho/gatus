@@ -16,11 +16,12 @@ func TestStore_GetEndpointSummaries(t *testing.T) {
 			old := &endpoint.Endpoint{Name: "summary-old", Group: managedEndpointTestGroup}
 			for i := 5; i >= 1; i-- {
 				result := &endpoint.Result{
-					Success:   i%2 == 1,
-					Timestamp: now.Add(-time.Duration(i) * time.Minute),
-					Duration:  time.Duration(i) * 10 * time.Millisecond,
-					Hostname:  "10.0.0.5",
-					Errors:    []string{"dial tcp 10.0.0.5:443: connection refused"},
+					Success:               i%2 == 1,
+					Timestamp:             now.Add(-time.Duration(i) * time.Minute),
+					Duration:              time.Duration(i) * 10 * time.Millisecond,
+					CertificateExpiration: time.Duration(i) * 24 * time.Hour,
+					Hostname:              "10.0.0.5",
+					Errors:                []string{"dial tcp 10.0.0.5:443: connection refused"},
 				}
 				if err := store.InsertEndpointResult(recent, result); err != nil {
 					t.Fatalf("failed to insert result: %v", err)
@@ -46,9 +47,12 @@ func TestStore_GetEndpointSummaries(t *testing.T) {
 			}
 			for i, result := range summary.Results {
 				want := expected.Results[i]
-				if !result.Timestamp.Equal(want.Timestamp) || result.Success != want.Success || result.Duration != want.Duration {
-					t.Errorf("result %d: expected %s/%v/%s, got %s/%v/%s", i, want.Timestamp, want.Success, want.Duration, result.Timestamp, result.Success, result.Duration)
+				if !result.Timestamp.Equal(want.Timestamp) || result.Success != want.Success || result.Duration != want.Duration || result.CertificateExpiration != want.CertificateExpiration {
+					t.Errorf("result %d: expected %s/%v/%s/%s, got %s/%v/%s/%s", i, want.Timestamp, want.Success, want.Duration, want.CertificateExpiration, result.Timestamp, result.Success, result.Duration, result.CertificateExpiration)
 				}
+			}
+			if summary.Results[2].CertificateExpiration != 24*time.Hour {
+				t.Errorf("expected the certificate expiration of the most recent result, got %s", summary.Results[2].CertificateExpiration)
 			}
 			if !summary.Results[0].Timestamp.Before(summary.Results[2].Timestamp) {
 				t.Error("expected the results from the oldest to the most recent")

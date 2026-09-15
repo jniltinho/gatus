@@ -147,6 +147,10 @@ https://status.example.com/api/push/<global-key>/erp_site?status=down&msg=Latenc
 
 ## Dashboard
 
+Below the name of the endpoint, a small line shows when its TLS certificate expires ("Certificate expires in 73 days ·
+Dec 1, 2026"), from the most recent check with a certificate: in the secondary color, amber from 14 days and red from
+7 days or once expired. Pushes do not hide it, and endpoints without TLS do not show it.
+
 The details page of an endpoint (`/endpoints/<key>`) follows the order of the monitor page of the Uptime Kuma: the bars
 of **Recent Checks**, the numbers and the uptime, the **Response Time Trend** chart (when the results have a response
 time) and the table of checks, with the pagination. **Checks table** expands the table of the results of the page, from

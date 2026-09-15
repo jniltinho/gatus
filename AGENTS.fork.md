@@ -94,7 +94,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 
 - Use the `agent-browser` skill. With the standalone binary, set `AGENT_BROWSER_SKILLS_DIR` to the `skill-data` of the installed version before `agent-browser skills get core`.
 - Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
-- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh` and `test/e2e/push.sh`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
+- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh` and `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`). Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
 ## Syncing with upstream
 

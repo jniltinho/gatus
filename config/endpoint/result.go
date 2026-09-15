@@ -45,8 +45,9 @@ type Result struct {
 	// Timestamp when the request was sent
 	Timestamp time.Time `json:"timestamp"`
 
-	// CertificateExpiration is the duration before the certificate expires
-	CertificateExpiration time.Duration `json:"-"`
+	// CertificateExpiration is the duration before the certificate expires. The fork publishes it in the protected status
+	// API, so that the dashboard shows when the certificate expires.
+	CertificateExpiration time.Duration `json:"certificateExpiration,omitempty"`
 
 	// DomainExpiration is the duration before the domain expires
 	DomainExpiration time.Duration `json:"-"`
