@@ -110,6 +110,7 @@ A lista MUST mostrar slug, título, origem, estado (publicada, desabilitada, em 
 
 O formulário MUST ter:
 - slug (somente leitura na edição), título, descrição e `enabled`;
+- a opção "Show certificate expiration" (`show-certificate-expiration`), desmarcada por padrão, com explicação curta;
 - seleção de grupos e de endpoints a partir de `/options`, com busca nos endpoints;
 - avisos da validação e pré-visualização do payload público.
 
@@ -131,6 +132,11 @@ Uma página nova MUST começar desabilitada. As páginas do YAML MUST aparecer s
 #### Scenario: Publicação desligada
 - **WHEN** a configuração tem `status-pages.enabled: false`
 - **THEN** a lista mostra o aviso "Status pages desligadas no arquivo de configuração"
+
+#### Scenario: Ligar a expiração do certificado
+- **WHEN** um administrador marca "Show certificate expiration" na página `clientes` e salva
+- **THEN** a definição salva tem `show-certificate-expiration: true`
+- **AND** a página pública mostra os dias até o vencimento abaixo do nome dos endpoints com certificado
 
 ### Requirement: Aviso de exposição no formulário de endpoints
 O formulário de endpoints da administração MUST consultar `/api/v1/admin/status-pages/exposure` com o grupo e a chave do endpoint ao abrir e quando o grupo ou o nome mudarem, e MUST mostrar em quais páginas públicas o endpoint vai aparecer, indicando as desabilitadas.
