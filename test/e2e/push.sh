@@ -166,7 +166,13 @@ push "$BASE/api/push/$GLOBAL_KEY/_cdn?status=up&msg=akamai-global" | grep -q '"o
 
 step "Editing: the token is shown, the type cannot become active and the push URL is kept"
 admin open "$BASE/admin/endpoints/jobs_backup/edit" >/dev/null
+admin wait "$(testid admin-push-toggle)" >/dev/null || fail "the push block was not shown when editing"
+[ "$(admin eval "document.querySelectorAll('[data-testid=\"admin-push-url\"]').length" | tr -d '"')" = 0 ] || fail "the push block should start collapsed when editing"
+admin get text "$(testid admin-push-summary)" | grep -q "Token …${PUSH_TOKEN: -4}" || fail "the collapsed push block does not summarize the token"
+admin click "$(testid admin-push-toggle)" >/dev/null
 admin wait "$(testid admin-push-url)" >/dev/null || fail "the push URL was not shown when editing"
+[ "$(admin eval "Math.abs(document.querySelector('[data-testid=\"admin-generate-push-token\"]').getBoundingClientRect().height - document.querySelector('[data-testid=\"admin-field-push-token\"]').getBoundingClientRect().height)" | tr -d '"')" = 0 ] || fail "the Generate token button does not have the height of the input"
+[ "$(admin eval "Math.abs(document.querySelector('[data-testid=\"admin-copy-push-url\"]').getBoundingClientRect().height - document.querySelector('[data-testid=\"admin-push-url\"]').getBoundingClientRect().height)" | tr -d '"')" = 0 ] || fail "the Copy button does not have the height of the push URL"
 [ "$(admin get value "$(testid admin-field-push-token)")" = "$PUSH_TOKEN" ] || fail "the token shown when editing is different"
 admin click "$(testid admin-field-type) button" >/dev/null
 [ "$(admin eval "document.querySelectorAll('[data-testid=\"admin-type-http\"]').length")" = 0 ] || fail "an active type was offered for a push endpoint"
