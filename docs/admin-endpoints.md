@@ -73,6 +73,9 @@ With `security.basic`, the only basic user is the administrator. With `security.
 - **Monitor type:** the active types (HTTP, TCP, ICMP, DNS, SSH) or **Push (passive)**, which receives pushes in the
   format of the Uptime Kuma. **Accept push** makes an active endpoint also receive pushes. The **Push keys** tab manages
   the global keys. See [docs/push-monitoring.md](push-monitoring.md).
+- The form is split into sections (General, Check, Push, Conditions, Headers and Alerts). The **Push** section is
+  collapsible: it opens when Push is chosen or Accept push is checked, starts collapsed when editing (its header shows
+  the last characters of the token) and has **Copy** buttons for the push URL and the `curl` example.
 - **Validate** checks the definition without saving it. **Test** runs a single check, without storing the result or
   triggering alerts, and shows each condition (not available for Push endpoints). **Save** stores and applies it.
 - **Remove** deletes the definition and the whole history of the endpoint. Triggered alerts are not resolved with the

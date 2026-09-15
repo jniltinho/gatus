@@ -60,9 +60,11 @@ interval without push.
 
 ### Through the web
 
-At `/admin/endpoints/new`, choose **Push (passive)** as the monitor type. The form generates a token (or paste the token
-of an Uptime Kuma monitor), shows the push URL with a `curl` example and asks for the heartbeat interval (1 minute by
-default, at least 10 seconds). There is no **Test** button: send a push to the URL instead. In YAML mode:
+At `/admin/endpoints/new`, choose **Push (passive)** as the monitor type. The form asks for the heartbeat interval
+(1 minute by default, at least 10 seconds) and opens the **Push** section, which generates a token (or paste the token
+of an Uptime Kuma monitor) and shows the push URL and a `curl` example, each with a **Copy** button. When editing, the
+**Push** section starts collapsed and its header shows the last characters of the token. There is no **Test** button:
+send a push to the URL instead. In YAML mode:
 
 ```yaml
 type: push

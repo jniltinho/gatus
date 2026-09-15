@@ -57,147 +57,227 @@
         >{{ tab.label }}</button>
       </div>
 
-      <div v-if="mode === 'form' && !readOnly" class="space-y-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">Monitor type
-            <Select v-model="monitorType" :options="monitorTypeOptions" class="mt-1" data-testid="admin-field-type" />
-            <p class="mt-1 text-xs font-normal text-muted-foreground dark:text-gray-400">
-              <template v-if="isPush">Passive: Gatus does not check the endpoint, it receives pushes at its URL, like the Push monitors of the Uptime Kuma.</template>
-              <template v-else-if="monitorType === 'dns'">The DNS query (query-name and query-type) is edited in YAML mode.</template>
-              <template v-else>Active: Gatus checks the URL at every interval. The type follows the scheme of the URL.</template>
-              <template v-if="isEdit"> Push endpoints and active endpoints cannot be converted into each other.</template>
-            </p>
-          </div>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Name
-            <Input v-model="form.name" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
-          </label>
-          <div class="text-sm font-medium text-foreground dark:text-gray-200">Group
-            <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1" data-testid="admin-field-group-select" />
-            <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
-          </div>
-          <template v-if="isPush">
-            <label class="block text-sm font-medium text-foreground dark:text-gray-200">Heartbeat interval
-              <Input v-model="form.heartbeatInterval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-heartbeat" />
+      <div v-if="mode === 'form' && !readOnly" class="space-y-4">
+        <!-- General -->
+        <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="admin-section-general">
+          <header class="mb-4">
+            <h2 class="text-base font-semibold text-foreground dark:text-gray-100">General</h2>
+            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">How the endpoint is monitored and where it appears on the dashboard.</p>
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Monitor type</span>
+              <Select v-model="monitorType" :options="monitorTypeOptions" class="mt-1.5" data-testid="admin-field-type" />
+              <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">
+                <template v-if="isPush">Passive: Gatus does not check the endpoint, it receives pushes at its URL, like the Push monitors of the Uptime Kuma.</template>
+                <template v-else-if="monitorType === 'dns'">The DNS query (query-name and query-type) is edited in YAML mode.</template>
+                <template v-else>Active: Gatus checks the URL at every interval. The type follows the scheme of the URL.</template>
+                <template v-if="isEdit"> Push endpoints and active endpoints cannot be converted into each other.</template>
+              </p>
+            </div>
+            <label class="block">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Name</span>
+              <Input v-model="form.name" placeholder="e.g. website" class="mt-1.5 dark:border-gray-700" data-testid="admin-field-name" />
             </label>
-            <label class="flex items-center gap-2 self-end pb-2 text-sm text-foreground dark:text-gray-200">
+            <div>
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Group</span>
+              <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1.5" data-testid="admin-field-group-select" />
+              <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
+            </div>
+            <label v-if="isPush" class="block">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Heartbeat interval</span>
+              <Input v-model="form.heartbeatInterval" placeholder="1m (default)" class="mt-1.5 dark:border-gray-700" data-testid="admin-field-heartbeat" />
+              <span class="mt-1 block text-xs text-muted-foreground dark:text-gray-400">A failure is recorded for every interval without push.</span>
+            </label>
+            <label :class="['flex items-center gap-2 text-sm text-foreground dark:text-gray-200', isPush ? 'self-start sm:mt-8' : 'sm:col-span-2']">
               <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
               Enabled
             </label>
-          </template>
-          <template v-else>
-            <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
-              <Input v-model="form.url" :placeholder="urlPlaceholder" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
-            </label>
-            <div v-if="monitorType === 'http'" class="text-sm font-medium text-foreground dark:text-gray-200">Method
-              <Select v-model="form.method" :options="methodOptions" placeholder="GET (default)" class="mt-1" />
-            </div>
-            <label class="block text-sm font-medium text-foreground dark:text-gray-200">Interval
-              <Input v-model="form.interval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
-            </label>
-            <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
-              <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
-                <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
-                Enabled
-              </label>
-              <template v-if="monitorType === 'http'">
-                <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.ignore-redirect">
-                  <input v-model="form.followRedirects" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-follow-redirects" />
-                  Follow redirects
-                </label>
-                <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.insecure: accepts self-signed, expired or incomplete certificate chains">
-                  <input v-model="form.insecure" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-insecure" />
-                  Skip TLS certificate verification
-                </label>
-              </template>
-              <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="push: receive notifications at /api/push, in addition to the checks">
-                <input v-model="form.acceptPush" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-accept-push" />
-                Accept push
-              </label>
-            </div>
-          </template>
-        </div>
-
-        <section v-if="receivesPush" data-testid="admin-push-section">
-          <h2 class="mb-1 text-sm font-semibold text-foreground dark:text-gray-200">Push</h2>
-          <p class="mb-2 text-xs text-muted-foreground dark:text-gray-400">
-            <template v-if="isPush">A failure is recorded for every heartbeat interval without push.</template>
-            <template v-else>Pushes are recorded in the history of the endpoint, with its checks, and count for its uptime and alerts.</template>
-          </p>
-          <div class="flex flex-wrap items-end gap-2">
-            <label class="block min-w-0 flex-1 text-sm text-foreground dark:text-gray-200">Token
-              <Input
-                v-model="form.token"
-                :placeholder="isPush ? '' : 'Optional: without token, only the global push keys are accepted'"
-                class="mt-1 font-mono dark:border-gray-700"
-                data-testid="admin-field-push-token"
-              />
-            </label>
-            <Button variant="outline" size="sm" data-testid="admin-generate-push-token" @click="form.token = generatePushToken()">Generate token</Button>
           </div>
-          <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">To keep the scripts of an Uptime Kuma monitor, paste its token.</p>
-          <div v-if="pushUrl" class="mt-3">
-            <div class="text-sm text-foreground dark:text-gray-200">Push URL</div>
-            <div class="mt-1 flex gap-2">
-              <input :value="pushUrl" readonly class="h-10 w-full border border-input bg-background px-3 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-testid="admin-push-url" @focus="$event.target.select()" />
-              <Button variant="outline" size="sm" data-testid="admin-copy-push-url" @click="copyText(pushUrl)">Copy</Button>
-            </div>
-            <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">
-              <template v-if="isPush">Call this URL at least every {{ form.heartbeatInterval.trim() || '1m' }}.</template>
-              Optional parameters: <span class="font-mono">status</span> (<span class="font-mono">up</span>, or anything else for a failure), <span class="font-mono">msg</span> and <span class="font-mono">ping</span> (in milliseconds).
-            </p>
-            <pre class="mt-2 overflow-x-auto border bg-muted/50 p-2 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" data-testid="admin-push-curl">curl -fsS "{{ pushUrl }}"</pre>
-          </div>
-          <p class="mt-2 text-xs text-muted-foreground dark:text-gray-400">
-            With a global key of the Push keys tab: <span class="break-all font-mono">{{ globalKeyUrl }}</span>
-          </p>
         </section>
 
-        <template v-if="!isPush">
-          <section>
-            <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Conditions</h2>
-            <div v-for="(condition, index) in form.conditions" :key="`condition-${index}`" class="mb-2 flex gap-2">
-              <Input v-model="form.conditions[index]" placeholder="[STATUS] == 200" class="font-mono dark:border-gray-700" :data-testid="`admin-field-condition-${index}`" />
-              <Button variant="ghost" size="sm" aria-label="Remove condition" @click="form.conditions.splice(index, 1)">✕</Button>
+        <!-- Check of the active endpoints -->
+        <section v-if="!isPush" class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="admin-section-check">
+          <header class="mb-4">
+            <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Check</h2>
+            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">What Gatus requests and how often.</p>
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="block sm:col-span-2">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">URL</span>
+              <Input v-model="form.url" :placeholder="urlPlaceholder" class="mt-1.5 font-mono dark:border-gray-700" data-testid="admin-field-url" />
+            </label>
+            <div v-if="monitorType === 'http'">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Method</span>
+              <Select v-model="form.method" :options="methodOptions" placeholder="GET (default)" class="mt-1.5" />
             </div>
-            <Button variant="outline" size="sm" data-testid="admin-add-condition" @click="form.conditions.push('')">Add condition</Button>
-          </section>
+            <label class="block">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Interval</span>
+              <Input v-model="form.interval" placeholder="1m (default)" class="mt-1.5 dark:border-gray-700" data-testid="admin-field-interval" />
+            </label>
+            <fieldset class="sm:col-span-2">
+              <legend class="text-sm font-medium text-foreground dark:text-gray-200">Options</legend>
+              <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                <label v-if="monitorType === 'http'" class="flex items-start gap-2 border px-3 py-2 text-sm text-foreground dark:border-gray-700 dark:text-gray-200">
+                  <input v-model="form.followRedirects" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-follow-redirects" />
+                  <span>Follow redirects<span class="block text-xs text-muted-foreground dark:text-gray-400">client.ignore-redirect when off</span></span>
+                </label>
+                <label v-if="monitorType === 'http'" class="flex items-start gap-2 border px-3 py-2 text-sm text-foreground dark:border-gray-700 dark:text-gray-200">
+                  <input v-model="form.insecure" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-insecure" />
+                  <span>Skip TLS certificate verification<span class="block text-xs text-muted-foreground dark:text-gray-400">Self-signed or incomplete chains</span></span>
+                </label>
+                <label class="flex items-start gap-2 border px-3 py-2 text-sm text-foreground dark:border-gray-700 dark:text-gray-200">
+                  <input v-model="form.acceptPush" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-accept-push" />
+                  <span>Accept push<span class="block text-xs text-muted-foreground dark:text-gray-400">Also receive pushes at /api/push</span></span>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+        </section>
 
-          <section>
-            <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Headers</h2>
-            <div v-for="(header, index) in form.headers" :key="`header-${index}`" class="mb-2 grid grid-cols-[1fr_2fr_auto] gap-2">
-              <Input v-model="header.name" placeholder="Name" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
-              <Input v-model="header.value" placeholder="Value" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
-              <Button variant="ghost" size="sm" aria-label="Remove header" @click="form.headers.splice(index, 1)">✕</Button>
+        <!-- Push -->
+        <section v-if="receivesPush" class="border bg-card dark:border-gray-700 dark:bg-gray-900" data-testid="admin-push-section">
+          <button
+            type="button"
+            :aria-expanded="pushExpanded"
+            data-testid="admin-push-toggle"
+            class="flex w-full items-center gap-3 p-5 text-left hover:bg-accent/50 dark:hover:bg-gray-800/60"
+            @click="pushExpanded = !pushExpanded"
+          >
+            <ChevronDown v-if="pushExpanded" class="h-4 w-4 shrink-0 text-muted-foreground dark:text-gray-400" />
+            <ChevronRight v-else class="h-4 w-4 shrink-0 text-muted-foreground dark:text-gray-400" />
+            <span class="min-w-0 flex-1">
+              <span class="block text-base font-semibold text-foreground dark:text-gray-100">Push</span>
+              <span class="mt-0.5 block text-xs text-muted-foreground dark:text-gray-400">
+                <template v-if="isPush">Token, push URL and examples.</template>
+                <template v-else>Pushes are recorded in the history of the endpoint, with its checks, and count for its uptime and alerts.</template>
+              </span>
+            </span>
+            <span class="hidden shrink-0 font-mono text-xs text-muted-foreground sm:block dark:text-gray-400" data-testid="admin-push-summary">{{ pushSummary }}</span>
+          </button>
+
+          <div v-if="pushExpanded" class="space-y-5 border-t px-5 pb-5 pt-4 dark:border-gray-700">
+            <div>
+              <label for="admin-push-token" class="block text-sm font-medium text-foreground dark:text-gray-200">Token</label>
+              <div class="mt-1.5 flex gap-2">
+                <Input
+                  id="admin-push-token"
+                  v-model="form.token"
+                  :placeholder="isPush ? '' : 'Optional: without token, only the global push keys are accepted'"
+                  class="font-mono dark:border-gray-700"
+                  data-testid="admin-field-push-token"
+                />
+                <Button variant="outline" class="shrink-0" data-testid="admin-generate-push-token" @click="form.token = generatePushToken()">Generate token</Button>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">To keep the scripts of an Uptime Kuma monitor, paste its token.</p>
             </div>
-            <Button variant="outline" size="sm" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Add header</Button>
-          </section>
-        </template>
 
-        <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Alerts</h2>
+            <div v-if="pushUrl">
+              <label for="admin-push-url" class="block text-sm font-medium text-foreground dark:text-gray-200">Push URL</label>
+              <div class="mt-1.5 flex gap-2">
+                <input
+                  id="admin-push-url"
+                  :value="pushUrl"
+                  readonly
+                  class="h-10 w-full min-w-0 border border-input bg-muted/40 px-3 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  data-testid="admin-push-url"
+                  @focus="$event.target.select()"
+                />
+                <Button variant="outline" class="w-24 shrink-0" data-testid="admin-copy-push-url" @click="copyText(pushUrl, 'url')">{{ copiedTarget === 'url' ? 'Copied' : 'Copy' }}</Button>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">
+                <template v-if="isPush">Call this URL at least every {{ form.heartbeatInterval.trim() || '1m' }}. </template>
+                Optional parameters: <span class="font-mono">status</span> (<span class="font-mono">up</span>, or anything else for a failure), <span class="font-mono">msg</span> and <span class="font-mono">ping</span> (in milliseconds).
+              </p>
+            </div>
+
+            <div v-if="pushUrl">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Example with curl</span>
+              <div class="mt-1.5 flex gap-2">
+                <pre class="flex h-10 min-w-0 flex-1 items-center overflow-x-auto border bg-muted/40 px-3 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-testid="admin-push-curl">{{ curlExample }}</pre>
+                <Button variant="outline" class="w-24 shrink-0" data-testid="admin-copy-push-curl" @click="copyText(curlExample, 'curl')">{{ copiedTarget === 'curl' ? 'Copied' : 'Copy' }}</Button>
+              </div>
+            </div>
+
+            <div>
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">With a global key</span>
+              <p class="mt-1.5 break-all border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-400" data-testid="admin-push-global-url">{{ globalKeyUrl }}</p>
+              <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">Global keys are created in the Push keys tab of the administration.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Conditions -->
+        <section v-if="!isPush" class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900">
+          <header class="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Conditions</h2>
+              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Every condition must be true for the check to succeed.</p>
+            </div>
+            <Button variant="outline" size="sm" class="shrink-0" data-testid="admin-add-condition" @click="form.conditions.push('')">Add condition</Button>
+          </header>
+          <p v-if="form.conditions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No conditions.</p>
+          <div v-for="(condition, index) in form.conditions" :key="`condition-${index}`" class="mb-2 flex gap-2 last:mb-0">
+            <Input v-model="form.conditions[index]" placeholder="[STATUS] == 200" class="font-mono dark:border-gray-700" :data-testid="`admin-field-condition-${index}`" />
+            <Button variant="outline" size="icon" class="shrink-0" aria-label="Remove condition" @click="form.conditions.splice(index, 1)">✕</Button>
+          </div>
+        </section>
+
+        <!-- Headers -->
+        <section v-if="!isPush" class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900">
+          <header class="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Headers</h2>
+              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Sent with every request. Secrets are masked after saving.</p>
+            </div>
+            <Button variant="outline" size="sm" class="shrink-0" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Add header</Button>
+          </header>
+          <p v-if="form.headers.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No headers.</p>
+          <div v-for="(header, index) in form.headers" :key="`header-${index}`" class="mb-2 grid grid-cols-[1fr_2fr_auto] gap-2 last:mb-0">
+            <Input v-model="header.name" placeholder="Name" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
+            <Input v-model="header.value" placeholder="Value" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
+            <Button variant="outline" size="icon" aria-label="Remove header" @click="form.headers.splice(index, 1)">✕</Button>
+          </div>
+        </section>
+
+        <!-- Alerts -->
+        <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900">
+          <header class="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Alerts</h2>
+              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Notifications sent by the alerting providers of the configuration file.</p>
+            </div>
+            <Button v-if="alertTypeOptions.length > 0" variant="outline" size="sm" class="shrink-0" data-testid="admin-add-alert" @click="addAlert">Add alert</Button>
+          </header>
           <p v-if="alertTypeOptions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No alerting provider configured.</p>
-          <div v-for="(alert, index) in form.alerts" :key="`alert-${index}`" class="mb-3 grid gap-2 border p-3 sm:grid-cols-2 dark:border-gray-700">
-            <div class="text-sm text-foreground dark:text-gray-200">Type
-              <Select v-model="alert.type" :options="alertTypeOptions" placeholder="Select" class="mt-1" />
+          <p v-else-if="form.alerts.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No alerts.</p>
+          <div v-for="(alert, index) in form.alerts" :key="`alert-${index}`" class="mb-3 border p-4 last:mb-0 dark:border-gray-700">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <span class="block text-sm font-medium text-foreground dark:text-gray-200">Type</span>
+                <Select v-model="alert.type" :options="alertTypeOptions" placeholder="Select" class="mt-1.5" />
+              </div>
+              <label class="block">
+                <span class="block text-sm font-medium text-foreground dark:text-gray-200">Description</span>
+                <Input v-model="alert.description" class="mt-1.5 dark:border-gray-700" />
+              </label>
+              <label class="block">
+                <span class="block text-sm font-medium text-foreground dark:text-gray-200">Failure threshold</span>
+                <Input v-model="alert.failureThreshold" type="number" min="1" placeholder="provider default" class="mt-1.5 dark:border-gray-700" />
+              </label>
+              <label class="block">
+                <span class="block text-sm font-medium text-foreground dark:text-gray-200">Success threshold</span>
+                <Input v-model="alert.successThreshold" type="number" min="1" placeholder="provider default" class="mt-1.5 dark:border-gray-700" />
+              </label>
             </div>
-            <label class="block text-sm text-foreground dark:text-gray-200">Description
-              <Input v-model="alert.description" class="mt-1 dark:border-gray-700" />
-            </label>
-            <label class="block text-sm text-foreground dark:text-gray-200">Failure threshold
-              <Input v-model="alert.failureThreshold" type="number" min="1" placeholder="provider default" class="mt-1 dark:border-gray-700" />
-            </label>
-            <label class="block text-sm text-foreground dark:text-gray-200">Success threshold
-              <Input v-model="alert.successThreshold" type="number" min="1" placeholder="provider default" class="mt-1 dark:border-gray-700" />
-            </label>
-            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
-              <input v-model="alert.sendOnResolved" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" />
-              Send on resolved
-            </label>
-            <div class="text-right">
+            <div class="mt-3 flex items-center justify-between gap-4">
+              <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
+                <input v-model="alert.sendOnResolved" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" />
+                Send on resolved
+              </label>
               <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" @click="form.alerts.splice(index, 1)">Remove alert</Button>
             </div>
           </div>
-          <Button v-if="alertTypeOptions.length > 0" variant="outline" size="sm" data-testid="admin-add-alert" @click="addAlert">Add alert</Button>
         </section>
       </div>
 
@@ -211,10 +291,10 @@
         ></textarea>
       </div>
 
-      <div v-if="!readOnly" class="mt-6 flex flex-wrap gap-2">
+      <div v-if="!readOnly" class="mt-6 flex flex-wrap items-center gap-2 border-t pt-4 dark:border-gray-700">
         <Button variant="outline" :disabled="busy" data-testid="admin-validate" @click="validate">Validate</Button>
         <Button v-if="!isPush" variant="secondary" :disabled="busy" data-testid="admin-test" @click="test">Test</Button>
-        <Button :disabled="busy" data-testid="admin-save" @click="save">Save</Button>
+        <Button :disabled="busy" class="sm:ml-auto" data-testid="admin-save" @click="save">Save</Button>
       </div>
 
       <div v-if="testResult" data-testid="admin-test-result" class="mt-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
@@ -243,6 +323,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ChevronDown, ChevronRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -294,6 +375,11 @@ const newGroup = ref(false)
 // Keys of the definition that the form does not edit (e.g. client, dns) are kept from this document
 const baseDocument = ref({})
 const monitorType = ref('http')
+// The push block starts collapsed and opens when push is turned on in the form
+const pushExpanded = ref(false)
+// Button that just copied its text, to show "Copied" on it for a moment
+const copiedTarget = ref('')
+let copiedTimer = null
 
 const emptyForm = () => ({
   name: '',
@@ -355,7 +441,16 @@ const pushUrl = computed(() => {
   }
   return `${window.location.origin}/api/push/${encodeURIComponent(token)}?status=up&msg=OK&ping=`
 })
+const curlExample = computed(() => `curl -fsS "${pushUrl.value}"`)
 const globalKeyUrl = computed(() => `${window.location.origin}/api/push/<global-key>/${encodeURIComponent(currentKey.value || '<endpoint-key>')}?status=up&msg=OK&ping=`)
+// Summary of the push block while it is collapsed
+const pushSummary = computed(() => {
+  const token = form.token.trim()
+  if (!token) {
+    return isPush.value ? 'No token' : 'Global keys only'
+  }
+  return token === maskedValue ? 'Token set' : `Token …${token.slice(-4)}`
+})
 
 // Status pages of the configuration file that select the endpoint being edited by its current key
 const configPagesOfKey = ref([])
@@ -386,8 +481,11 @@ watch(monitorType, (type, previousType) => {
   if (isEdit.value) {
     return
   }
-  if (type === 'push' && !form.token) {
-    form.token = generatePushToken()
+  if (type === 'push') {
+    if (!form.token) {
+      form.token = generatePushToken()
+    }
+    pushExpanded.value = true
   }
   // The default conditions follow the type, unless they were changed
   const previous = monitorTypes.find((candidate) => candidate.value === previousType)
@@ -399,8 +497,11 @@ watch(monitorType, (type, previousType) => {
 
 watch(() => form.acceptPush, (enabled) => {
   // The token is optional for active endpoints: it can be cleared to accept only the global push keys
-  if (enabled && !loading.value && !form.token) {
-    form.token = generatePushToken()
+  if (enabled && !loading.value) {
+    if (!form.token) {
+      form.token = generatePushToken()
+    }
+    pushExpanded.value = true
   }
 })
 
@@ -536,13 +637,15 @@ const addAlert = () => {
   form.alerts.push({ type: alertTypes.value[0] || '', description: '', failureThreshold: '', successThreshold: '', sendOnResolved: false, original: null })
 }
 
-const copyText = async (text) => {
+const copyText = async (text, target) => {
   clearMessages()
   try {
     await navigator.clipboard.writeText(text)
-    success.value = 'Copied to the clipboard.'
+    copiedTarget.value = target
+    clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => { copiedTarget.value = '' }, 2000)
   } catch (e) {
-    success.value = 'Select the text and copy it.'
+    success.value = 'The browser did not allow copying: select the text and copy it.'
   }
 }
 
@@ -683,7 +786,10 @@ const refreshExposure = () => {
 
 watch(() => [form.group, form.name], refreshExposure)
 
-onUnmounted(() => clearTimeout(exposureTimer))
+onUnmounted(() => {
+  clearTimeout(exposureTimer)
+  clearTimeout(copiedTimer)
+})
 
 onMounted(async () => {
   // Loaded before the detail, so that its group is recognized as an existing one
