@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,8 @@ import (
 	"gatus/v5/security"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
+	"gatus/v5/storage/store/common"
+	"gatus/v5/storage/store/common/paging"
 	"gatus/v5/watchdog"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -205,7 +208,6 @@ func TestAdminAPI(t *testing.T) {
 	t.Run("update-rejections", func(t *testing.T) {
 		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", siteDefinition, nil, http.StatusPreconditionRequired)
 		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", siteDefinition, map[string]string{"If-Match": `"5"`}, http.StatusPreconditionFailed)
-		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", strings.Replace(siteDefinition, "name: site", "name: site2", 1), map[string]string{"If-Match": `"1"`}, http.StatusBadRequest)
 		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/core_api", "name: api\ngroup: core\nurl: https://example.org\n"+conditions, map[string]string{"If-Match": `"1"`}, http.StatusConflict)
 	})
 	t.Run("update-keeps-masked-secret", func(t *testing.T) {
@@ -231,6 +233,67 @@ func TestAdminAPI(t *testing.T) {
 		env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints/web_site/enable", "", map[string]string{"If-Match": `"3"`}, http.StatusOK)
 		if !watchdog.IsEndpointMonitored("web_site") {
 			t.Error("expected the enabled endpoint to be monitored")
+		}
+	})
+	t.Run("rename", func(t *testing.T) {
+		params := paging.NewEndpointStatusParams().WithResults(1, 100)
+		if err := store.Get().InsertEndpointResult(&endpoint.Endpoint{Name: "site", Group: "web"}, &endpoint.Result{Success: true, Timestamp: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+		before, err := store.Get().GetEndpointStatusByKey("web_site", params)
+		if err != nil || len(before.Results) == 0 {
+			t.Fatalf("expected results before the rename, got %v (err=%v)", before, err)
+		}
+		_, body := env.expectStatus(t, http.MethodGet, "/api/v1/admin/endpoints/web_site", "", nil, http.StatusOK)
+		document := body["definition"].(map[string]any)["json"].(map[string]any)
+		renamedTo := func(name, group string) string {
+			document["name"], document["group"] = name, group
+			payload, _ := json.Marshal(document)
+			return string(payload)
+		}
+		ifMatch := func(version string) map[string]string {
+			return map[string]string{"If-Match": `"` + version + `"`, "Content-Type": "application/json"}
+		}
+		// Keys already in use: another managed endpoint, an endpoint of the configuration file and stored data
+		env.expectStatus(t, http.MethodPost, "/api/v1/admin/endpoints", "name: other\ngroup: web\ninterval: 1h\nurl: "+env.serverURL+"\n"+conditions, nil, http.StatusCreated)
+		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", renamedTo("other", "web"), ifMatch("4"), http.StatusConflict)
+		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", renamedTo("api", "core"), ifMatch("4"), http.StatusConflict)
+		if err := store.Get().InsertEndpointResult(&endpoint.Endpoint{Name: "orphan", Group: "web"}, &endpoint.Result{Success: true, Timestamp: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", renamedTo("orphan", "web"), ifMatch("4"), http.StatusConflict)
+		env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", renamedTo("site", "clientes"), ifMatch("3"), http.StatusPreconditionFailed)
+		if !watchdog.IsEndpointMonitored("web_site") {
+			t.Fatal("expected the endpoint to be monitored again after the rejected renames")
+		}
+
+		header, body := env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/web_site", renamedTo("site", "clientes"), ifMatch("4"), http.StatusOK)
+		if header.Get("ETag") != `"5"` || body["key"] != "clientes_site" || body["group"] != "clientes" {
+			t.Errorf("unexpected rename response: etag=%s body=%v", header.Get("ETag"), body)
+		}
+		if watchdog.IsEndpointMonitored("web_site") || !watchdog.IsEndpointMonitored("clientes_site") {
+			t.Error("expected only the new key to be monitored")
+		}
+		env.expectStatus(t, http.MethodGet, "/api/v1/admin/endpoints/web_site", "", nil, http.StatusNotFound)
+		env.expectStatus(t, http.MethodGet, "/api/v1/admin/endpoints/clientes_site", "", nil, http.StatusOK)
+		after, err := store.Get().GetEndpointStatusByKey("clientes_site", params)
+		if err != nil || after.Group != "clientes" || len(after.Results) < len(before.Results) {
+			t.Errorf("expected the history under the new key, got %+v (err=%v)", after, err)
+		}
+		if _, err := store.Get().GetEndpointStatusByKey("web_site", params); !errors.Is(err, common.ErrEndpointNotFound) {
+			t.Errorf("expected no status under the old key, got %v", err)
+		}
+		managedEndpointStore, _ := store.GetManagedEndpointStore()
+		if stored, err := managedEndpointStore.GetManagedEndpoint("clientes_site"); err != nil || !strings.Contains(stored.Definition, "Bearer abc123") {
+			t.Errorf("expected the masked secret to be kept under the new key, got %+v (err=%v)", stored, err)
+		}
+
+		header, body = env.expectStatus(t, http.MethodPut, "/api/v1/admin/endpoints/clientes_site", renamedTo("site", "web"), ifMatch("5"), http.StatusOK)
+		if header.Get("ETag") != `"6"` || body["key"] != "web_site" {
+			t.Errorf("unexpected response when renaming back: etag=%s body=%v", header.Get("ETag"), body)
+		}
+		if after, err := store.Get().GetEndpointStatusByKey("web_site", params); err != nil || len(after.Results) < len(before.Results) {
+			t.Errorf("expected the history back under the original key, got %+v (err=%v)", after, err)
 		}
 	})
 	t.Run("test-endpoint", func(t *testing.T) {
@@ -274,7 +337,7 @@ func TestAdminAPI(t *testing.T) {
 	})
 	t.Run("delete", func(t *testing.T) {
 		env.expectStatus(t, http.MethodDelete, "/api/v1/admin/endpoints/core_api", "", map[string]string{"If-Match": `"1"`}, http.StatusConflict)
-		_, body := env.expectStatus(t, http.MethodDelete, "/api/v1/admin/endpoints/web_site", "", map[string]string{"If-Match": `"4"`}, http.StatusOK)
+		_, body := env.expectStatus(t, http.MethodDelete, "/api/v1/admin/endpoints/web_site", "", map[string]string{"If-Match": `"6"`}, http.StatusOK)
 		if body["triggeredAlerts"] != float64(0) {
 			t.Errorf("unexpected deletion response: %v", body)
 		}

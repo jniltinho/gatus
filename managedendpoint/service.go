@@ -41,9 +41,6 @@ var (
 	// ErrCycleInProgress is returned when a start or configuration reload is in progress
 	ErrCycleInProgress = errors.New("a start or configuration reload is in progress, try again later")
 
-	// ErrKeyChanged is returned when an update changes the name or the group of the endpoint
-	ErrKeyChanged = errors.New("the name and the group of a managed endpoint cannot be changed")
-
 	// ErrTooManyTests is returned when too many endpoint tests are in progress
 	ErrTooManyTests = errors.New("too many endpoint tests in progress, try again later")
 
@@ -88,6 +85,9 @@ type Detail struct {
 	Definition *Definition `json:"definition"`
 	// Effective is the definition with default values, when the endpoint is valid
 	Effective *Definition `json:"effective,omitempty"`
+	// AffectedConfigStatusPages are the status pages of the configuration file that still select the old key, after a
+	// rename
+	AffectedConfigStatusPages []AffectedStatusPage `json:"affectedConfigStatusPages,omitempty"`
 }
 
 // Validation is the result of a successful validation
@@ -298,13 +298,17 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	if err != nil {
 		return nil, err
 	}
-	if storedEndpoint, err := Parse([]byte(state.Stored.Definition)); err == nil && (storedEndpoint.Name != submitted.Name || storedEndpoint.Group != submitted.Group) {
-		return nil, ErrKeyChanged
-	}
+	// The key of the definition is validated against the configuration file and the other managed endpoints
 	prepared, err := s.prepare(raw, key)
 	if err != nil {
 		return nil, err
 	}
+	newKey := prepared.Endpoint.Key()
+	// A changed name or group renames the endpoint, even when the key stays the same (e.g. "My API" and "my-api")
+	storedEndpoint, storedErr := Parse([]byte(state.Stored.Definition))
+	renaming := newKey != key || (storedErr == nil && (storedEndpoint.Name != submitted.Name || storedEndpoint.Group != submitted.Group))
+	// The data of the key of a managed endpoint in conflict belongs to the endpoint of the configuration file
+	conflict := state.InConflict()
 	// Generated before the endpoint starts being monitored (see State.Effective)
 	effective, err := Effective(prepared.Endpoint)
 	if err != nil {
@@ -319,30 +323,77 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 			return nil, fmt.Errorf("%w: %w", ErrApplyFailed, err)
 		}
 	}
-	watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
-	updated := &common.ManagedEndpoint{Key: key, Definition: string(prepared.Definition), UpdatedBy: author}
+	restartPrevious := func() {
+		if wasMonitored {
+			_ = watchdog.StartEndpoint(previousEndpoint, watchdog.SourceAdmin)
+		}
+	}
+	// Uses the storage outside of the transaction, so it must run before it. The triggered alerts are still stored under
+	// the old key until the rename is committed.
+	switch {
+	case !renaming:
+		watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
+	case conflict:
+	case storedErr == nil:
+		restorePersistedTriggeredAlertsOfKey(prepared.Endpoint, storedEndpoint.Name, storedEndpoint.Group)
+	case previousEndpoint != nil:
+		restorePersistedTriggeredAlertsOfKey(prepared.Endpoint, previousEndpoint.Name, previousEndpoint.Group)
+	}
+	var plan *KeyRenamePlan
+	if renaming && !conflict && newKey != key {
+		if participant := registeredKeyRenameParticipant(); participant != nil {
+			if plan, err = participant.PrepareKeyRename(key, newKey, author); err != nil {
+				restartPrevious()
+				return nil, err
+			}
+		}
+	}
+	updated := &common.ManagedEndpoint{Key: newKey, Definition: string(prepared.Definition), UpdatedBy: author}
 	started := false
-	err = managedEndpointStore.UpdateManagedEndpoint(updated, expectedVersion, func() error {
+	apply := func() error {
 		if err := startMonitoring(prepared.Endpoint); err != nil {
 			return err
 		}
 		started = prepared.Endpoint.IsEnabled()
 		return nil
-	})
+	}
+	if renaming {
+		rename := &common.ManagedEndpointRename{OldKey: key, Name: prepared.Endpoint.Name, Group: prepared.Endpoint.Group, MoveHistory: !conflict}
+		if plan != nil {
+			rename.StatusPages = plan.StatusPages
+		}
+		err = managedEndpointStore.RenameManagedEndpoint(updated, expectedVersion, rename, apply)
+	} else {
+		err = managedEndpointStore.UpdateManagedEndpoint(updated, expectedVersion, apply)
+	}
 	if err != nil {
 		if started {
-			_ = watchdog.StopEndpoint(key, watchdog.SourceAdmin)
+			_ = watchdog.StopEndpoint(newKey, watchdog.SourceAdmin)
 		}
-		if wasMonitored {
-			_ = watchdog.StartEndpoint(previousEndpoint, watchdog.SourceAdmin)
+		restartPrevious()
+		if plan != nil {
+			plan.Discard()
 		}
 		return nil, err
 	}
-	metrics.DeleteMetricsForEndpointKey(key)
+	if plan != nil {
+		plan.Commit()
+	}
+	if !conflict {
+		metrics.DeleteMetricsForEndpointKey(key)
+	}
 	newState := &State{Stored: updated, Endpoint: prepared.Endpoint, Effective: effective}
-	putState(newState)
-	logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s %s by %s", key, operation, auditAuthor(author))
-	return adminDetail(newState)
+	replaceState(key, newState)
+	if renaming {
+		logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s renamed to key=%s by %s", key, newKey, auditAuthor(author))
+	} else {
+		logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s %s by %s", key, operation, auditAuthor(author))
+	}
+	detail, err := adminDetail(newState)
+	if err == nil && plan != nil {
+		detail.AffectedConfigStatusPages = plan.AffectedConfigStatusPages
+	}
+	return detail, err
 }
 
 // Delete deletes a managed endpoint whose current version is expectedVersion. Unless it is in conflict with the

@@ -29,6 +29,18 @@ type ManagedEndpointStore interface {
 	// UpdatedAt are set.
 	UpdateManagedEndpoint(managedEndpoint *common.ManagedEndpoint, expectedVersion int64, apply func() error) error
 
+	// RenameManagedEndpoint replaces the definition of the managed endpoint stored under rename.OldKey, if its current
+	// version is expectedVersion, and stores it under managedEndpoint.Key, in a single transaction:
+	//   - when the key changes and a managed endpoint or endpoint data already exists under the new key, it returns
+	//     common.ErrEndpointKeyInUse;
+	//   - when rename.MoveHistory is true, the statuses, results, events, uptimes and triggered alerts of the old key
+	//     move to the new key, with rename.Name and rename.Group, even if the key does not change;
+	//   - every rename.StatusPages is written, or common.ErrManagedStatusPageVersionMismatch is returned if one of them
+	//     was changed.
+	//
+	// On success, Version, CreatedAt and UpdatedAt of managedEndpoint and of the status pages are set.
+	RenameManagedEndpoint(managedEndpoint *common.ManagedEndpoint, expectedVersion int64, rename *common.ManagedEndpointRename, apply func() error) error
+
 	// DeleteManagedEndpoint deletes the managed endpoint if its current version is expectedVersion. When
 	// deleteEndpointData is true, the statuses, results, events, uptimes and triggered alerts of the key are deleted in
 	// the same transaction.

@@ -207,7 +207,7 @@ func (s *Service) Exposure(group, key string) (*Exposure, error) {
 		switch {
 		case len(group) > 0 && slices.Contains(state.Page.Groups, group):
 			reason = "group"
-		case len(key) > 0 && slices.Contains(state.Page.Endpoints, key):
+		case len(key) > 0 && (slices.Contains(state.Page.Endpoints, key) || slices.Contains(state.Page.Featured, key)):
 			reason = "key"
 		default:
 			continue

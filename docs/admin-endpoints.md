@@ -65,8 +65,8 @@ With `security.basic`, the only basic user is the administrator. With `security.
   and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web.
 - **Form (`/admin/endpoints/new` and `/admin/endpoints/<key>/edit`):** form mode (name, group, URL, method, interval,
   conditions, headers, alerts, enabled, follow redirects and skip TLS certificate verification) and YAML mode, with the
-  same keys as an item of `endpoints` in the configuration file. When creating, the group is picked from the groups of
-  the existing endpoints or typed as a new group. The name and the group cannot be changed after creation.
+  same keys as an item of `endpoints` in the configuration file. The group is picked from the groups of the existing
+  endpoints or typed as a new group. Changing the name or the group renames the endpoint (see [Renaming](#renaming)).
 - **Follow redirects** (`client.ignore-redirect`, on by default) and **Skip TLS certificate verification**
   (`client.insecure`) help with sites that redirect HTTP to HTTPS or send an incomplete certificate chain. The other
   `client` options are only available in YAML mode.
@@ -88,6 +88,26 @@ With `security.basic`, the only basic user is the administrator. With `security.
 - During startup or a configuration reload, changes respond 503 and nothing is stored.
 - With `skip-invalid-config-update: true`, an invalid configuration file no longer brings Gatus down: the previous
   configuration stays in use until the file is fixed.
+
+## Renaming
+
+The key of an endpoint is `<group>_<name>`. Changing the name or the group of an endpoint managed through the web
+renames its key when saving, and the form shows the old and the new key before that:
+
+- The history (results, events, uptime and triggered alerts) moves to the new key in the same transaction as the
+  definition, with SQLite, PostgreSQL, MySQL and MariaDB. The state of the triggered alerts whose configuration did not
+  change is kept, so an ongoing incident is not triggered again.
+- The new key must be free: an endpoint, external endpoint or suite of the configuration file, another endpoint managed
+  through the web, or history still stored under that key (e.g. of an endpoint removed from the configuration file
+  before the next reload) makes the change fail with 409, without changing anything.
+- The URLs of the badges and of the details page, and the Prometheus series, use the new key. The old URLs stop
+  working.
+- Status pages managed through the web that select the endpoint by key (`endpoints` or `featured`) are updated in the
+  same transaction, with a new version. Status pages of the configuration file cannot be changed: the form lists them
+  before saving, and they stop showing the endpoint until the file uses the new key. Pages that select by group follow
+  the new group.
+- An endpoint in conflict with the configuration file can be renamed: only its definition moves, and the new key starts
+  without history, because the history of the old key belongs to the endpoint of the configuration file.
 
 ## Restrictions of the endpoints managed through the web
 
@@ -117,7 +137,7 @@ Every route requires administrator authentication. Changes require `Content-Type
 | `GET /api/v1/admin/endpoints` | Lists the endpoints of the file and the ones managed through the web |
 | `GET /api/v1/admin/endpoints/{key}` | Stored and effective definition (with `ETag`) |
 | `POST /api/v1/admin/endpoints` | Creates (201) |
-| `PUT /api/v1/admin/endpoints/{key}` | Changes (requires `If-Match`) |
+| `PUT /api/v1/admin/endpoints/{key}` | Changes, or renames when the name or the group changes (requires `If-Match`) |
 | `POST /api/v1/admin/endpoints/{key}/enable` and `/disable` | Enables or disables (requires `If-Match`) |
 | `DELETE /api/v1/admin/endpoints/{key}` | Removes (requires `If-Match`) |
 | `POST /api/v1/admin/endpoints/validate[?key=]` | Validates without saving |
@@ -125,8 +145,8 @@ Every route requires administrator authentication. Changes require `Content-Type
 | `POST /api/v1/admin/endpoints/parse` | Converts YAML into a JSON document, without validating |
 | `GET /api/v1/admin/metadata` | Available alert types, tunnels and labels |
 
-Status codes: 400 invalid definition or changed name/group; 404 not found; 409 key in use or endpoint of the
-configuration file; 412 outdated version; 413 body above 256 KB; 415 invalid content type; 428 missing `If-Match`;
+Status codes: 400 invalid definition; 404 not found; 409 key in use, endpoint of the configuration file, or new key
+with stored history when renaming; 412 outdated version; 413 body above 256 KB; 415 invalid content type; 428 missing `If-Match`;
 429 too many tests; 503 startup or reload in progress.
 
 ```bash
@@ -150,7 +170,8 @@ If the public address uses a port different from the one forwarded in `Host`, li
 ## Multiple instances with the same PostgreSQL, MySQL or MariaDB
 
 A change made on one instance only takes effect on the others after they restart or reload their configuration. In the
-meantime, an instance that still monitors a removed endpoint may recreate its history.
+meantime, an instance that still monitors a removed or renamed endpoint may recreate the history of the old key, which
+is deleted when that instance restarts or reloads.
 
 ## Versions and images
 
