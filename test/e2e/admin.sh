@@ -123,6 +123,7 @@ wait_for "$(testid admin-field-group)"
 agent-browser fill "$(testid admin-field-group)" "web" >/dev/null
 agent-browser fill "$(testid admin-field-url)" "$BASE/health" >/dev/null
 agent-browser fill "$(testid admin-field-interval)" "1m" >/dev/null
+agent-browser click "$(testid admin-field-insecure)" >/dev/null
 agent-browser click "$(testid admin-add-header)" >/dev/null
 agent-browser fill "$(testid admin-field-header-name-0)" "Authorization" >/dev/null
 agent-browser fill "$(testid admin-field-header-value-0)" "Bearer e2e-secret" >/dev/null
@@ -136,6 +137,8 @@ agent-browser scrollintoview "$(testid admin-mode-yaml)" >/dev/null
 agent-browser click "$(testid admin-mode-yaml)" >/dev/null
 wait_for "$(testid admin-yaml)"
 agent-browser get value "$(testid admin-yaml)" | grep -q "Bearer e2e-secret" || fail "o YAML gerado não contém o header digitado"
+agent-browser get value "$(testid admin-yaml)" | grep -q "insecure: true" || fail "o YAML gerado não contém client.insecure"
+agent-browser get value "$(testid admin-yaml)" | grep -q "ignore-redirect" && fail "o YAML gerado não deveria conter client.ignore-redirect"
 shot 05-modo-yaml
 agent-browser click "$(testid admin-mode-form)" >/dev/null
 wait_for "$(testid admin-field-header-value-0)"
@@ -148,6 +151,8 @@ step "Edição: segredo mascarado, nome bloqueado e novo intervalo"
 agent-browser click "$(testid admin-open-web_site)" >/dev/null
 wait_for "$(testid admin-field-interval)"
 [ "$(agent-browser get value "$(testid admin-field-header-value-0)")" = "********" ] || fail "o segredo deveria aparecer mascarado"
+[ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-insecure]').checked")" = "true" ] || fail "client.insecure salvo deveria aparecer marcado"
+[ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-follow-redirects]').checked")" = "true" ] || fail "seguir redirecionamentos deveria continuar marcado"
 [ "$(agent-browser eval "document.querySelector('[data-testid=admin-field-name]').disabled")" = "true" ] || fail "o nome deveria estar bloqueado"
 agent-browser fill "$(testid admin-field-interval)" "2m" >/dev/null
 shot 07-edicao
