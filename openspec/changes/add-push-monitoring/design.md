@@ -35,7 +35,7 @@ Restrições do fork:
 **Goals:**
 
 - Receber o push com a mesma entrada e as mesmas respostas do Uptime Kuma, inclusive reaproveitando tokens existentes.
-- Chaves por endpoint, grupo e global, sem criar endpoints no envio.
+- Chaves por endpoint e globais, sem criar endpoints no envio.
 - Push também em endpoints ativos, como opção de cada endpoint e no mesmo histórico das verificações, para notificações externas como as da Akamai.
 - Endpoints Push pela administração com o mesmo ciclo dos endpoints gerenciados, e chaves pela administração e pelo YAML.
 - Heartbeat confiável por endpoint, controlado pelo registro por chave.
@@ -81,14 +81,14 @@ Arquivo novo `api/push.go`, registrado no bloco sem autenticação de `api/api.g
 Um componente único resolve cada envio, lendo snapshots atômicos atualizados na carga, na recarga e em cada alteração da administração:
 
 - **token de endpoint → endpoint:** índice dos external endpoints do YAML (montado a partir do `cfg` do router), dos endpoints Push gerenciados e dos ativos com push ligado e token, gerenciados ou em `push.endpoints` do YAML (índice novo no snapshot de `managedendpoint`, atualizado em `putState`/`replaceState`/`removeState`);
-- **hash da chave → escopo:** chaves de grupo e globais do YAML, com hash calculado na carga, e da tabela `push_keys`, publicadas por um pacote novo `pushkey` depois do commit, como as status pages.
+- **hash da chave global:** chaves globais do YAML, com hash calculado na carga, e da tabela `push_keys`, publicadas por um pacote novo `pushkey` depois do commit, como as status pages.
 
-Com `/api/push/{token}`, só tokens de endpoint valem. Com `/api/push/{token}/{key}`, o endpoint é procurado pela chave; o envio é autorizado quando o token é o dele, quando o hash é de uma chave global ou quando o hash é de uma chave do grupo atual do endpoint. O endpoint pode ser Push ou ativo com push ligado, do YAML (`cfg.ExternalEndpoints` e `push.endpoints`) ou gerenciado pela web (D10). Todas as rejeições respondem da mesma forma.
+Com `/api/push/{token}`, só tokens de endpoint valem. Com `/api/push/{token}/{key}`, o endpoint é procurado pela chave; o envio é autorizado quando o token é o dele ou quando o hash é de uma chave global. O endpoint pode ser Push ou ativo com push ligado, do YAML (`cfg.ExternalEndpoints` e `push.endpoints`) ou gerenciado pela web (D10). Todas as rejeições respondem da mesma forma.
 
 Um token presente em mais de um endpoint Push fica fora do índice de `/api/push/{token}` e gera um aviso na carga. A administração impede duplicatas com 409.
 
 - **Alternativa:** consultar o banco a cada envio. Rejeitada, porque um cron de minuto em centenas de endpoints não pode depender do banco para autorizar.
-- **Alternativa:** chave de grupo com o grupo na URL. Rejeitada, porque o grupo sai da chave do endpoint e a URL ficaria redundante.
+- **Alternativa:** chaves por grupo. Retiradas a pedido do usuário para simplificar, porque a chave global e o token por endpoint cobrem os usos previstos.
 
 ### D3. Endpoints Push na tabela `managed_endpoints`
 
@@ -114,26 +114,25 @@ O token fica em texto na definição, como o `token` dos external endpoints do Y
 - **Alternativa:** guardar só o hash e mostrar uma vez. Rejeitada para o token de endpoint, porque o Kuma mostra a URL sempre e a migração cola tokens existentes.
 - **Alternativa:** botão "revelar" com rota própria. Rejeitada por complexidade sem ganho, já que o administrador vê e troca o token de qualquer forma.
 
-### D5. Chaves de grupo e globais com hash
+### D5. Chaves globais com hash
 
 **Tabela `push_keys`, criada nos três dialetos:**
 - `push_key_id`;
-- `scope` (`global` ou `group`);
-- `group_name` (`VARCHAR(768)` no MySQL);
+- `name` (1 a 64 caracteres, único);
 - `token_hash` (SHA-256 em hexadecimal, único);
 - `hint` (4 últimos caracteres);
 - `created_at` em milissegundos e `created_by`.
 
 A interface é `store.PushKeyStore`, com `List`, `Create` e `Delete` com `apply` e o mesmo contrato das tabelas gerenciadas.
 
-**No YAML**, as chaves ficam na seção nova `push.keys` (pacote `config/push` e `config/config_push.go`, no padrão de `admin` e `status-pages`). Cada uma tem `scope`, `group` e `token` com pelo menos 16 caracteres, e é validada na carga: escopo, grupo obrigatório no escopo de grupo, charset e duplicatas.
+**No YAML**, as chaves ficam na seção nova `push.keys` (pacote `config/push` e `config/config_push.go`, no padrão de `admin` e `status-pages`). Cada uma tem `name` e `token` com pelo menos 16 caracteres, e é validada na carga: nome, charset e duplicatas de nome e de token.
 
 **Na administração:**
 - rotas `GET` e `POST /api/v1/admin/push-keys` e `DELETE /api/v1/admin/push-keys/{id}`;
 - o `POST` gera a chave e a devolve uma única vez;
 - a listagem mistura as origens Web e YAML.
 
-A autorização por grupo usa o grupo atual do endpoint, então trocar o grupo muda quais chaves valem.
+A chave global não depende do nome nem do grupo do endpoint. Renomear um endpoint só muda a chave do endpoint na URL.
 
 - **Alternativa:** guardar a chave em texto. Rejeitada, porque uma chave global autoriza todos os endpoints.
 - **Alternativa:** bcrypt. Rejeitada, porque o custo por envio é alto e não permite busca indexada.
@@ -199,7 +198,7 @@ Serviços ativos que recebem notificações externas, como alertas de métricas 
 - **Opção por endpoint:** receber push vem desligado por padrão nos endpoints ativos.
   - Na definição gerenciada, o campo do fork `push` (`enabled` e `token` opcional) é retirado do documento antes da decodificação estrita em `endpoint.Endpoint`. O token é mascarado na definição e devolvido em `pushToken`.
   - No YAML, a lista `push.endpoints` (chave do endpoint ativo e token opcional) liga a opção sem alterar o `endpoint.Endpoint` do upstream. Uma chave que não seja de endpoint ativo do arquivo é rejeitada na carga.
-  - Com a opção ligada, o endpoint aceita a chave global, a de grupo e o próprio token. Com ela desligada, a rota responde 404.
+  - Com a opção ligada, o endpoint aceita a chave global e o próprio token. Com ela desligada, a rota responde 404.
 - **Resultado:** o push vira um resultado no mesmo histórico, com origem `push` guardada em `endpoint_result_messages` e mostrada em "Recent checks". Uptime, eventos, métricas e alertas contam os dois tipos de resultado.
 - **Concorrência:**
   - o lock por chave de D6 também envolve a gravação, as métricas e os alertas das verificações ativas em `executeEndpoint`;

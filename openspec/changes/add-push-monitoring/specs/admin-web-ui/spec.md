@@ -36,7 +36,7 @@ No tipo Push, a tela MUST mostrar:
 O grupo MUST ser escolhido entre os grupos dos endpoints existentes, "sem grupo" ou um grupo novo digitado. Na edição de um endpoint gerenciado, nome e grupo MUST ser editáveis; o tipo MUST ser somente leitura. Quando a chave derivada mudar, a tela MUST avisar antes de salvar:
 - que a chave muda;
 - que as URLs de badges e da página de detalhes mudam;
-- nos endpoints Push, que as URLs com chave de grupo ou global mudam, e que a URL com o token do endpoint não muda;
+- nos endpoints que recebem push, que as URLs com chave global mudam, e que a URL com o token do endpoint não muda;
 - quais status pages do arquivo de configuração deixam de mostrar o endpoint.
 
 Depois de salvar, a tela MUST usar a chave nova. Segredos mascarados MUST ser exibidos como `********` e mantidos quando não forem alterados.
@@ -101,12 +101,12 @@ As telas de criação e edição MUST ter as ações Validar e Salvar e, nos tip
 ## ADDED Requirements
 
 ### Requirement: Tela de chaves de push
-A administração MUST ter a aba "Push keys" em `/admin/push-keys`. A aba MUST listar as chaves globais e de grupo com escopo, grupo, dica (4 últimos caracteres), origem (Web ou YAML), autor e data de criação.
+A administração MUST ter a aba "Push keys" em `/admin/push-keys`. A aba MUST listar as chaves globais com nome, dica (4 últimos caracteres), origem (Web ou YAML), autor e data de criação.
 
-Ela MUST permitir criar uma chave global ou de grupo. Depois de criada, a aba MUST mostrar a chave completa uma única vez, com um exemplo de URL `/api/push/<chave>/<chave-do-endpoint>?status=up&msg=OK&ping=` e o aviso de que ela não será mostrada de novo. Revogar uma chave de origem Web MUST exigir confirmação. As chaves de origem YAML MUST ser apenas visualizáveis.
+Ela MUST permitir criar uma chave global informando o nome. Depois de criada, a aba MUST mostrar a chave completa uma única vez, com um exemplo de URL `/api/push/<chave>/<chave-do-endpoint>?status=up&msg=OK&ping=` e o aviso de que ela não será mostrada de novo. Revogar uma chave de origem Web MUST exigir confirmação. As chaves de origem YAML MUST ser apenas visualizáveis.
 
 #### Scenario: Chave criada
-- **WHEN** o administrador cria uma chave para o grupo `jobs`
+- **WHEN** o administrador cria a chave global `akamai`
 - **THEN** a tela mostra a chave completa com a URL de exemplo e o aviso de exibição única
 - **AND** ao recarregar a aba, a lista mostra somente a dica da chave
 

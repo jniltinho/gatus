@@ -35,9 +35,8 @@ Um envio aceito MUST responder 200 com `{"ok":true}`. Um envio rejeitado MUST re
 - **THEN** a API responde 404 com `ok` falso e nenhum resultado é armazenado
 
 ### Requirement: Escopos das chaves de push
-Além do token do próprio endpoint, o sistema MUST aceitar chaves de grupo e globais em `/api/push/{token}/{chave-do-endpoint}`, com os mesmos parâmetros, métodos e respostas da URL do Uptime Kuma:
+Além do token do próprio endpoint, o sistema MUST aceitar chaves globais em `/api/push/{token}/{chave-do-endpoint}`, com os mesmos parâmetros, métodos e respostas da URL do Uptime Kuma:
 - uma chave global MUST autorizar qualquer endpoint habilitado que receba push;
-- uma chave de grupo MUST autorizar somente os endpoints habilitados que recebam push e cujo grupo seja o da chave;
 - o token de um endpoint MUST autorizar somente esse endpoint.
 
 Endpoint inexistente, desabilitado ou que não receba push, e chave que não autorize o endpoint, MUST responder 404 com o mesmo corpo de token desconhecido, sem revelar qual das condições falhou. Os endpoints Push MUST ser os external endpoints do arquivo de configuração e os endpoints Push gerenciados pela web, e MUST sempre receber push. Um endpoint ativo, do arquivo de configuração ou gerenciado pela web, MUST receber push somente quando a opção estiver ligada.
@@ -46,8 +45,8 @@ Endpoint inexistente, desabilitado ou que não receba push, e chave que não aut
 - **WHEN** um script usa a chave global em `/api/push/<global>/jobs_backup?status=up` e `jobs_backup` é um endpoint Push
 - **THEN** a API responde 200 e `jobs_backup` registra o sucesso
 
-#### Scenario: Chave de grupo fora do grupo
-- **WHEN** um script usa a chave do grupo `jobs` em `/api/push/<jobs>/core_cron`
+#### Scenario: Token de outro endpoint
+- **WHEN** um script usa o token de `jobs_backup` em `/api/push/<token-de-jobs_backup>/core_cron`
 - **THEN** a API responde 404 com `{"ok":false,"msg":"Monitor not found or not active."}`
 - **AND** `core_cron` não registra resultado
 
@@ -62,7 +61,7 @@ Endpoint inexistente, desabilitado ou que não receba push, e chave que não aut
 ### Requirement: Tokens e chaves de push
 O token de um endpoint Push, e o token opcional de um endpoint ativo com push ligado, MUST ter de 8 a 128 caracteres entre letras, dígitos, `-` e `_`. Ele MUST poder ser informado, para reaproveitar o token de um monitor do Uptime Kuma, ou gerado com 32 letras e dígitos aleatórios, com gerador criptográfico. Um token não pode identificar mais de um endpoint: a administração MUST rejeitar com 409 um token já usado por outro endpoint, do arquivo ou da web. No arquivo de configuração, `push.endpoints` MUST ligar o push de endpoints ativos pela chave, com token opcional, e uma chave que não seja de endpoint ativo do arquivo MUST ser rejeitada na carga. Quando o arquivo de configuração tiver o mesmo token em mais de um external endpoint, o sistema MUST registrar um aviso na carga, e esse token MUST responder 404 em `/api/push/{token}`.
 
-As chaves de grupo e globais criadas pela administração MUST ser geradas com 32 letras e dígitos aleatórios, mostradas uma única vez e armazenadas somente como hash SHA-256 com os 4 últimos caracteres como dica. Elas MUST poder ser revogadas, e uma chave revogada MUST parar de autorizar envios imediatamente. As chaves do arquivo de configuração MUST ficar em `push.keys`, com `scope` (`global` ou `group`), `group` quando o escopo for de grupo e `token` com pelo menos 16 caracteres, e MUST ser somente leitura na administração.
+As chaves globais criadas pela administração MUST ter um nome único de 1 a 64 caracteres e MUST ser geradas com 32 letras e dígitos aleatórios, mostradas uma única vez e armazenadas somente como hash SHA-256 com os 4 últimos caracteres como dica. Elas MUST poder ser revogadas, e uma chave revogada MUST parar de autorizar envios imediatamente. As chaves globais do arquivo de configuração MUST ficar em `push.keys`, com `name` e `token` com pelo menos 16 caracteres, e MUST ser somente leitura na administração.
 
 #### Scenario: Token do Uptime Kuma reaproveitado
 - **WHEN** um administrador cria um endpoint Push informando o token `keSDu7G855jvVat1xWiY2Gk4CkL1End5`
@@ -77,12 +76,12 @@ As chaves de grupo e globais criadas pela administração MUST ser geradas com 3
 - **THEN** a resposta mostra a chave completa uma única vez e a lista mostra somente a dica
 - **AND** depois que a chave é revogada, os envios com ela respondem 404
 
-#### Scenario: Chave de grupo do arquivo
-- **WHEN** o arquivo de configuração define `push.keys` com `scope: group`, `group: jobs` e um token de 32 caracteres
-- **THEN** a chave autoriza os endpoints Push do grupo `jobs` e aparece na administração sem ações de revogar
+#### Scenario: Chave global do arquivo
+- **WHEN** o arquivo de configuração define `push.keys` com `name: akamai` e um token de 32 caracteres
+- **THEN** a chave autoriza os endpoints que recebem push e aparece na administração sem ações de revogar
 
 ### Requirement: Proteção da rota de push
-As rotas `/api/push` e `/api/push/*` MUST ser atendidas antes do middleware de segurança, inclusive para caminhos inválidos, e MUST NOT responder 401 nem enviar `WWW-Authenticate`. As respostas MUST ter `Cache-Control: no-store`. Tokens e chaves MUST NOT aparecer nos logs, e a comparação de chaves de grupo e globais MUST ser feita pelo hash.
+As rotas `/api/push` e `/api/push/*` MUST ser atendidas antes do middleware de segurança, inclusive para caminhos inválidos, e MUST NOT responder 401 nem enviar `WWW-Authenticate`. As respostas MUST ter `Cache-Control: no-store`. Tokens e chaves MUST NOT aparecer nos logs, e a comparação de chaves globais MUST ser feita pelo hash.
 
 Envios válidos MUST ser sempre aceitos. Depois de 30 envios rejeitados no mesmo minuto vindos do mesmo IP de cliente, calculado com `status-pages.trusted-proxies`, os envios rejeitados seguintes desse IP MUST responder 429 com `{"ok":false,"msg":"Too many requests"}`.
 

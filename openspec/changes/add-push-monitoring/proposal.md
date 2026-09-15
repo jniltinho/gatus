@@ -8,7 +8,7 @@ Quem vem do Uptime Kuma usa monitores Push com uma URL simples, sem header, que 
 https://kuma.exemplo.com/api/push/<token>?status=up&msg=OK&ping=
 ```
 
-Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Queremos o mesmo no fork: juntar o monitoramento passivo ao ativo, com criação pela web e chaves que sirvam para vários endpoints (grupo ou global), sem criar um token por script.
+Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Queremos o mesmo no fork: juntar o monitoramento passivo ao ativo, com criação pela web e uma chave global que sirva para vários endpoints, sem criar um token por script.
 
 ## What Changes
 
@@ -20,19 +20,18 @@ Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Quere
     - `ping`: número em milissegundos; vazio ou inválido é ignorado, e fora de 0 a 100000000000 é erro;
   - as mesmas respostas: 200 com `{"ok":true}`, e 404 com `{"ok":false,"msg":"..."}` para token desconhecido, monitor inativo ou `ping` fora do intervalo;
   - o token do endpoint Push pode ser digitado ao criar ou editar, para colar o token que já existe no Kuma, ou gerado com 32 caracteres, como o botão "Reset Token" do Kuma;
-  - extensão do fork, que não conflita com o formato do Kuma: `/api/push/<token>/<chave-do-endpoint>`, com a chave global, a de grupo ou o token do endpoint.
+  - extensão do fork, que não conflita com o formato do Kuma: `/api/push/<token>/<chave-do-endpoint>`, com a chave global ou o token do endpoint.
 
   O `POST /api/v1/endpoints/{key}/external` existente continua igual.
-- **Três escopos de chave:**
+- **Dois tipos de chave:**
   - **endpoint:** o token do endpoint Push, ou o token de um endpoint ativo que recebe push, que identifica o endpoint sozinho;
-  - **grupo:** autoriza os endpoints daquele grupo que recebem push;
   - **global:** autoriza todos os endpoints que recebem push.
 
-  Chaves de grupo e global são geradas com 32 caracteres aleatórios, guardadas só como hash e mostradas uma única vez. Podem ser revogadas.
+  Chaves globais são geradas com 32 caracteres aleatórios, guardadas só como hash e mostradas uma única vez. Podem ser revogadas, e cada uma tem um nome para identificar quem a usa (por exemplo, `akamai`).
 - **Sem autocriação:** um envio para token desconhecido ou para chave de endpoint inexistente ou desabilitado responde 404 com a mensagem do Kuma ("Monitor not found or not active."). A resposta é igual em todos esses casos, para não revelar quais chaves existem.
 - **Push também em endpoints ativos**, para serviços verificados pelo Gatus que também recebem notificações externas. Exemplo: alertas de métricas da Akamai chamando a URL com `?status=down&msg=...`.
   - Receber push é uma opção de cada endpoint ativo, desligada por padrão: no formulário, a opção "Accept push" (receber push), com token próprio opcional; no YAML, a lista `push.endpoints`, com a chave do endpoint e o token opcional.
-  - Com a opção ligada, o endpoint ativo aceita a chave global e a de grupo em `/api/push/<chave>/<chave-do-endpoint>`, e o próprio token na URL do Kuma `/api/push/<token>`. Com a opção desligada, o envio responde 404.
+  - Com a opção ligada, o endpoint ativo aceita a chave global em `/api/push/<chave>/<chave-do-endpoint>`, e o próprio token na URL do Kuma `/api/push/<token>`. Com a opção desligada, o envio responde 404.
   - Endpoints do tipo Push sempre recebem push.
   - Cada push vira um resultado no mesmo histórico, marcado como origem Push na tabela "Recent checks". Ele conta para o uptime e para os alertas junto com as verificações do Gatus, então o status pode alternar entre um push `down` e a verificação seguinte `up`.
   - O heartbeat continua só nos endpoints do tipo Push.
@@ -41,9 +40,9 @@ Na tela do monitor, cada envio aparece com status, data e hora e mensagem. Quere
   - no Push, o formulário mostra a URL copiável, o botão para gerar um token novo, o intervalo de heartbeat, os alertas e um exemplo de `curl`;
   - a definição fica na mesma tabela `managed_endpoints`, com `type: push`, e ganha renomeação, remoção, histórico, status pages e alertas como os endpoints ativos.
 - **Chaves pela administração e pelo YAML:**
-  - tela nova "Push keys" para criar e revogar chaves de grupo e globais;
+  - tela nova "Push keys" para criar e revogar chaves globais;
   - seção nova `push.keys` no arquivo de configuração;
-  - os external endpoints do YAML passam a aceitar a URL nova, com o próprio token ou com chaves de grupo e globais.
+  - os external endpoints do YAML passam a aceitar a URL nova, com o próprio token ou com chaves globais.
 - **Heartbeat:**
   - um endpoint Push sem envio dentro do intervalo registra falha ("nenhum envio recebido em 1m") e dispara alertas, como no Kuma;
   - pela administração o intervalo é obrigatório (padrão 60s, mínimo 10s);
@@ -79,7 +78,7 @@ Nenhuma mudança é **BREAKING**: a rota `POST /api/v1/endpoints/{key}/external`
 
 - `push-monitoring`: monitoramento passivo por push, que cobre:
   - a URL compatível com o Uptime Kuma e seus parâmetros;
-  - os escopos e o ciclo de vida das chaves (endpoint, grupo e global);
+  - os escopos e o ciclo de vida das chaves (endpoint e global);
   - a proteção da rota pública;
   - o heartbeat;
   - os endpoints Push gerenciados pela web;
@@ -104,7 +103,7 @@ Nenhuma mudança é **BREAKING**: a rota `POST /api/v1/endpoints/{key}/external`
   - `statuspage/registry.go`: endpoints Push gerenciados em `Endpoints()`;
   - `config/endpoint/result.go`: campos `Message` e `Origin`.
 - **Banco:**
-  - tabela nova `push_keys` (escopo, grupo, hash, dica, autor e datas);
+  - tabela nova `push_keys` (nome, hash, dica, autor e data);
   - tabela nova `endpoint_result_messages`, ligada ao resultado com `ON DELETE CASCADE`;
   - nos três bancos, sem alterar tabelas do upstream.
 - **Frontend:**

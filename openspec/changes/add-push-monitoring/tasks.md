@@ -1,8 +1,8 @@
 ## 1. Marco 1: rota de push, chaves do YAML, mensagem e heartbeat
 
 - [ ] 1.1 `config/push` e `config/config_push.go`:
-  - seção `push.keys` com `scope`, `group` e `token`, e `push.endpoints` com a chave de endpoint ativo e token opcional;
-  - validação de escopo, grupo, charset, tamanho mínimo de 16 e duplicatas;
+  - seção `push.keys` com `name` e `token`, e `push.endpoints` com a chave de endpoint ativo e token opcional;
+  - validação de nome, charset, tamanho mínimo de 16 e duplicatas de nome e de token;
   - hash SHA-256 calculado na carga;
   - testes.
 - [ ] 1.2 `endpoint.Result.Message` e `Origin` e a tabela `endpoint_result_messages` (mensagem e origem) nos três dialetos:
@@ -21,7 +21,7 @@
   - uma falha por intervalo sem envio, inclusive consecutivos;
   - contagem iniciada na carga;
   - testes de 3 intervalos seguidos e de envio que reinicia a contagem.
-- [ ] 1.6 Resolução de push: índice de tokens de endpoint do YAML (tokens repetidos fora do índice, com aviso) e hashes das chaves do YAML; autorização por endpoint, grupo e global, para endpoints Push e ativos com push ligado do YAML, com rejeição uniforme.
+- [ ] 1.6 Resolução de push: índice de tokens de endpoint do YAML (tokens repetidos fora do índice, com aviso) e hashes das chaves do YAML; autorização por token de endpoint e chave global, para endpoints Push e ativos com push ligado do YAML, com rejeição uniforme.
 - [ ] 1.7 `api/push.go`:
   - `All` em `/push/:token` e `/push/:token/:key` e coringas;
   - leitura de `status`, `msg` e `ping` com a semântica do Kuma, incluindo o `parseFloat`;
@@ -34,7 +34,7 @@
   - token desconhecido e endpoint desabilitado;
   - chave global num endpoint ativo do YAML com push ligado em `push.endpoints`: resultado marcado como Push entre as verificações, alerta disparado e sem corrida com a verificação ativa (`-race`);
   - endpoint ativo sem push respondendo 404;
-  - chave de grupo dentro e fora do grupo, chave global;
+  - chave global, e token de outro endpoint na URL com chave;
   - sem 401 e sem `WWW-Authenticate` com basic auth;
   - 429 depois de 30 rejeitados com envio válido aceito.
 
@@ -100,7 +100,7 @@
   - criar endpoint Push pelo formulário e colar um token;
   - enviar `up`, `down` com mensagem e `up` com `curl`;
   - conferir a tabela "Recent checks" e capturar prints em `dist/prints/`;
-  - criar e revogar uma chave de grupo;
+  - criar e revogar uma chave global;
   - tema escuro.
 - [ ] 3.5 `AGENTS.fork.md` (rota pública, resolução, heartbeat no registro, tabela de mensagens) e `openspec/config.yaml` (contexto)
 - [ ] 3.6 `make lint test`, testes de `storage/store/sql` com PostgreSQL, MySQL e MariaDB, e `openspec validate add-push-monitoring --strict`
