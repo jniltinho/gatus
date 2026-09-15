@@ -78,4 +78,4 @@
   - prints claro e escuro em `dist/prints/`.
   - Os E2E existentes (`admin.sh`, `push.sh`, `status-pages.sh`, `certificate.sh`) passam a logar pela tela no lugar de `set credentials`.
 - [x] 3.3 `go test ./... -race` com PostgreSQL, MySQL e MariaDB, teste de recarga da configuração com sessão ativa, `make lint` e `openspec validate add-basic-login-page --strict`.
-- [ ] 3.4 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub, pacote `mariadb` e arquivamento da change.
+- [x] 3.4 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub, pacote `mariadb` e arquivamento da change.
