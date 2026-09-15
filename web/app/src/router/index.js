@@ -26,45 +26,52 @@ const routes = [
         name: 'SuiteDetails',
         component: SuiteDetails
     },
-    // Administration of endpoints (fork)
+    // Administration of endpoints (fork): meta.admin gives a compact header, meta.adminList a layout that fills the window
     {
         path: '/admin',
         name: 'AdminEndpoints',
-        component: AdminEndpoints
+        component: AdminEndpoints,
+        meta: { admin: true, adminList: true }
     },
     {
         path: '/admin/endpoints/new',
         name: 'AdminEndpointNew',
-        component: AdminEndpointForm
+        component: AdminEndpointForm,
+        meta: { admin: true }
     },
     {
         path: '/admin/endpoints/:endpointKey/edit',
         name: 'AdminEndpointEdit',
         component: AdminEndpointForm,
-        props: true
+        props: true,
+        meta: { admin: true }
     },
     // Administration of the status pages (fork)
     {
         path: '/admin/status-pages',
         name: 'AdminStatusPages',
-        component: AdminStatusPages
+        component: AdminStatusPages,
+        meta: { admin: true, adminList: true }
     },
     {
         path: '/admin/status-pages/new',
         name: 'AdminStatusPageNew',
-        component: AdminStatusPageForm
+        component: AdminStatusPageForm,
+        meta: { admin: true }
     },
     {
         path: '/admin/status-pages/:slug/edit',
         name: 'AdminStatusPageEdit',
         component: AdminStatusPageForm,
-        props: true
+        props: true,
+        meta: { admin: true }
     },
     // Global push keys (fork)
     {
         path: '/admin/push-keys',
         name: 'AdminPushKeys',
-        component: AdminPushKeys
+        component: AdminPushKeys,
+        meta: { admin: true, adminList: true }
     },
     // Public status pages (fork): no login screen and no call to /api/v1/config, see App.vue
     {

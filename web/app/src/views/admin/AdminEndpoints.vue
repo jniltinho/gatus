@@ -1,82 +1,83 @@
 <template>
-  <div class="container mx-auto px-4 py-8 max-w-7xl">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground dark:text-gray-100">Endpoint administration</h1>
-        <p class="text-muted-foreground dark:text-gray-400 mt-1">Endpoints managed through the web and endpoints from the configuration file</p>
+  <AdminListLayout title="Endpoint administration" description="Endpoints managed through the web and endpoints from the configuration file" active="endpoints">
+    <template #actions>
+      <router-link to="/" class="inline-flex h-9 items-center border border-input bg-background px-3 text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800">Dashboard</router-link>
+      <Button size="sm" data-testid="admin-new-endpoint" @click="router.push({ name: 'AdminEndpointNew' })">New endpoint</Button>
+    </template>
+
+    <template #notices>
+      <div v-if="notice" role="status" data-testid="admin-notice" class="mt-3 shrink-0 border border-green-300 bg-green-50 px-4 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ notice }}</div>
+      <div v-if="error" role="alert" data-testid="admin-error" class="mt-3 shrink-0 border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">{{ error }}</div>
+    </template>
+
+    <template #toolbar>
+      <div class="flex flex-wrap items-center gap-3">
+        <Input v-model="search" placeholder="Search by name, group or URL" class="h-9 max-w-md dark:border-gray-700" data-testid="admin-search" />
+        <span class="text-xs text-muted-foreground dark:text-gray-400" data-testid="admin-count">
+          {{ search.trim() ? `${filteredItems.length} of ${items.length}` : items.length }} {{ items.length === 1 ? 'endpoint' : 'endpoints' }}
+        </span>
       </div>
-      <div class="flex gap-2">
-        <router-link to="/" class="inline-flex h-10 items-center border border-input bg-background px-4 text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800">Dashboard</router-link>
-        <Button data-testid="admin-new-endpoint" @click="router.push({ name: 'AdminEndpointNew' })">New endpoint</Button>
-      </div>
-    </div>
-
-    <AdminTabs active="endpoints" />
-
-    <Input v-model="search" placeholder="Search by name, group or URL" class="mb-4 dark:border-gray-700" data-testid="admin-search" />
-
-    <div v-if="notice" role="status" data-testid="admin-notice" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ notice }}</div>
-    <div v-if="error" role="alert" data-testid="admin-error" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">{{ error }}</div>
+    </template>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
-    <div v-else class="overflow-x-auto border bg-card dark:border-gray-700 dark:bg-gray-900">
-      <table class="w-full text-sm" data-testid="admin-table">
-        <thead class="bg-muted/50 text-left text-muted-foreground dark:bg-gray-800 dark:text-gray-400">
-          <tr>
-            <th class="px-3 py-2 font-medium">Name</th>
-            <th class="px-3 py-2 font-medium">Group</th>
-            <th class="px-3 py-2 font-medium">Type</th>
-            <th class="px-3 py-2 font-medium">URL</th>
-            <th class="px-3 py-2 font-medium">Interval</th>
-            <th class="px-3 py-2 font-medium">Status</th>
-            <th class="px-3 py-2 font-medium">Source</th>
-            <th class="px-3 py-2 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="filteredItems.length === 0">
-            <td colspan="8" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No endpoints found.</td>
-          </tr>
-          <tr v-for="item in filteredItems" :key="item.key" class="border-t dark:border-gray-700" :data-testid="`admin-row-${item.key}`">
-            <td class="px-3 py-2 font-medium text-foreground dark:text-gray-100">
-              {{ item.name }}
-              <span v-if="item.conflict" :title="item.conflictOrigin" class="ml-2 border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">Conflicts with YAML</span>
-              <span v-else-if="item.error" :title="item.error" class="ml-2 border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">Invalid</span>
-            </td>
-            <td class="px-3 py-2 text-muted-foreground dark:text-gray-400">{{ item.group }}</td>
-            <td class="px-3 py-2 uppercase text-muted-foreground dark:text-gray-400">
-              {{ item.type }}
-              <span v-if="item.acceptsPush && item.type !== 'PUSH'" title="Also receives push" class="ml-1 border border-violet-300 bg-violet-50 px-1 py-0.5 text-xs normal-case text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-200" :data-testid="`admin-accepts-push-${item.key}`">+ push</span>
-            </td>
-            <td class="px-3 py-2 max-w-xs truncate font-mono text-xs" :title="item.url">{{ item.url || (item.type === 'PUSH' ? '—' : '') }}</td>
-            <td class="px-3 py-2">{{ item.interval }}</td>
-            <td class="px-3 py-2">
-              <span :class="item.enabled ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-500'">{{ item.enabled ? 'Enabled' : 'Disabled' }}</span>
-            </td>
-            <td class="px-3 py-2">
-              <span :class="['border px-1.5 py-0.5 text-xs', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap text-right">
-              <Button variant="ghost" size="sm" :data-testid="`admin-open-${item.key}`" @click="open(item)">{{ item.source === 'admin' ? 'Edit' : 'View' }}</Button>
-              <template v-if="item.source === 'admin'">
-                <Button variant="ghost" size="sm" :disabled="busyKey === item.key || item.conflict" :data-testid="`admin-toggle-${item.key}`" @click="toggle(item)">{{ item.enabled ? 'Disable' : 'Enable' }}</Button>
-                <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busyKey === item.key" :data-testid="`admin-remove-${item.key}`" @click="pendingRemoval = item">Remove</Button>
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <table v-else class="w-full text-sm" data-testid="admin-table">
+      <thead class="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
+        <tr>
+          <th class="px-3 py-2 font-medium">Name</th>
+          <th class="px-3 py-2 font-medium">Group</th>
+          <th class="px-3 py-2 font-medium">Type</th>
+          <th class="px-3 py-2 font-medium">URL</th>
+          <th class="px-3 py-2 font-medium">Interval</th>
+          <th class="px-3 py-2 font-medium">Status</th>
+          <th class="px-3 py-2 font-medium">Source</th>
+          <th class="px-3 py-2 font-medium text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-if="filteredItems.length === 0">
+          <td colspan="8" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No endpoints found.</td>
+        </tr>
+        <tr v-for="item in filteredItems" :key="item.key" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`admin-row-${item.key}`">
+          <td class="px-3 py-1.5 whitespace-nowrap font-medium text-foreground dark:text-gray-100">
+            {{ item.name }}
+            <span v-if="item.conflict" :title="item.conflictOrigin" class="ml-2 border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">Conflicts with YAML</span>
+            <span v-else-if="item.error" :title="item.error" class="ml-2 border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">Invalid</span>
+          </td>
+          <td class="px-3 py-1.5 whitespace-nowrap text-muted-foreground dark:text-gray-400">{{ item.group }}</td>
+          <td class="px-3 py-1.5 whitespace-nowrap uppercase text-muted-foreground dark:text-gray-400">
+            {{ item.type }}
+            <span v-if="item.acceptsPush && item.type !== 'PUSH'" title="Also receives push" class="ml-1 border border-violet-300 bg-violet-50 px-1 py-0.5 text-xs normal-case text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-200" :data-testid="`admin-accepts-push-${item.key}`">+ push</span>
+          </td>
+          <td class="px-3 py-1.5 max-w-xs truncate font-mono text-xs" :title="item.url">{{ item.url || (item.type === 'PUSH' ? '—' : '') }}</td>
+          <td class="px-3 py-1.5">{{ item.interval }}</td>
+          <td class="px-3 py-1.5">
+            <span :class="item.enabled ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-500'">{{ item.enabled ? 'Enabled' : 'Disabled' }}</span>
+          </td>
+          <td class="px-3 py-1.5">
+            <span :class="['border px-1.5 py-0.5 text-xs', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
+          </td>
+          <td class="px-3 py-1.5 whitespace-nowrap text-right">
+            <Button variant="ghost" size="sm" :data-testid="`admin-open-${item.key}`" @click="open(item)">{{ item.source === 'admin' ? 'Edit' : 'View' }}</Button>
+            <template v-if="item.source === 'admin'">
+              <Button variant="ghost" size="sm" :disabled="busyKey === item.key || item.conflict" :data-testid="`admin-toggle-${item.key}`" @click="toggle(item)">{{ item.enabled ? 'Disable' : 'Enable' }}</Button>
+              <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busyKey === item.key" :data-testid="`admin-remove-${item.key}`" @click="pendingRemoval = item">Remove</Button>
+            </template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-    <ConfirmDialog
-      :open="pendingRemoval !== null"
-      title="Remove endpoint"
-      :message="removalMessage"
-      confirm-label="Remove"
-      @confirm="confirmRemoval"
-      @cancel="pendingRemoval = null"
-    />
-  </div>
+    <template #overlay>
+      <ConfirmDialog
+        :open="pendingRemoval !== null"
+        title="Remove endpoint"
+        :message="removalMessage"
+        confirm-label="Remove"
+        @confirm="confirmRemoval"
+        @cancel="pendingRemoval = null"
+      />
+    </template>
+  </AdminListLayout>
 </template>
 
 <script setup>
@@ -86,7 +87,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Loading from '@/components/Loading.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
-import AdminTabs from '@/components/admin/AdminTabs.vue'
+import AdminListLayout from '@/components/admin/AdminListLayout.vue'
 import { adminApi, describeAdminError } from '@/utils/adminApi'
 
 const router = useRouter()

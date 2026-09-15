@@ -62,7 +62,9 @@ With `security.basic`, the only basic user is the administrator. With `security.
 ## Usage
 
 - **List (`/admin`):** search by name, group or URL; shows the source (Web or YAML), endpoints in conflict with the YAML
-  and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web.
+  and invalid endpoints; lets you enable, disable and remove the endpoints managed through the web. On larger screens
+  the lists of the administration (Endpoints, Status pages and Push keys) fill the window with a compact header, and
+  only the table scrolls, with its header fixed.
 - **Form (`/admin/endpoints/new` and `/admin/endpoints/<key>/edit`):** form mode (name, group, URL, method, interval,
   conditions, headers, alerts, enabled, follow redirects and skip TLS certificate verification) and YAML mode, with the
   same keys as an item of `endpoints` in the configuration file. The group is picked from the groups of the existing
