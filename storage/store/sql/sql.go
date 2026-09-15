@@ -133,7 +133,11 @@ func (s *Store) createSchema() error {
 		return err
 	}
 	// Messages and origins of the endpoint results (see endpoint_result_messages.go)
-	return s.createEndpointResultMessagesSchema()
+	if err = s.createEndpointResultMessagesSchema(); err != nil {
+		return err
+	}
+	// Global push keys created through the administration API (see push_keys.go)
+	return s.createPushKeysSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status

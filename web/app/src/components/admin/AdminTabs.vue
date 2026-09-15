@@ -20,12 +20,13 @@
 
 <script setup>
 defineProps({
-  // endpoints or status-pages
+  // endpoints, status-pages or push-keys
   active: { type: String, required: true }
 })
 
 const tabs = [
   { id: 'endpoints', label: 'Endpoints', route: 'AdminEndpoints' },
-  { id: 'status-pages', label: 'Status pages', route: 'AdminStatusPages' }
+  { id: 'status-pages', label: 'Status pages', route: 'AdminStatusPages' },
+  { id: 'push-keys', label: 'Push keys', route: 'AdminPushKeys' }
 ]
 </script>

@@ -33,6 +33,9 @@
           Saving renames the key from <span class="font-mono">{{ endpointKey }}</span> to <span class="font-mono">{{ keyChange }}</span>.
           The history is kept, but the URLs of the badges and of the details page change.
         </p>
+        <p v-if="receivesPush" class="mt-1" data-testid="admin-key-change-push">
+          Push URLs with a global key use the new key; the push URL with the token of the endpoint does not change.
+        </p>
         <p v-if="configPagesOfKey.length" class="mt-1" data-testid="admin-key-change-config-pages">
           These status pages of the configuration file select the endpoint by key and stop showing it until the file is updated:
           <template v-for="(page, index) in configPagesOfKey" :key="page.slug">
@@ -56,6 +59,15 @@
 
       <div v-if="mode === 'form' && !readOnly" class="space-y-6 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
         <div class="grid gap-4 sm:grid-cols-2">
+          <div class="text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">Monitor type
+            <Select v-model="monitorType" :options="monitorTypeOptions" class="mt-1" data-testid="admin-field-type" />
+            <p class="mt-1 text-xs font-normal text-muted-foreground dark:text-gray-400">
+              <template v-if="isPush">Passive: Gatus does not check the endpoint, it receives pushes at its URL, like the Push monitors of the Uptime Kuma.</template>
+              <template v-else-if="monitorType === 'dns'">The DNS query (query-name and query-type) is edited in YAML mode.</template>
+              <template v-else>Active: Gatus checks the URL at every interval. The type follows the scheme of the URL.</template>
+              <template v-if="isEdit"> Push endpoints and active endpoints cannot be converted into each other.</template>
+            </p>
+          </div>
           <label class="block text-sm font-medium text-foreground dark:text-gray-200">Name
             <Input v-model="form.name" class="mt-1 dark:border-gray-700" data-testid="admin-field-name" />
           </label>
@@ -63,49 +75,103 @@
             <Select v-model="groupChoice" :options="groupChoiceOptions" placeholder="No group" class="mt-1" data-testid="admin-field-group-select" />
             <Input v-if="newGroup" v-model="form.group" placeholder="Name of the new group" class="mt-2 dark:border-gray-700" data-testid="admin-field-group" />
           </div>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
-            <Input v-model="form.url" placeholder="https://example.com/health" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
-          </label>
-          <div class="text-sm font-medium text-foreground dark:text-gray-200">Method
-            <Select v-model="form.method" :options="methodOptions" placeholder="GET (default)" class="mt-1" />
-          </div>
-          <label class="block text-sm font-medium text-foreground dark:text-gray-200">Interval
-            <Input v-model="form.interval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
-          </label>
-          <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
-            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
+          <template v-if="isPush">
+            <label class="block text-sm font-medium text-foreground dark:text-gray-200">Heartbeat interval
+              <Input v-model="form.heartbeatInterval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-heartbeat" />
+            </label>
+            <label class="flex items-center gap-2 self-end pb-2 text-sm text-foreground dark:text-gray-200">
               <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
               Enabled
             </label>
-            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.ignore-redirect">
-              <input v-model="form.followRedirects" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-follow-redirects" />
-              Follow redirects
+          </template>
+          <template v-else>
+            <label class="block text-sm font-medium text-foreground dark:text-gray-200 sm:col-span-2">URL
+              <Input v-model="form.url" :placeholder="urlPlaceholder" class="mt-1 font-mono dark:border-gray-700" data-testid="admin-field-url" />
             </label>
-            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.insecure: accepts self-signed, expired or incomplete certificate chains">
-              <input v-model="form.insecure" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-insecure" />
-              Skip TLS certificate verification
+            <div v-if="monitorType === 'http'" class="text-sm font-medium text-foreground dark:text-gray-200">Method
+              <Select v-model="form.method" :options="methodOptions" placeholder="GET (default)" class="mt-1" />
+            </div>
+            <label class="block text-sm font-medium text-foreground dark:text-gray-200">Interval
+              <Input v-model="form.interval" placeholder="1m (default)" class="mt-1 dark:border-gray-700" data-testid="admin-field-interval" />
             </label>
-          </div>
+            <div class="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
+              <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200">
+                <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
+                Enabled
+              </label>
+              <template v-if="monitorType === 'http'">
+                <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.ignore-redirect">
+                  <input v-model="form.followRedirects" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-follow-redirects" />
+                  Follow redirects
+                </label>
+                <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="client.insecure: accepts self-signed, expired or incomplete certificate chains">
+                  <input v-model="form.insecure" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-insecure" />
+                  Skip TLS certificate verification
+                </label>
+              </template>
+              <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200" title="push: receive notifications at /api/push, in addition to the checks">
+                <input v-model="form.acceptPush" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-accept-push" />
+                Accept push
+              </label>
+            </div>
+          </template>
         </div>
 
-        <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Conditions</h2>
-          <div v-for="(condition, index) in form.conditions" :key="`condition-${index}`" class="mb-2 flex gap-2">
-            <Input v-model="form.conditions[index]" placeholder="[STATUS] == 200" class="font-mono dark:border-gray-700" :data-testid="`admin-field-condition-${index}`" />
-            <Button variant="ghost" size="sm" aria-label="Remove condition" @click="form.conditions.splice(index, 1)">✕</Button>
+        <section v-if="receivesPush" data-testid="admin-push-section">
+          <h2 class="mb-1 text-sm font-semibold text-foreground dark:text-gray-200">Push</h2>
+          <p class="mb-2 text-xs text-muted-foreground dark:text-gray-400">
+            <template v-if="isPush">A failure is recorded for every heartbeat interval without push.</template>
+            <template v-else>Pushes are recorded in the history of the endpoint, with its checks, and count for its uptime and alerts.</template>
+          </p>
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="block min-w-0 flex-1 text-sm text-foreground dark:text-gray-200">Token
+              <Input
+                v-model="form.token"
+                :placeholder="isPush ? '' : 'Optional: without token, only the global push keys are accepted'"
+                class="mt-1 font-mono dark:border-gray-700"
+                data-testid="admin-field-push-token"
+              />
+            </label>
+            <Button variant="outline" size="sm" data-testid="admin-generate-push-token" @click="form.token = generatePushToken()">Generate token</Button>
           </div>
-          <Button variant="outline" size="sm" data-testid="admin-add-condition" @click="form.conditions.push('')">Add condition</Button>
+          <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">To keep the scripts of an Uptime Kuma monitor, paste its token.</p>
+          <div v-if="pushUrl" class="mt-3">
+            <div class="text-sm text-foreground dark:text-gray-200">Push URL</div>
+            <div class="mt-1 flex gap-2">
+              <input :value="pushUrl" readonly class="h-10 w-full border border-input bg-background px-3 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-testid="admin-push-url" @focus="$event.target.select()" />
+              <Button variant="outline" size="sm" data-testid="admin-copy-push-url" @click="copyText(pushUrl)">Copy</Button>
+            </div>
+            <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">
+              <template v-if="isPush">Call this URL at least every {{ form.heartbeatInterval.trim() || '1m' }}.</template>
+              Optional parameters: <span class="font-mono">status</span> (<span class="font-mono">up</span>, or anything else for a failure), <span class="font-mono">msg</span> and <span class="font-mono">ping</span> (in milliseconds).
+            </p>
+            <pre class="mt-2 overflow-x-auto border bg-muted/50 p-2 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" data-testid="admin-push-curl">curl -fsS "{{ pushUrl }}"</pre>
+          </div>
+          <p class="mt-2 text-xs text-muted-foreground dark:text-gray-400">
+            With a global key of the Push keys tab: <span class="break-all font-mono">{{ globalKeyUrl }}</span>
+          </p>
         </section>
 
-        <section>
-          <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Headers</h2>
-          <div v-for="(header, index) in form.headers" :key="`header-${index}`" class="mb-2 grid grid-cols-[1fr_2fr_auto] gap-2">
-            <Input v-model="header.name" placeholder="Name" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
-            <Input v-model="header.value" placeholder="Value" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
-            <Button variant="ghost" size="sm" aria-label="Remove header" @click="form.headers.splice(index, 1)">✕</Button>
-          </div>
-          <Button variant="outline" size="sm" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Add header</Button>
-        </section>
+        <template v-if="!isPush">
+          <section>
+            <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Conditions</h2>
+            <div v-for="(condition, index) in form.conditions" :key="`condition-${index}`" class="mb-2 flex gap-2">
+              <Input v-model="form.conditions[index]" placeholder="[STATUS] == 200" class="font-mono dark:border-gray-700" :data-testid="`admin-field-condition-${index}`" />
+              <Button variant="ghost" size="sm" aria-label="Remove condition" @click="form.conditions.splice(index, 1)">✕</Button>
+            </div>
+            <Button variant="outline" size="sm" data-testid="admin-add-condition" @click="form.conditions.push('')">Add condition</Button>
+          </section>
+
+          <section>
+            <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Headers</h2>
+            <div v-for="(header, index) in form.headers" :key="`header-${index}`" class="mb-2 grid grid-cols-[1fr_2fr_auto] gap-2">
+              <Input v-model="header.name" placeholder="Name" class="dark:border-gray-700" :data-testid="`admin-field-header-name-${index}`" />
+              <Input v-model="header.value" placeholder="Value" class="font-mono dark:border-gray-700" :data-testid="`admin-field-header-value-${index}`" />
+              <Button variant="ghost" size="sm" aria-label="Remove header" @click="form.headers.splice(index, 1)">✕</Button>
+            </div>
+            <Button variant="outline" size="sm" data-testid="admin-add-header" @click="form.headers.push({ name: '', value: '' })">Add header</Button>
+          </section>
+        </template>
 
         <section>
           <h2 class="mb-2 text-sm font-semibold text-foreground dark:text-gray-200">Alerts</h2>
@@ -147,7 +213,7 @@
 
       <div v-if="!readOnly" class="mt-6 flex flex-wrap gap-2">
         <Button variant="outline" :disabled="busy" data-testid="admin-validate" @click="validate">Validate</Button>
-        <Button variant="secondary" :disabled="busy" data-testid="admin-test" @click="test">Test</Button>
+        <Button v-if="!isPush" variant="secondary" :disabled="busy" data-testid="admin-test" @click="test">Test</Button>
         <Button :disabled="busy" data-testid="admin-save" @click="save">Save</Button>
       </div>
 
@@ -197,6 +263,20 @@ const tabs = [
   { label: 'YAML', value: 'yaml' },
 ]
 
+// Monitor types of the form (fork): the active types follow the scheme of the URL, push endpoints are passive
+const monitorTypes = [
+  { label: 'HTTP(s)', value: 'http', placeholder: 'https://example.com/health', conditions: ['[STATUS] == 200'] },
+  { label: 'TCP port', value: 'tcp', placeholder: 'tcp://example.com:443', conditions: ['[CONNECTED] == true'] },
+  { label: 'Ping (ICMP)', value: 'icmp', placeholder: 'icmp://example.com', conditions: ['[CONNECTED] == true'] },
+  { label: 'DNS', value: 'dns', placeholder: '8.8.8.8', conditions: ['[DNS_RCODE] == NOERROR'] },
+  { label: 'SSH', value: 'ssh', placeholder: 'ssh://example.com:22', conditions: ['[CONNECTED] == true'] },
+  { label: 'Push (passive)', value: 'push', placeholder: '', conditions: [] },
+]
+// Fields of the active endpoints, removed from the definition of a push endpoint
+const activeFields = ['url', 'method', 'interval', 'conditions', 'headers', 'client', 'body', 'graphql', 'dns', 'ssh', 'ui', 'extra-labels', 'push']
+const pushTokenAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+const maskedValue = '********'
+
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
@@ -213,6 +293,7 @@ const groupNames = ref([])
 const newGroup = ref(false)
 // Keys of the definition that the form does not edit (e.g. client, dns) are kept from this document
 const baseDocument = ref({})
+const monitorType = ref('http')
 
 const emptyForm = () => ({
   name: '',
@@ -226,12 +307,17 @@ const emptyForm = () => ({
   conditions: ['[STATUS] == 200'],
   headers: [],
   alerts: [],
+  acceptPush: false,
+  token: '',
+  heartbeatInterval: '',
 })
 
 const form = reactive(emptyForm())
 
 const isEdit = computed(() => props.endpointKey !== '')
 const readOnly = computed(() => source.value === 'config')
+const isPush = computed(() => monitorType.value === 'push')
+const receivesPush = computed(() => isPush.value || form.acceptPush)
 const title = computed(() => {
   if (!isEdit.value) {
     return 'New endpoint'
@@ -239,6 +325,37 @@ const title = computed(() => {
   return readOnly.value ? 'Endpoint from the configuration file' : 'Edit endpoint'
 })
 const alertTypeOptions = computed(() => alertTypes.value.map((type) => ({ label: type, value: type })))
+const monitorTypeOptions = computed(() => {
+  // Push endpoints and active endpoints cannot be converted into each other
+  const available = isEdit.value ? monitorTypes.filter((type) => (type.value === 'push') === isPush.value) : monitorTypes
+  return available.map((type) => ({ label: type.label, value: type.value, testid: `admin-type-${type.value}` }))
+})
+const urlPlaceholder = computed(() => (monitorTypes.find((type) => type.value === monitorType.value) || monitorTypes[0]).placeholder)
+
+const generatePushToken = () => {
+  const characters = []
+  while (characters.length < 32) {
+    const bytes = new Uint8Array(64)
+    window.crypto.getRandomValues(bytes)
+    for (const byte of bytes) {
+      // 248 is a multiple of the 62 characters, so that every character is equally likely
+      if (byte < 248 && characters.length < 32) {
+        characters.push(pushTokenAlphabet[byte % pushTokenAlphabet.length])
+      }
+    }
+  }
+  return characters.join('')
+}
+
+const currentKey = computed(() => (form.name.trim() ? buildEndpointKey(form.group.trim(), form.name.trim()) : ''))
+const pushUrl = computed(() => {
+  const token = form.token.trim()
+  if (!token || token === maskedValue) {
+    return ''
+  }
+  return `${window.location.origin}/api/push/${encodeURIComponent(token)}?status=up&msg=OK&ping=`
+})
+const globalKeyUrl = computed(() => `${window.location.origin}/api/push/<global-key>/${encodeURIComponent(currentKey.value || '<endpoint-key>')}?status=up&msg=OK&ping=`)
 
 // Status pages of the configuration file that select the endpoint being edited by its current key
 const configPagesOfKey = ref([])
@@ -247,8 +364,7 @@ const keyChange = computed(() => {
   if (!isEdit.value || readOnly.value || mode.value !== 'form' || !form.name.trim()) {
     return ''
   }
-  const key = buildEndpointKey(form.group.trim(), form.name.trim())
-  return key !== props.endpointKey ? key : ''
+  return currentKey.value !== props.endpointKey ? currentKey.value : ''
 })
 
 // Groups are trimmed, so a value with a leading space never matches an existing group
@@ -264,6 +380,28 @@ const groupChoice = computed({
     newGroup.value = value === NEW_GROUP
     form.group = newGroup.value ? '' : value
   },
+})
+
+watch(monitorType, (type, previousType) => {
+  if (isEdit.value) {
+    return
+  }
+  if (type === 'push' && !form.token) {
+    form.token = generatePushToken()
+  }
+  // The default conditions follow the type, unless they were changed
+  const previous = monitorTypes.find((candidate) => candidate.value === previousType)
+  const next = monitorTypes.find((candidate) => candidate.value === type)
+  if (previous && next && next.conditions.length && JSON.stringify(form.conditions) === JSON.stringify(previous.conditions)) {
+    form.conditions = [...next.conditions]
+  }
+})
+
+watch(() => form.acceptPush, (enabled) => {
+  // The token is optional for active endpoints: it can be cleared to accept only the global push keys
+  if (enabled && !loading.value && !form.token) {
+    form.token = generatePushToken()
+  }
 })
 
 const loadGroupNames = async () => {
@@ -285,7 +423,21 @@ const clearMessages = () => {
   versionConflict.value = false
 }
 
+const monitorTypeOfDocument = (document) => {
+  if (document.type === 'push') {
+    return 'push'
+  }
+  const url = String(document.url || '').toLowerCase()
+  for (const scheme of ['tcp', 'icmp', 'ssh']) {
+    if (url.startsWith(`${scheme}://`)) {
+      return scheme
+    }
+  }
+  return document.dns ? 'dns' : 'http'
+}
+
 const formFromDocument = (document) => {
+  const isPushDocument = document.type === 'push'
   Object.assign(form, {
     name: document.name || '',
     group: document.group || '',
@@ -307,7 +459,11 @@ const formFromDocument = (document) => {
         original: alert,
       }))
       : [],
+    acceptPush: Boolean(document.push && document.push.enabled),
+    token: String((isPushDocument ? document.token : document.push && document.push.token) || ''),
+    heartbeatInterval: String((document.heartbeat && document.heartbeat.interval) || ''),
   })
+  monitorType.value = monitorTypeOfDocument(document)
   newGroup.value = form.group !== '' && !groupNames.value.includes(form.group)
 }
 
@@ -323,26 +479,45 @@ const documentFromForm = () => {
   const document = JSON.parse(JSON.stringify(baseDocument.value || {}))
   setOrDelete(document, 'name', form.name.trim())
   setOrDelete(document, 'group', form.group.trim())
-  setOrDelete(document, 'url', form.url.trim())
-  setOrDelete(document, 'method', form.method)
-  setOrDelete(document, 'interval', form.interval.trim())
   if (form.enabled) {
     delete document.enabled
   } else {
     document.enabled = false
   }
-  // The other client options (e.g. oauth2, timeout) are only edited in YAML mode and kept as they are
-  const client = { ...(document.client || {}) }
-  setOrDelete(client, 'insecure', form.insecure ? true : null)
-  setOrDelete(client, 'ignore-redirect', form.followRedirects ? null : true)
-  setOrDelete(document, 'client', Object.keys(client).length ? client : null)
-  const conditions = form.conditions.map((condition) => condition.trim()).filter(Boolean)
-  setOrDelete(document, 'conditions', conditions.length ? conditions : null)
-  const headers = {}
-  form.headers.filter((header) => header.name.trim()).forEach((header) => {
-    headers[header.name.trim()] = header.value
-  })
-  setOrDelete(document, 'headers', Object.keys(headers).length ? headers : null)
+  if (isPush.value) {
+    activeFields.forEach((field) => delete document[field])
+    document.type = 'push'
+    setOrDelete(document, 'token', form.token.trim())
+    const heartbeat = { ...(document.heartbeat || {}) }
+    setOrDelete(heartbeat, 'interval', form.heartbeatInterval.trim())
+    setOrDelete(document, 'heartbeat', Object.keys(heartbeat).length ? heartbeat : null)
+  } else {
+    delete document.type
+    delete document.token
+    delete document.heartbeat
+    setOrDelete(document, 'url', form.url.trim())
+    setOrDelete(document, 'method', monitorType.value === 'http' ? form.method : null)
+    setOrDelete(document, 'interval', form.interval.trim())
+    // The other client options (e.g. oauth2, timeout) are only edited in YAML mode and kept as they are
+    const client = { ...(document.client || {}) }
+    setOrDelete(client, 'insecure', form.insecure ? true : null)
+    setOrDelete(client, 'ignore-redirect', form.followRedirects ? null : true)
+    setOrDelete(document, 'client', Object.keys(client).length ? client : null)
+    const conditions = form.conditions.map((condition) => condition.trim()).filter(Boolean)
+    setOrDelete(document, 'conditions', conditions.length ? conditions : null)
+    const headers = {}
+    form.headers.filter((header) => header.name.trim()).forEach((header) => {
+      headers[header.name.trim()] = header.value
+    })
+    setOrDelete(document, 'headers', Object.keys(headers).length ? headers : null)
+    if (form.acceptPush) {
+      const push = { enabled: true }
+      setOrDelete(push, 'token', form.token.trim())
+      document.push = push
+    } else {
+      delete document.push
+    }
+  }
   const alerts = form.alerts.filter((alert) => alert.type).map((alert) => {
     const result = { ...(alert.original || {}), type: alert.type }
     setOrDelete(result, 'description', alert.description.trim())
@@ -361,6 +536,16 @@ const addAlert = () => {
   form.alerts.push({ type: alertTypes.value[0] || '', description: '', failureThreshold: '', successThreshold: '', sendOnResolved: false, original: null })
 }
 
+const copyText = async (text) => {
+  clearMessages()
+  try {
+    await navigator.clipboard.writeText(text)
+    success.value = 'Copied to the clipboard.'
+  } catch (e) {
+    success.value = 'Select the text and copy it.'
+  }
+}
+
 const loadDetail = async () => {
   const { data } = await adminApi.get(props.endpointKey)
   source.value = data.source
@@ -368,6 +553,10 @@ const loadDetail = async () => {
   baseDocument.value = data.definition.json || {}
   yamlText.value = data.definition.yaml || ''
   formFromDocument(baseDocument.value)
+  // The token is masked in the definition and returned apart, to show the push URL
+  if (data.pushToken) {
+    form.token = data.pushToken
+  }
   if (readOnly.value) {
     mode.value = 'yaml'
     return

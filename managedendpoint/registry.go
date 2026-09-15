@@ -12,7 +12,6 @@ import (
 	"gatus/v5/config/endpoint"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
-	"gatus/v5/watchdog"
 	"github.com/TwiN/logr"
 )
 
@@ -21,8 +20,14 @@ type State struct {
 	// Stored is the persisted managed endpoint
 	Stored *common.ManagedEndpoint
 
-	// Endpoint is the validated endpoint, or nil if the managed endpoint is in conflict or invalid
+	// Endpoint is the validated active endpoint, or nil if the managed endpoint is a push endpoint, in conflict or invalid
 	Endpoint *endpoint.Endpoint
+
+	// PushOption is the push option of the validated active endpoint, if any (fork)
+	PushOption *PushOption
+
+	// Push is the validated push endpoint, or nil if the managed endpoint is active, in conflict or invalid (fork)
+	Push *endpoint.ExternalEndpoint
 
 	// ConflictOrigin describes what uses the same key in the configuration file, when the managed endpoint is in conflict
 	ConflictOrigin string
@@ -39,6 +44,17 @@ type State struct {
 // InConflict returns whether the key of the managed endpoint is used by the configuration file
 func (state *State) InConflict() bool {
 	return len(state.ConflictOrigin) > 0
+}
+
+// Parsed returns the validated endpoint of the state, which is not valid if the managed endpoint is in conflict or
+// invalid
+func (state *State) Parsed() *Parsed {
+	return &Parsed{Endpoint: state.Endpoint, PushOption: state.PushOption, Push: state.Push}
+}
+
+// newStateFromPrepared returns the state of a managed endpoint whose definition was just validated
+func newStateFromPrepared(stored *common.ManagedEndpoint, prepared *Prepared, effective []byte) *State {
+	return &State{Stored: stored, Endpoint: prepared.Endpoint, PushOption: prepared.PushOption, Push: prepared.Push, Effective: effective}
 }
 
 var (
@@ -102,20 +118,20 @@ func newState(stored *common.ManagedEndpoint, cfg *config.Config, managedKeys, a
 		return state
 	}
 	prepared, err := Prepare([]byte(stored.Definition), Context{Config: cfg, ManagedKeys: managedKeys, AllowedExtraLabels: allowedExtraLabels})
-	if err == nil && prepared.Endpoint.Key() != stored.Key {
-		err = fmt.Errorf("%w: the key of the definition (%s) does not match the stored key", ErrInvalidDefinition, prepared.Endpoint.Key())
+	if err == nil && prepared.Key() != stored.Key {
+		err = fmt.Errorf("%w: the key of the definition (%s) does not match the stored key", ErrInvalidDefinition, prepared.Key())
 	}
 	var effective []byte
 	if err == nil {
-		effective, err = Effective(prepared.Endpoint)
+		effective, err = effectiveDefinition(&prepared.Parsed)
 	}
 	if err != nil {
 		state.Err = err
 		logr.Errorf("[managedendpoint.Load] Managed endpoint with key=%s is not monitored because it is invalid: %s", stored.Key, err.Error())
 		return state
 	}
-	state.Endpoint, state.Effective = prepared.Endpoint, effective
-	watchdog.RestorePersistedTriggeredAlerts(prepared.Endpoint)
+	state = newStateFromPrepared(stored, prepared, effective)
+	restoreTriggeredAlerts(&prepared.Parsed)
 	return state
 }
 
@@ -123,12 +139,13 @@ func newState(stored *common.ManagedEndpoint, cfg *config.Config, managedKeys, a
 // while the lifecycle cycle is still in progress.
 func StartMonitoring() {
 	for _, state := range List() {
-		if state.Endpoint == nil || !state.Endpoint.IsEnabled() {
+		parsed := state.Parsed()
+		if !parsed.IsEnabled() {
 			continue
 		}
 		// Same spacing as watchdog.Monitor, to prevent many requests from running at the same time
 		time.Sleep(222 * time.Millisecond)
-		if err := watchdog.StartEndpoint(state.Endpoint, watchdog.SourceAdmin); err != nil {
+		if err := startMonitoring(parsed); err != nil {
 			logr.Errorf("[managedendpoint.StartMonitoring] Failed to start monitoring managed endpoint with key=%s: %s", state.Stored.Key, err.Error())
 		}
 	}
@@ -188,6 +205,83 @@ func configDefinition(key string) []byte {
 
 func publish(snapshot map[string]*State) {
 	states.Store(&snapshot)
+	pushTargets.Store(newPushIndex(snapshot))
+}
+
+// PushTarget is a managed endpoint that receives push (fork)
+type PushTarget struct {
+	Key string
+
+	// Push is the push endpoint, or nil for an active endpoint with the push option
+	Push *endpoint.ExternalEndpoint
+}
+
+// pushIndex indexes the valid, enabled and not in conflict managed endpoints that receive push
+type pushIndex struct {
+	byKey map[string]PushTarget
+
+	// byToken has the tokens used by exactly one managed endpoint, with its key
+	byToken map[string]string
+
+	// tokens has the push tokens by key
+	tokens map[string]string
+}
+
+// pushTargets is the push index of the current snapshot
+var pushTargets atomic.Pointer[pushIndex]
+
+func newPushIndex(snapshot map[string]*State) *pushIndex {
+	index := &pushIndex{byKey: make(map[string]PushTarget), byToken: make(map[string]string), tokens: make(map[string]string)}
+	ambiguous := make(map[string]struct{})
+	for key, state := range snapshot {
+		parsed := state.Parsed()
+		if !parsed.IsEnabled() || !parsed.ReceivesPush() {
+			continue
+		}
+		index.byKey[key] = PushTarget{Key: key, Push: parsed.Push}
+		token := parsed.PushToken()
+		if len(token) == 0 {
+			continue
+		}
+		index.tokens[key] = token
+		if _, isAmbiguous := ambiguous[token]; isAmbiguous {
+			continue
+		}
+		if _, used := index.byToken[token]; used {
+			delete(index.byToken, token)
+			ambiguous[token] = struct{}{}
+			continue
+		}
+		index.byToken[token] = key
+	}
+	return index
+}
+
+// PushTargetByKey returns the managed endpoint with the given key, if it receives push
+func PushTargetByKey(key string) (PushTarget, bool) {
+	if index := pushTargets.Load(); index != nil {
+		target, exists := index.byKey[key]
+		return target, exists
+	}
+	return PushTarget{}, false
+}
+
+// PushTargetByToken returns the managed endpoint whose push token is token
+func PushTargetByToken(token string) (PushTarget, bool) {
+	if index := pushTargets.Load(); index != nil {
+		if key, exists := index.byToken[token]; exists {
+			return index.byKey[key], true
+		}
+	}
+	return PushTarget{}, false
+}
+
+// PushTokenOf returns the push token of the managed endpoint with the given key, if it receives push with a token
+func PushTokenOf(key string) string {
+	if index := pushTargets.Load(); index != nil {
+		return index.tokens[key]
+	}
+	return ""
 }
 
 // putState replaces the state of a managed endpoint in a new snapshot. statesMutex must be held.

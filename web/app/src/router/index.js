@@ -6,6 +6,7 @@ import AdminEndpoints from '@/views/admin/AdminEndpoints';
 import AdminEndpointForm from '@/views/admin/AdminEndpointForm';
 import AdminStatusPages from '@/views/admin/AdminStatusPages';
 import AdminStatusPageForm from '@/views/admin/AdminStatusPageForm';
+import AdminPushKeys from '@/views/admin/AdminPushKeys';
 import StatusPage from '@/views/public/StatusPage';
 import StatusPageEndpoint from '@/views/public/StatusPageEndpoint';
 
@@ -58,6 +59,12 @@ const routes = [
         name: 'AdminStatusPageEdit',
         component: AdminStatusPageForm,
         props: true
+    },
+    // Global push keys (fork)
+    {
+        path: '/admin/push-keys',
+        name: 'AdminPushKeys',
+        component: AdminPushKeys
     },
     // Public status pages (fork): no login screen and no call to /api/v1/config, see App.vue
     {

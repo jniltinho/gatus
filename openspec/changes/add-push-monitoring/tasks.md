@@ -39,31 +39,31 @@
   - 429 depois de 30 rejeitados com envio válido aceito.
 
   Comparar as respostas com as do Kuma 2.5.4.
-- [ ] 1.9 PR do marco 1 no `jniltinho/gatus`, com CI verde
+- [x] 1.9 PR do marco 1 no `jniltinho/gatus`, com CI verde
 
 ## 2. Marco 2: endpoints Push e chaves pela administração
 
-- [ ] 2.1 `managedendpoint.Parse` com `type` e `endpoint.ExternalEndpoint`:
+- [x] 2.1 `managedendpoint.Parse` com `type` e `endpoint.ExternalEndpoint`:
   - campos permitidos e rejeição de campos do outro tipo;
   - `State.Push`;
   - token gerado com `crypto/rand` e validação de 8 a 128 caracteres;
   - campo `push` (`enabled` e `token` opcional) em definições ativas, retirado antes da decodificação estrita;
   - unicidade do token entre o YAML e a web (409);
   - testes.
-- [ ] 2.2 Ciclo dos endpoints Push gerenciados:
+- [x] 2.2 Ciclo dos endpoints Push gerenciados:
   - criação, alteração, habilitação, remoção e renomeação usando o registro de heartbeat;
   - índice de tokens atualizado no snapshot;
   - restauração de alertas;
   - `Test` com 400;
   - `statuspage.Endpoints()` com os Push gerenciados.
-- [ ] 2.3 Máscara e restauração de `token` na definição e `pushToken` no `Detail`. `Service.List`/`Get` incluem os external endpoints do YAML somente para leitura, com o token mascarado.
-- [ ] 2.4 Tabela `push_keys` nos três dialetos e `store.PushKeyStore` (`List`, `Create`, `Delete` com `apply`); testes nos 4 bancos e `mysql_schema_test.go`.
-- [ ] 2.5 Pacote `pushkey`:
+- [x] 2.3 Máscara e restauração de `token` na definição e `pushToken` no `Detail`. `Service.List`/`Get` incluem os external endpoints do YAML somente para leitura, com o token mascarado.
+- [x] 2.4 Tabela `push_keys` nos três dialetos e `store.PushKeyStore` (`List`, `Create`, `Delete` com `apply`); testes nos 4 bancos e `mysql_schema_test.go`.
+- [x] 2.5 Pacote `pushkey`:
   - serviço de criação (chave gerada e devolvida uma vez) e revogação;
   - snapshot publicado depois do commit e união com as chaves do YAML;
   - rotas `GET`/`POST /api/v1/admin/push-keys` e `DELETE /api/v1/admin/push-keys/{id}`;
   - auditoria sem a chave.
-- [ ] 2.6 Testes de API:
+- [x] 2.6 Testes de API:
   - criação de Push sem token e com token do Kuma;
   - token repetido (409);
   - definição Push com `url` (400);
@@ -72,7 +72,7 @@
   - chave criada, usada e revogada (404 depois);
   - chave do YAML somente leitura;
   - status page com Push gerenciado.
-- [ ] 2.7 Frontend:
+- [x] 2.7 Frontend:
   - `AdminEndpointForm.vue`: tipo de monitor, campos do Push, URL copiável, exemplo de `curl`, gerar e colar token, sem Testar, opção "Accept push" nos ativos, desligada por padrão, aviso de renomeação para URLs com chave;
   - `AdminEndpoints.vue`: tipo `PUSH` e endpoints do YAML;
   - `AdminPushKeys.vue` com exibição única e confirmação de revogação;

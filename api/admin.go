@@ -43,6 +43,8 @@ func registerAdminRoutes(router fiber.Router, cfg *config.Config) {
 	router.Delete("/endpoints/:key", handler.delete)
 	// Status pages (see api/admin_status_pages.go)
 	registerAdminStatusPageRoutes(router, cfg.Security)
+	// Global push keys (see api/admin_push_keys.go)
+	registerAdminPushKeyRoutes(router, cfg.Security)
 }
 
 func (h *adminHandler) metadata(c *fiber.Ctx) error {
@@ -171,7 +173,8 @@ func adminServiceError(c *fiber.Ctx, err error) error {
 	case errors.Is(err, managedendpoint.ErrNotFound), errors.Is(err, common.ErrManagedEndpointNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, managedendpoint.ErrReadOnly), errors.Is(err, managedendpoint.ErrKeyConflict), errors.Is(err, common.ErrManagedEndpointAlreadyExists),
-		errors.Is(err, common.ErrEndpointKeyInUse), errors.Is(err, common.ErrManagedStatusPageVersionMismatch):
+		errors.Is(err, common.ErrEndpointKeyInUse), errors.Is(err, common.ErrManagedStatusPageVersionMismatch),
+		errors.Is(err, managedendpoint.ErrPushTokenInUse):
 		// A managed status page changed by another instance during a rename is a conflict of the rename, not of the
 		// version of the endpoint
 		status = http.StatusConflict
@@ -185,7 +188,8 @@ func adminServiceError(c *fiber.Ctx, err error) error {
 		status = http.StatusServiceUnavailable
 	case errors.Is(err, managedendpoint.ErrEmptyDefinition), errors.Is(err, managedendpoint.ErrInvalidDefinition),
 		errors.Is(err, managedendpoint.ErrFieldNotAllowed), errors.Is(err, managedendpoint.ErrAlertProviderNotConfigured),
-		errors.Is(err, managedendpoint.ErrInvalidAlertOverride), errors.Is(err, managedendpoint.ErrExtraLabelNotAllowed):
+		errors.Is(err, managedendpoint.ErrInvalidAlertOverride), errors.Is(err, managedendpoint.ErrExtraLabelNotAllowed),
+		errors.Is(err, managedendpoint.ErrPushNotTestable), errors.Is(err, managedendpoint.ErrTypeChanged):
 		status = http.StatusBadRequest
 	}
 	if status == http.StatusInternalServerError {

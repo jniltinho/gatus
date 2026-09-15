@@ -102,6 +102,7 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 		app.Get("/admin/status-pages", SinglePageApplication(cfg.UI))
 		app.Get("/admin/status-pages/new", SinglePageApplication(cfg.UI))
 		app.Get("/admin/status-pages/:slug/edit", SinglePageApplication(cfg.UI))
+		app.Get("/admin/push-keys", SinglePageApplication(cfg.UI))
 	}
 	// Health endpoint
 	healthHandler := health.Handler().WithJSON(true)

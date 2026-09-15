@@ -37,6 +37,9 @@ func MaskSecrets(document map[string]any) {
 	maskValue(nestedMap(document, "client", "oauth2"), "client-secret")
 	maskValue(nestedMap(document, "ssh"), "password")
 	maskValue(nestedMap(document, "ssh"), "private-key")
+	// Fork: push tokens, returned apart by the administration API (see Detail.PushToken)
+	maskValue(document, "token")
+	maskValue(nestedMap(document, pushField), "token")
 	if alerts, ok := document["alerts"].([]any); ok {
 		for _, item := range alerts {
 			if alert, ok := item.(map[string]any); ok {
@@ -69,6 +72,8 @@ func RestoreMaskedSecrets(submitted, stored map[string]any) {
 	restoreValue(nestedMap(submitted, "client", "oauth2"), nestedMap(stored, "client", "oauth2"), "client-secret")
 	restoreValue(nestedMap(submitted, "ssh"), nestedMap(stored, "ssh"), "password")
 	restoreValue(nestedMap(submitted, "ssh"), nestedMap(stored, "ssh"), "private-key")
+	restoreValue(submitted, stored, "token")
+	restoreValue(nestedMap(submitted, pushField), nestedMap(stored, pushField), "token")
 	submittedAlerts, _ := submitted["alerts"].([]any)
 	storedAlerts, _ := stored["alerts"].([]any)
 	for i, item := range submittedAlerts {

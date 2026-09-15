@@ -75,9 +75,14 @@ func StartExternalEndpoint(ee *endpoint.ExternalEndpoint, source Source) error {
 // serialized with the other results of the endpoint (fork). A pushed result also restarts the interval of the heartbeat.
 // It returns the error of the storage, in which case nothing else is done.
 func ProcessExternalEndpointResult(ee *endpoint.ExternalEndpoint, result *endpoint.Result, cfg *config.Config, pushed bool) error {
-	key := ee.Key()
-	unlock := lockEndpointResults(key)
+	unlock := lockEndpointResults(ee.Key())
 	defer unlock()
+	return processExternalEndpointResult(ee, result, cfg, pushed)
+}
+
+// processExternalEndpointResult is ProcessExternalEndpointResult with the lock of the key already held
+func processExternalEndpointResult(ee *endpoint.ExternalEndpoint, result *endpoint.Result, cfg *config.Config, pushed bool) error {
+	key := ee.Key()
 	convertedEndpoint := ee.ToEndpoint()
 	if err := store.Get().InsertEndpointResult(convertedEndpoint, result); err != nil {
 		return err
@@ -109,13 +114,17 @@ func SubmitEndpointResult(key string, result *endpoint.Result) error {
 	endpoints.mu.Lock()
 	entry, exists := endpoints.entries[key]
 	endpoints.mu.Unlock()
-	if !exists || entry.endpoint == nil {
+	if !exists {
 		return ErrEndpointNotMonitored
 	}
 	unlock := lockEndpointResults(key)
 	defer unlock()
 	if entry.ctx.Err() != nil {
 		return ErrEndpointNotMonitored
+	}
+	// Fork: an external endpoint whose heartbeat is monitored, e.g. a push endpoint managed through the administration
+	if entry.external != nil {
+		return processExternalEndpointResult(entry.external, result, endpoints.cfg, true)
 	}
 	ep, cfg := entry.endpoint, endpoints.cfg
 	if err := store.Get().InsertEndpointResult(ep, result); err != nil {

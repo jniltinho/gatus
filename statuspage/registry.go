@@ -231,6 +231,10 @@ func Endpoints() []EndpointRef {
 		if ep := state.Endpoint; ep != nil && ep.IsEnabled() {
 			refs = append(refs, EndpointRef{Key: ep.Key(), Name: ep.Name, Group: ep.Group})
 		}
+		// Fork: push endpoints managed through the administration
+		if pushEndpoint := state.Push; pushEndpoint != nil && pushEndpoint.IsEnabled() {
+			refs = append(refs, EndpointRef{Key: pushEndpoint.Key(), Name: pushEndpoint.Name, Group: pushEndpoint.Group})
+		}
 	}
 	return refs
 }
