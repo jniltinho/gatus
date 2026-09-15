@@ -25,6 +25,12 @@ PASSWORD_HASH='JDJhJDEwJHo1LnE5empYYkN5Vm1Vd1RmNXZPMS5SeWRCdlc3UlMxMXBHdmpwcDBUU
 for command in agent-browser openssl python3; do
   command -v "$command" >/dev/null || { echo "$command not found"; exit 1; }
 done
+for port in "$PORT" "$TLS_PORT"; do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    echo "port $port is already in use: stop the process using it or set E2E_PORT/E2E_TLS_PORT"
+    exit 1
+  fi
+done
 mkdir -p "$PRINTS"
 
 echo "==> Building"
@@ -40,7 +46,8 @@ context.load_cert_chain("$WORK/cert.pem", "$WORK/key.pem")
 server.socket = context.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PYTHON
-(cd "$WORK" && python3 https.py >/dev/null 2>&1) &
+# Started directly, so that HTTPS_PID is the PID of python and the cleanup stops the server
+python3 "$WORK/https.py" >/dev/null 2>&1 &
 HTTPS_PID=$!
 
 cat > "$WORK/config.yaml" <<CONFIG

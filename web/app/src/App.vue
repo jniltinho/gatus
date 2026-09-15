@@ -15,12 +15,12 @@
       <Loading size="lg" />
     </div>
 
-    <!-- Main App Container -->
+    <!-- Main App Container (fork: compact header, same height on the dashboard and on the administration) -->
     <!-- Fork: the lists of the administration fill the window on larger screens and scroll inside their tables -->
     <div v-else-if="!config || !config.oidc || config.authenticated" :class="['relative', isAdminList && 'md:flex md:h-screen md:flex-col md:overflow-hidden']">
       <!-- Header -->
       <header :class="['border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/60', isAdminList && 'md:shrink-0']">
-        <div :class="['container mx-auto px-4 max-w-7xl', isAdmin ? 'py-2' : 'py-4']">
+        <div class="container mx-auto px-4 py-2 max-w-7xl">
           <div class="flex items-center justify-between">
             <!-- Logo and Title -->
             <div class="flex items-center gap-4">
@@ -30,7 +30,7 @@
                 target="_blank"
                 :class="['flex items-center gap-3', link && 'hover:opacity-80 transition-opacity']"
               >
-                <div :class="['flex items-center justify-center', isAdmin ? 'w-8 h-8' : 'w-12 h-12']">
+                <div class="flex items-center justify-center w-8 h-8">
                   <img
                     v-if="logo"
                     :src="logo"
@@ -45,10 +45,7 @@
                   />
                 </div>
                 <div>
-                  <h1 :class="['font-bold tracking-tight', isAdmin ? 'text-lg' : 'text-2xl']">{{ header }}</h1>
-                  <p v-if="buttons && buttons.length && !isAdmin" class="text-sm text-muted-foreground">
-                    System Monitoring Dashboard
-                  </p>
+                  <h1 class="text-lg font-bold tracking-tight">{{ header }}</h1>
                 </div>
               </component>
             </div>
@@ -190,8 +187,8 @@ const router = useRouter()
 // The layout depends on the route, so nothing is shown before the router resolves the first one
 const routerReady = ref(false)
 const isPublic = computed(() => route.meta.public === true)
-// Administration (fork): compact header on every page, and a layout that fills the window on the lists
-const isAdmin = computed(() => route.meta.admin === true)
+// Fork: the header is compact on every page (dashboard and administration), and the lists of the administration fill
+// the window
 const isAdminList = computed(() => route.meta.adminList === true)
 let configLoadingStarted = false
 

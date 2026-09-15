@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard-container bg-background">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <div class="container mx-auto px-4 py-4 max-w-7xl">
       <div class="mb-6">
-        <Button variant="ghost" class="mb-4" @click="goBack">
+        <Button variant="ghost" size="sm" class="-ml-2 mb-2" @click="goBack">
           <ArrowLeft class="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
@@ -10,8 +10,8 @@
         <div v-if="endpointStatus && endpointStatus.name" class="space-y-6">
           <div class="flex items-start justify-between">
             <div>
-              <h1 class="text-4xl font-bold tracking-tight">{{ endpointStatus.name }}</h1>
-              <div class="flex items-center gap-3 text-muted-foreground mt-2">
+              <h1 class="text-2xl font-semibold tracking-tight">{{ endpointStatus.name }}</h1>
+              <div class="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                 <span v-if="endpointStatus.group">Group: {{ endpointStatus.group }}</span>
                 <span v-if="endpointStatus.group && hostname">•</span>
                 <span v-if="hostname">{{ hostname }}</span>
