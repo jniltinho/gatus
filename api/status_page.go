@@ -31,6 +31,8 @@ func registerStatusPageRoutes(app *fiber.App, unprotectedAPIRouter fiber.Router,
 	if cfg.StatusPages.IsEnabled() {
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug", statusPageHandler(notFound))
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key", statusPageEndpointHandler(notFound))
+		// Fork: notifications of the new results of an endpoint of the page in real time, see api/live_updates.go
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/events", statusPageEndpointEventsHandler(notFound, cfg.StatusPages.TrustedProxyPrefixes()))
 	}
 	unprotectedAPIRouter.All("/v1/status-pages", notFound)
 	unprotectedAPIRouter.All("/v1/status-pages/*", notFound)

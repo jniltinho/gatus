@@ -42,7 +42,7 @@
                   <Button
                     variant="ghost"
                     size="icon"
-                    @click="fetchData"
+                    @click="fetchData()"
                     title="Refresh data"
                     :disabled="isRefreshing"
                   >
@@ -52,9 +52,10 @@
               </div>
             </CardHeader>
             <CardContent>
+              <!-- Fork: the bars, the numbers and the chart always show the latest results (page 1), whatever the page of the table -->
               <EndpointCard
-                v-if="endpointStatus"
-                :endpoint="endpointStatus"
+                v-if="currentStatus"
+                :endpoint="currentStatus"
                 :maxResults="resultPageSize"
                 :showAverageResponseTime="showAverageResponseTime"
                 @showTooltip="showTooltip"
@@ -65,10 +66,10 @@
 
           <!-- Fork: numbers of the endpoint, in the place of the cards and of the uptime badges of the original Gatus -->
           <DetailsSummary
-            :push="endpointStatus.push === true"
-            :current-response-time="endpointStatus.currentResponseTime"
-            :uptime="endpointStatus.uptime"
-            :response-time="endpointStatus.responseTime"
+            :push="(currentStatus && currentStatus.push) === true"
+            :current-response-time="currentStatus ? currentStatus.currentResponseTime : null"
+            :uptime="currentStatus ? currentStatus.uptime : null"
+            :response-time="currentStatus ? currentStatus.responseTime : null"
           />
 
           <Card v-if="showResponseTimeChartAndBadges" data-testid="response-time-trend">
@@ -87,12 +88,13 @@
             </CardHeader>
             <CardContent>
               <ResponseTimeChart
-                v-if="endpointStatus && endpointStatus.key"
-                :endpointKey="endpointStatus.key"
+                v-if="currentStatus && currentStatus.key"
+                :endpointKey="currentStatus.key"
                 :duration="selectedChartDuration"
                 :serverUrl="serverUrl"
-                :events="endpointStatus.events || []"
-                :results="(currentStatus && currentStatus.results) || []"
+                :events="currentStatus.events || []"
+                :results="currentStatus.results || []"
+                :refreshKey="latestResult ? latestResult.timestamp : null"
               />
             </CardContent>
           </Card>
@@ -158,12 +160,12 @@
       </div>
     </div>
 
-    <Settings @refreshData="fetchData" />
+    <Settings @refreshData="fetchData()" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, RefreshCw, ArrowUpCircle, ArrowDownCircle, PlayCircle, Activity, Timer } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -179,6 +181,7 @@ import DetailsSummary from '@/components/DetailsSummary.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
 import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
+import { watchEndpointResults } from '@/utils/liveUpdates'
 
 const router = useRouter()
 const route = useRoute()
@@ -231,72 +234,118 @@ const toggleShowAverageResponseTime = () => {
   localStorage.setItem('gatus:show-average-response-time', showAverageResponseTime.value ? 'true' : 'false')
 }
 
-const fetchData = async () => {
-  isRefreshing.value = true
+// describeEvents returns the events of the endpoint, from the newest to the oldest, with their texts
+const describeEvents = (rawEvents) => {
+  let processedEvents = []
+  if (rawEvents && rawEvents.length > 0) {
+    for (let i = rawEvents.length - 1; i >= 0; i--) {
+      let event = rawEvents[i]
+      if (i === rawEvents.length - 1) {
+        if (event.type === 'UNHEALTHY') {
+          event.fancyText = 'Endpoint is unhealthy'
+        } else if (event.type === 'HEALTHY') {
+          event.fancyText = 'Endpoint is healthy'
+        } else if (event.type === 'START') {
+          event.fancyText = 'Monitoring started'
+        }
+      } else {
+        let nextEvent = rawEvents[i + 1]
+        if (event.type === 'HEALTHY') {
+          event.fancyText = 'Endpoint became healthy'
+        } else if (event.type === 'UNHEALTHY') {
+          if (nextEvent) {
+            event.fancyText = 'Endpoint was unhealthy for ' + generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp)
+          } else {
+            event.fancyText = 'Endpoint became unhealthy'
+          }
+        } else if (event.type === 'START') {
+          event.fancyText = 'Monitoring started'
+        }
+      }
+      event.fancyTimeAgo = generatePrettyTimeAgo(event.timestamp)
+      processedEvents.push(event)
+    }
+  }
+  return processedEvents
+}
+
+// Fork: generation of the requests of fetchData. A response is only applied when no newer request was applied before
+// it, so that a response that arrives out of order (notification, periodic refresh or click) is discarded
+let requestGeneration = 0
+let appliedGeneration = 0
+let refreshingGeneration = 0
+// Fork: real-time channel of the endpoint, see utils/liveUpdates.js
+let liveUpdates = null
+
+const fetchStatuses = (key, page) => fetch(`/api/v1/endpoints/${key}/statuses?page=${page}&pageSize=${resultPageSize}`, {
+  credentials: 'include',
+  headers: PROTECTED_API_HEADERS
+})
+
+// fetchData fetches the page of results of the table and, on another page, also the first page, which feeds the bars,
+// the numbers and the chart. With silent, used by the real-time notifications, the refresh button does not spin.
+const fetchData = async ({ silent = false } = {}) => {
+  const generation = ++requestGeneration
+  const key = route.params.key
+  const page = currentPage.value
+  if (!silent) {
+    refreshingGeneration = generation
+    isRefreshing.value = true
+  }
   try {
-    const response = await fetch(`/api/v1/endpoints/${route.params.key}/statuses?page=${currentPage.value}&pageSize=${resultPageSize}`, {
-      credentials: 'include',
-      headers: PROTECTED_API_HEADERS
-    })
-    if (response.status === 401) {
+    const [pageResponse, firstPageResponse] = await Promise.all(page === 1 ? [fetchStatuses(key, page)] : [fetchStatuses(key, page), fetchStatuses(key, 1)])
+    if (pageResponse.status === 401 || (firstPageResponse && firstPageResponse.status === 401)) {
       notifyUnauthorized()
       return
     }
-
-    if (response.status === 200) {
-      const data = await response.json()
-      endpointStatus.value = data
-      
-      // Always update currentStatus when on page 1 (including when returning to it)
-      if (currentPage.value === 1) {
-        currentStatus.value = data
+    if (pageResponse.status !== 200) {
+      console.error('[Details][fetchData] Error:', await pageResponse.text())
+      return
+    }
+    const data = await pageResponse.json()
+    let firstPageData = page === 1 ? data : null
+    if (firstPageResponse) {
+      if (firstPageResponse.status === 200) {
+        firstPageData = await firstPageResponse.json()
+      } else {
+        console.error('[Details][fetchData] Error:', await firstPageResponse.text())
       }
-      
-      let processedEvents = []
-      if (data.events && data.events.length > 0) {
-        for (let i = data.events.length - 1; i >= 0; i--) {
-          let event = data.events[i]
-          if (i === data.events.length - 1) {
-            if (event.type === 'UNHEALTHY') {
-              event.fancyText = 'Endpoint is unhealthy'
-            } else if (event.type === 'HEALTHY') {
-              event.fancyText = 'Endpoint is healthy'
-            } else if (event.type === 'START') {
-              event.fancyText = 'Monitoring started'
-            }
-          } else {
-            let nextEvent = data.events[i + 1]
-            if (event.type === 'HEALTHY') {
-              event.fancyText = 'Endpoint became healthy'
-            } else if (event.type === 'UNHEALTHY') {
-              if (nextEvent) {
-                event.fancyText = 'Endpoint was unhealthy for ' + generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp)
-              } else {
-                event.fancyText = 'Endpoint became unhealthy'
-              }
-            } else if (event.type === 'START') {
-              event.fancyText = 'Monitoring started'
-            }
-          }
-          event.fancyTimeAgo = generatePrettyTimeAgo(event.timestamp)
-          processedEvents.push(event)
-        }
-      }
-      events.value = processedEvents
-      
-      // Fork: the chart is shown as soon as there is a result, even when every duration is zero (pushes without ping),
-      // so that the periods out of service are also shown
-      if (data.results && data.results.length > 0) {
-        showResponseTimeChartAndBadges.value = true
-      }
-    } else {
-      console.error('[Details][fetchData] Error:', await response.text())
+    }
+    liveUpdates?.notifyRefreshSucceeded()
+    // Discards the response of an older request, of another endpoint or of another page of the table
+    if (generation <= appliedGeneration || key !== route.params.key || page !== currentPage.value) {
+      return
+    }
+    appliedGeneration = generation
+    endpointStatus.value = data
+    if (firstPageData) {
+      currentStatus.value = firstPageData
+      // The events do not depend on the page of the results
+      events.value = describeEvents(firstPageData.events)
+    }
+    // Fork: the chart is shown as soon as there is a result, even when every duration is zero (pushes without ping),
+    // so that the periods out of service are also shown
+    if ((data.results && data.results.length > 0) || (firstPageData && firstPageData.results && firstPageData.results.length > 0)) {
+      showResponseTimeChartAndBadges.value = true
     }
   } catch (error) {
     console.error('[Details][fetchData] Error:', error)
   } finally {
-    isRefreshing.value = false
+    if (generation === refreshingGeneration) {
+      isRefreshing.value = false
+    }
   }
+}
+
+// startLiveUpdates opens the real-time channel of the endpoint of the route, closing the previous one
+const startLiveUpdates = () => {
+  liveUpdates?.stop()
+  liveUpdates = null
+  const key = route.params.key
+  if (!key) {
+    return
+  }
+  liveUpdates = watchEndpointResults(`/api/v1/endpoints/${encodeURIComponent(key)}/events`, () => fetchData({ silent: true }))
 }
 
 const goBack = () => {
@@ -324,7 +373,27 @@ const generateResponseTimeBadgeImageURL = (duration) => {
   return `/api/v1/endpoints/${endpointStatus.value.key}/response-times/${duration}/badge.svg`
 }
 
+// Fork: another endpoint on the same screen starts from scratch, with its own real-time channel
+watch(() => route.params.key, (key, previousKey) => {
+  if (!key || key === previousKey || route.name !== 'EndpointDetails') {
+    return
+  }
+  endpointStatus.value = null
+  currentStatus.value = null
+  events.value = []
+  currentPage.value = 1
+  showResponseTimeChartAndBadges.value = false
+  startLiveUpdates()
+  fetchData()
+})
+
 onMounted(() => {
   fetchData()
+  startLiveUpdates()
+})
+
+onUnmounted(() => {
+  liveUpdates?.stop()
+  liveUpdates = null
 })
 </script>

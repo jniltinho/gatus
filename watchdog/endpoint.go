@@ -6,6 +6,7 @@ import (
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
+	"gatus/v5/liveupdates"
 	"gatus/v5/metrics"
 	"gatus/v5/storage/store"
 	"github.com/TwiN/logr"
@@ -84,5 +85,8 @@ func executeEndpoint(ctx context.Context, ep *endpoint.Endpoint, cfg *config.Con
 func UpdateEndpointStatus(ep *endpoint.Endpoint, result *endpoint.Result) {
 	if err := store.Get().InsertEndpointResult(ep, result); err != nil {
 		logr.Errorf("[watchdog.UpdateEndpointStatus] Failed to insert result in storage: %s", err.Error())
+		return
 	}
+	// Fork: the pages that watch the endpoint are notified in real time
+	liveupdates.Publish(ep.Key())
 }

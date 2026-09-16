@@ -114,7 +114,58 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
 - the events (monitoring started, became healthy, was unhealthy for…), the latest 50.
 
 A key of an endpoint that is not on the page, or of a page that is not published, shows "Page not found". The page
-refreshes every 60 seconds and pauses while the tab is hidden.
+updates in [real time](#real-time-updates) and also refreshes every 60 seconds, pausing while the tab is hidden.
+
+## Real-time updates
+
+The endpoint details pages, on the dashboard (`/endpoints/<key>`) and on the public status pages
+(`/status/<slug>/endpoints/<key>`), show a new result within about 2 seconds, without reloading the page: a check, a
+push (including `status=pending`), a heartbeat failure or a result of the external endpoint API. The bars, the panel of
+numbers, the red and yellow bands of **Response Time Trend** and the table of checks update without a loading indicator.
+The line of the chart reloads at most once every 60 seconds. The page of the status page itself (`/status/<slug>`)
+keeps refreshing every 60 seconds.
+
+The browser opens a [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) channel
+that only says that the endpoint has a new result; the page then fetches the data through the usual routes. The events
+carry no data of the result:
+
+| Route | Access |
+|-------|--------|
+| `GET /api/v1/endpoints/<key>/events` | Same authentication as `/api/v1/endpoints/<key>/statuses`; 404 for an unknown key |
+| `GET /api/v1/status-pages/<slug>/endpoints/<key>/events` | Public; the same 404 as the status pages for a key that is not on a published page |
+
+```text
+retry: 3000
+id: 41
+
+event: result
+id: 42
+data: {}
+
+: ping
+```
+
+- The stream starts with `retry` and the current sequence of the endpoint, sends `: ping` every 15 seconds and ends after
+  5 minutes; the browser reconnects with `Last-Event-ID` (or `?lastEventId=`) and receives an event right away if a
+  result arrived in between. `HEAD` only answers the headers.
+- **Limits:** 500 open streams in total and 10 per client IP address, both routes together (the address is exact: an
+  IPv6 client with temporary addresses gets 10 streams per address). Above the limit: `429 {"error":"too many
+  requests"}` with `Retry-After: 30`. During a configuration reload or shutdown the streams are closed and new ones get
+  503.
+- When the channel cannot open (401, 404, 429, 502 or 503), the page keeps the periodic refresh and tries again after 30
+  seconds, doubling up to 5 minutes, or right after a successful refresh.
+- Each tab has its own stream, closed while the tab is hidden.
+- The cached details of a public page are renewed as soon as the endpoint has a new result, so the page shows it without
+  waiting for the 30 seconds of the cache.
+- With several instances sharing the same database, only the instance that records a result notifies it: a visitor
+  connected to another instance sees it on the periodic refresh.
+
+To test a stream with `curl` (with `security.basic`, the `Accept` header makes a missing login respond 401 without the
+`WWW-Authenticate` challenge, like a browser):
+
+```bash
+curl -N -H 'Accept: text/event-stream' https://status.example.com/api/v1/status-pages/infra/endpoints/core_api/events
+```
 
 ## Public API
 
@@ -185,7 +236,9 @@ expiration, alerts and `extra-labels`; the page payload has no key and no event.
 - The details of an endpoint are assembled at most once every 30 seconds per page and endpoint, and a key that is not
   on the page responds 404 without reading the database.
 - If the database fails, the error is cached for 5 seconds so as not to overload it.
-- The page in the browser refreshes every 60 seconds and pauses while the tab is hidden.
+- The page in the browser refreshes every 60 seconds and pauses while the tab is hidden; the details pages also update
+  in [real time](#real-time-updates).
+- The key of the cached details includes the sequence of the results of the endpoint, so a new result renews them.
 
 ## Rate limit
 
@@ -203,6 +256,9 @@ visitor.
 When a connection from an untrusted private or local IP brings `X-Forwarded-For`, Gatus logs a warning (once per load)
 with the IP to add to `trusted-proxies`, and the status page list of the administration shows the same warning.
 
+`trusted-proxies` is required behind a proxy for the [real-time updates](#real-time-updates): without it, every visitor
+shares the 10 streams of the IP address of the proxy, and from the 11th on the pages only refresh every 60 seconds.
+
 ### Docker with nginx on the host
 
 With the port published on `127.0.0.1` only, Gatus sees connections coming from the **gateway of the Docker network**,
@@ -211,7 +267,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.15
+    image: jniltinho/gatus:v5.36.0-fork.16
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -242,6 +298,12 @@ location / {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+The event streams work through this `location`: Gatus sends `X-Accel-Buffering: no`, which turns off the buffering of
+nginx for them, and a `: ping` every 15 seconds, below the default `proxy_read_timeout` of 60 seconds. With a longer
+chain of proxies or a CDN, turn off the buffering of the event routes (`proxy_buffering off;`) and keep the read timeout
+above 15 seconds. Serve the site over HTTP/2 (`listen 443 ssl; http2 on;`): over HTTP/1.1 the browser allows only 6
+connections per site, shared by every tab.
 
 Alternatives: `network_mode: host` with `web.address: 127.0.0.1`, or the binary directly on the host; in both cases,
 use `trusted-proxies: ["127.0.0.1/32", "::1/128"]`.

@@ -61,9 +61,18 @@ endpoints:
     interval: 5s
     conditions:
       - "[STATUS] == 200"
+# Fork: push endpoint of the real-time test of the public details page
+external-endpoints:
+  - name: backup
+    group: jobs
+    token: realtime-job-token-0000000000000000
 status-pages:
   rate-limit: 0
   pages:
+    - slug: jobs
+      title: "Jobs"
+      groups: [jobs]
+      show-messages: true
     - slug: services
       title: "Services"
       description: "End-to-end test page"
@@ -212,6 +221,33 @@ public wait "$(testid recent-check-message)" >/dev/null || fail "the public tabl
 grep -q "HTTP 200" <<<"$(js public "document.querySelector('[data-testid=\"recent-checks-table\"]').innerText")" || fail "the public table does not show the HTTP status as message"
 public wait 1500 >/dev/null
 public screenshot --full "$PRINTS/endpoint-details-messages.png" >/dev/null
+
+step "Real time: a pending push shows up on the public details page without reloading it"
+curl -s "$BASE/api/push/realtime-job-token-0000000000000000?status=up&msg=First%20run&ping=20" | grep -q '"ok":true' || fail "the first push was not accepted"
+[ "$(api_status -H 'Accept: text/event-stream' --max-time 2 "$BASE/api/v1/status-pages/jobs/endpoints/jobs_backup/events")" = 200 ] || fail "expected 200 from the public events route"
+[ "$(api_status -H 'Accept: text/event-stream' "$BASE/api/v1/status-pages/services/endpoints/jobs_backup/events")" = 404 ] || fail "expected 404 from the events route of an endpoint that is not on the page"
+[ "$(api_status -H 'Accept: text/event-stream' "$BASE/api/v1/endpoints/jobs_backup/events")" = 401 ] || fail "expected 401 from the protected events route"
+public open "$BASE/status/jobs/endpoints/jobs_backup" >/dev/null
+public wait "$(testid details-summary)" >/dev/null || fail "the public details page of the push endpoint is not shown"
+public wait "$(testid recent-checks-toggle)" >/dev/null
+[ "$(js public "document.querySelectorAll('[data-testid=\"recent-checks-table\"]').length")" = 0 ] && public click "$(testid recent-checks-toggle)" >/dev/null
+public wait "$(testid recent-check-message)" >/dev/null
+# The marker only survives if the page is not reloaded; the details are still in the 30 s cache of the public API
+public eval "window.__e2eNoReload = true" >/dev/null
+public wait 1500 >/dev/null
+curl -s "$BASE/api/push/realtime-job-token-0000000000000000?status=pending&msg=Realtime%20pending" | grep -q '"ok":true' || fail "the pending push was not accepted"
+shown=false
+for _ in $(seq 1 10); do
+  if js public "document.querySelector('[data-testid=\"recent-checks-table\"]').innerText" | grep -q "Realtime pending"; then
+    shown=true
+    break
+  fi
+  sleep 0.5
+done
+[ "$shown" = true ] || fail "the pending push did not show up on the public details page within 5 seconds"
+[ "$(js public "window.__e2eNoReload === true")" = true ] || fail "the public details page was reloaded"
+public wait 2000 >/dev/null
+public screenshot --full "$PRINTS/endpoint-details-realtime-pending.png" >/dev/null
 
 step "Dark mode and 390 px screen"
 public set media dark >/dev/null

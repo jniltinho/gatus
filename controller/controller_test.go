@@ -1,15 +1,21 @@
 package controller
 
 import (
+	"bufio"
+	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	"gatus/v5/config/web"
+	"gatus/v5/liveupdates"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -98,5 +104,51 @@ func TestShutdown(t *testing.T) {
 	Shutdown()
 	if app != nil {
 		t.Error("server should've been shut down")
+	}
+}
+
+func TestEventStreamRequestConfig(t *testing.T) {
+	previousWriteTimeout := liveupdates.StreamWriteTimeout
+	liveupdates.StreamWriteTimeout = 5 * time.Second
+	defer func() { liveupdates.StreamWriteTimeout = previousWriteTimeout }()
+	app := fiber.New()
+	slowStream := func(c *fiber.Ctx) error {
+		c.Context().SetBodyStreamWriter(func(writer *bufio.Writer) {
+			for i := 0; i < 6; i++ {
+				_, _ = writer.WriteString("data: {}\n\n")
+				_ = writer.Flush()
+				time.Sleep(100 * time.Millisecond)
+			}
+		})
+		return nil
+	}
+	app.Get("/api/v1/endpoints/:key/events", slowStream)
+	app.Get("/api/v1/endpoints/statuses/events-export", slowStream)
+	server := app.Server()
+	server.WriteTimeout = 250 * time.Millisecond
+	server.HeaderReceived = eventStreamRequestConfig
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = app.Listener(listener) }()
+	defer func() { _ = app.ShutdownWithTimeout(time.Second) }()
+	base := "http://" + listener.Addr().String()
+	read := func(path string) (string, error) {
+		response, err := http.Get(base + path)
+		if err != nil {
+			return "", err
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		return string(body), err
+	}
+	for _, path := range []string{"/api/v1/endpoints/jobs_backup/events", "/api/v1/endpoints/jobs_backup/events?lastEventId=3"} {
+		if body, err := read(path); err != nil || strings.Count(body, "data: {}") != 6 {
+			t.Errorf("%s: expected the whole stream with the longer write timeout, got %q %v", path, body, err)
+		}
+	}
+	if body, err := read("/api/v1/endpoints/statuses/events-export"); err == nil && strings.Count(body, "data: {}") == 6 {
+		t.Errorf("expected another route to keep the default write timeout, got the whole body %q", body)
 	}
 }

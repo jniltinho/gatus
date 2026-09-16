@@ -304,6 +304,30 @@ admin wait "$(testid dashboard-summary-pending)" >/dev/null || fail "the dashboa
 admin screenshot "$PRINTS/11-dashboard-pending-dark.png" >/dev/null
 admin set media light >/dev/null
 
+step "Real time: a pending push shows up on the details page without reloading it"
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid details-summary)" >/dev/null
+[ "$(selector_count recent-checks-table)" = 0 ] && admin click "$(testid recent-checks-toggle)" >/dev/null
+admin wait "$(testid recent-check-0)" >/dev/null
+# The marker only survives if the page is not reloaded
+admin eval "window.__e2eNoReload = true" >/dev/null
+admin wait 1500 >/dev/null
+push "$BASE/api/push/$KUMA_TOKEN?status=pending&msg=Realtime%20pending" | grep -q '"ok":true' || fail "the real-time pending push was not accepted"
+shown=false
+for _ in $(seq 1 10); do
+  if admin get text "$(testid recent-check-0)" 2>/dev/null | grep -q "Realtime pending"; then
+    shown=true
+    break
+  fi
+  sleep 0.5
+done
+[ "$shown" = true ] || fail "the pending push did not show up on the details page within 5 seconds"
+[ "$(admin eval "window.__e2eNoReload === true" 2>/dev/null | tr -d '"')" = true ] || fail "the details page was reloaded"
+admin get text "$(testid recent-check-0)" | grep -q "Pending" || fail "the real-time push is not shown as Pending"
+admin wait 2000 >/dev/null
+admin screenshot --full "$PRINTS/12-realtime-pending.png" >/dev/null
+admin screenshot "$PRINTS/12-realtime-pending-viewport.png" >/dev/null
+
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-key-revoke-akamai)" >/dev/null

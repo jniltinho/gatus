@@ -8,6 +8,7 @@ import (
 
 	"gatus/v5/config/endpoint"
 	pageconfig "gatus/v5/config/statuspage"
+	"gatus/v5/liveupdates"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"gatus/v5/storage/store/common/paging"
@@ -110,10 +111,25 @@ func PublicEndpointDetails(slug, key string) ([]byte, error) {
 	if !shown {
 		return nil, ErrPageNotFound
 	}
-	cacheKey := fmt.Sprintf("%s|%d|%d|endpoint|%s", slug, published.Revision, published.Generation, key)
+	// Fork: the sequence of the last result renews the cached details as soon as a new result is stored
+	cacheKey := fmt.Sprintf("%s|%d|%d|endpoint|%s|%d", slug, published.Revision, published.Generation, key, liveupdates.Sequence(key))
 	return cachedAssembly(cacheKey, publicCacheTTL, slug, func() ([]byte, error) {
 		return assembleEndpointDetails(published.Page, ref, published.MaximumResults, time.Now())
 	})
+}
+
+// IsEndpointShown returns whether the published status page with the given slug shows the endpoint with the given key,
+// without reading the storage (fork)
+func IsEndpointShown(slug, key string) bool {
+	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
+		return false
+	}
+	published, ok := Lookup(slug)
+	if !ok {
+		return false
+	}
+	_, shown := findShownEndpoint(published.Page, key)
+	return shown
 }
 
 // findShownEndpoint returns the endpoint with the given key among the endpoints shown on the page

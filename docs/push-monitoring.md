@@ -185,6 +185,10 @@ The details page of an endpoint (`/endpoints/<key>`) follows the order of the mo
   bands;
 - the table of checks, with the pagination.
 
+The details page updates in real time: a push shows up on the bars, the panel, the bands of the chart and the table
+within about 2 seconds, without reloading the page, even with the table on another page of results. See
+[real-time updates](status-pages.md#real-time-updates) for the routes, the limits and the reverse proxy.
+
 **Checks table** expands the table of the results of the page, from the most recent to the oldest, with the status (Up,
 Down or Pending), the date and time, the message (the `msg` of the push, otherwise the errors, otherwise the HTTP status
 of the check) and the origin (Push or Check). The table starts collapsed and the browser remembers whether it was
@@ -273,6 +277,8 @@ definition shows it masked.
   instance that receives no push records heartbeat failures: send the pushes to a single instance.
 - Endpoints, tokens and global keys changed on one instance only take effect on the others after they restart or reload
   their configuration.
+- Only the instance that records a result notifies it in real time: a browser connected to another instance sees it on
+  the periodic refresh.
 
 ## Going back to the original Gatus
 

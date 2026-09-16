@@ -76,7 +76,7 @@
             </div>
           </CardHeader>
           <CardContent>
-            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" :results="results" />
+            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" :results="results" :refresh-key="lastResult ? lastResult.timestamp : null" />
           </CardContent>
         </Card>
 
@@ -146,6 +146,7 @@ import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
 import { describeEvents, formatDateTime, relativeTimeLabel, RESPONSE_TIME_DURATIONS, SLUG_PATTERN } from '@/utils/statusPage'
 import { certificateClass, certificateText } from '@/utils/certificate'
+import { watchEndpointResults } from '@/utils/liveUpdates'
 
 const REFRESH_INTERVAL_MS = 60000
 const CLOCK_INTERVAL_MS = 10000
@@ -174,6 +175,8 @@ let refreshTimer = null
 let clockTimer = null
 let abortController = null
 let requestGeneration = 0
+// Fork: real-time channel of the endpoint, see utils/liveUpdates.js
+let liveUpdates = null
 
 const slug = computed(() => String(route.params.slug || ''))
 const key = computed(() => String(route.params.key || ''))
@@ -207,8 +210,28 @@ const scheduleRefresh = (delayMs) => {
   }
 }
 
+const stopLiveUpdates = () => {
+  liveUpdates?.stop()
+  liveUpdates = null
+}
+
+// startLiveUpdates opens the real-time channel of the endpoint of the route, closing the previous one. Each notification
+// refreshes the page silently, and the page already refreshes when the tab is shown again.
+const startLiveUpdates = () => {
+  stopLiveUpdates()
+  if (!validAddress.value) {
+    return
+  }
+  liveUpdates = watchEndpointResults(
+    `/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}/events`,
+    () => load(),
+    { refreshOnVisible: false }
+  )
+}
+
 const showNotFound = () => {
   stopRefreshing()
+  stopLiveUpdates()
   details.value = null
   errorMessage.value = ''
   state.value = 'not-found'
@@ -244,8 +267,13 @@ const load = async () => {
     } else if (!response.ok || !(response.headers.get('Content-Type') || '').includes('application/json')) {
       errorMessage.value = 'Could not load the details of the service. It will refresh automatically.'
     } else {
-      details.value = await response.json()
+      const data = await response.json()
+      if (generation !== requestGeneration) {
+        return
+      }
+      details.value = data
       errorMessage.value = ''
+      liveUpdates?.notifyRefreshSucceeded()
       document.title = `${details.value.name} · ${details.value.page.title}`
     }
   } catch (error) {
@@ -275,10 +303,12 @@ watch([slug, key], () => {
   details.value = null
   errorMessage.value = ''
   state.value = 'loading'
+  startLiveUpdates()
   load()
 })
 
 onMounted(() => {
+  startLiveUpdates()
   load()
   clockTimer = setInterval(() => { now.value = Date.now() }, CLOCK_INTERVAL_MS)
   document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -287,6 +317,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopRefreshing()
+  stopLiveUpdates()
   clearInterval(clockTimer)
   abortController?.abort()
   document.removeEventListener('visibilitychange', handleVisibilityChange)

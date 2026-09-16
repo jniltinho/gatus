@@ -253,7 +253,10 @@ func basicCredentials(ctx *fiber.Ctx) (string, string, bool) {
 
 // isBrowserRequest returns whether the request comes from a browser or from the frontend
 func isBrowserRequest(ctx *fiber.Ctx) bool {
-	return len(ctx.Get("Sec-Fetch-Site")) > 0 || len(ctx.Get("Sec-Fetch-Mode")) > 0 || len(ctx.Get(fiber.HeaderXRequestedWith)) > 0
+	// Fork: an EventSource cannot send X-Requested-With and, on an HTTP page outside of localhost, the browser does not
+	// send Sec-Fetch-* either, but it always accepts text/event-stream
+	return len(ctx.Get("Sec-Fetch-Site")) > 0 || len(ctx.Get("Sec-Fetch-Mode")) > 0 || len(ctx.Get(fiber.HeaderXRequestedWith)) > 0 ||
+		strings.Contains(ctx.Get(fiber.HeaderAccept), "text/event-stream")
 }
 
 // requestClientIP returns the IP address of the client of the request

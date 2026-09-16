@@ -8,6 +8,7 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/ui"
 	"gatus/v5/config/web"
+	"gatus/v5/liveupdates"
 	static "gatus/v5/web"
 	"github.com/TwiN/health"
 	"github.com/TwiN/logr"
@@ -62,7 +63,10 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	}
 	// Middlewares
 	app.Use(recover.New())
-	app.Use(compress.New())
+	// Fork: the event streams are never compressed, which would hold their events in a buffer
+	app.Use(compress.New(compress.Config{Next: func(c *fiber.Ctx) bool {
+		return liveupdates.IsEventsPath(c.Path())
+	}}))
 	// Define metrics handler, if necessary
 	if cfg.Metrics {
 		metricsHandler := promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{
@@ -153,6 +157,8 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	}
 	protectedAPIRouter.Get("/v1/endpoints/statuses", EndpointStatuses(cfg))
 	protectedAPIRouter.Get("/v1/endpoints/:key/statuses", EndpointStatus(cfg))
+	// Fork: notifications of the new results of an endpoint in real time, see api/live_updates.go
+	protectedAPIRouter.Get("/v1/endpoints/:key/events", endpointEventsHandler(cfg))
 	protectedAPIRouter.Get("/v1/suites/statuses", SuiteStatuses(cfg))
 	protectedAPIRouter.Get("/v1/suites/:key/statuses", SuiteStatus(cfg))
 	// Administration of endpoints (fork): only registered when enabled, see api/admin.go
