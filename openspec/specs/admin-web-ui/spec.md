@@ -42,7 +42,7 @@ As telas de criação e edição MUST oferecer um modo formulário e um modo YAM
 
 O formulário MUST começar pelo tipo de monitor:
 - **ativos** (HTTP(s), TCP, Ping, DNS e os demais inferidos pela URL): nome, grupo, URL, método, intervalo, condições, headers, alertas entre os tipos configurados, estado habilitado e a opção "Accept push" (receber push), desligada por padrão, que ao ser ligada mostra o token opcional, a URL de push copiável e o exemplo com a chave global;
-- **Push (passivo):** nome, grupo, token, intervalo de heartbeat, alertas e estado habilitado.
+- **Push (passivo):** nome, grupo, token, intervalo de heartbeat, tentativas ("Retries", `heartbeat.retries`, de 0 a 100, padrão 0) ao lado do intervalo, alertas e estado habilitado.
 
 No tipo Push, a tela MUST mostrar:
 - a URL de push copiável no formato do Uptime Kuma (`<endereço do Gatus>/api/push/<token>?status=up&msg=OK&ping=`);
@@ -74,6 +74,11 @@ Depois de salvar, a tela MUST usar a chave nova. Segredos mascarados MUST ser ex
 #### Scenario: Tipo Push
 - **WHEN** o administrador escolhe o tipo Push num endpoint novo
 - **THEN** o formulário esconde URL, método, condições e headers e mostra a URL de push copiável com um token gerado, o intervalo de heartbeat de 60 segundos e um exemplo de `curl`
+
+#### Scenario: Tentativas no endpoint Push
+- **WHEN** o administrador informa 2 em "Retries" num endpoint Push e salva
+- **THEN** a definição salva tem `heartbeat.retries: 2`
+- **AND** ao editar, o campo mostra 2
 
 #### Scenario: Push num endpoint ativo
 - **WHEN** o administrador liga "Accept push" num endpoint HTTP
