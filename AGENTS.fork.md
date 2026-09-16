@@ -102,7 +102,7 @@ Change (archived): `openspec/changes/archive/2026-09-16-realtime-endpoint-update
 
 ## Response time chart in the format of the Uptime Kuma
 
-Change: `openspec/changes/kuma-response-time-chart/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#response-time-chart`); spec in `openspec/specs/response-time-chart`.
+Change (archived): `openspec/changes/archive/2026-09-16-kuma-response-time-chart/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#response-time-chart`); spec in `openspec/specs/response-time-chart`.
 
 - The aggregates are in the fork table `endpoint_response_time_buckets` (minute for 24 h, hour for 7 days), written by `InsertEndpointResult` **after** the commit of the result, in a short transaction of its own (`insertResponseTimeBuckets`): a failure only loses the buckets and must never undo the result (PostgreSQL and `mysqlTx` abort the whole transaction on the first failed statement). The minimum and the maximum use `LEAST(COALESCE(current, new), COALESCE(new, current))` (scalar `MIN`/`MAX` on SQLite), because MySQL and SQLite return NULL with a NULL argument.
 - Only Up results of at least 1 ms (`Duration.Milliseconds() > 0`) enter the average, the minimum and the maximum. Timestamps are truncated in UTC.
