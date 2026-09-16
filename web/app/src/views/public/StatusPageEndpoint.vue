@@ -76,7 +76,7 @@
             </div>
           </CardHeader>
           <CardContent>
-            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" />
+            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" :results="results" />
           </CardContent>
         </Card>
 

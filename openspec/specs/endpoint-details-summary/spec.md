@@ -62,7 +62,7 @@ O gráfico de tempo de resposta dos detalhes do endpoint, no dashboard e na pág
 - cada faixa MUST ser recortada no período selecionado (24h, 7d ou 30d), inclusive quando a queda começou antes dele;
 - o eixo do tempo MUST ficar fixo no período selecionado.
 
-O gráfico MUST ser mostrado, no dashboard e na página pública, sempre que o endpoint tiver pelo menos um resultado, inclusive com todas as durações zero (envios sem `ping`). As faixas MUST substituir as linhas tracejadas dos eventos. Ao passar o mouse sobre a faixa, o gráfico MUST mostrar o início e a duração da queda. Resultados Pending MUST NOT gerar faixas.
+O gráfico MUST ser mostrado, no dashboard e na página pública, sempre que o endpoint tiver pelo menos um resultado, inclusive com todas as durações zero (envios sem `ping`). As faixas MUST substituir as linhas tracejadas dos eventos. Ao passar o mouse sobre a faixa, o gráfico MUST mostrar o início e a duração da queda. Resultados Pending MUST gerar faixas amarelas translúcidas, do primeiro resultado Pending de uma sequência até o resultado seguinte que não seja Pending, ou até o instante atual quando o último resultado é Pending, calculadas a partir dos resultados recebidos pela tela e recortadas no período, com o início e a duração no tooltip.
 
 #### Scenario: Queda de 10 minutos
 - **WHEN** o endpoint ficou fora do ar das 10:00 às 10:10 de hoje e o período selecionado é 24h
@@ -93,3 +93,6 @@ O gráfico MUST ser mostrado, no dashboard e na página pública, sempre que o e
 - **WHEN** a única queda ocorreu e terminou há 10 dias e o período selecionado é 7d
 - **THEN** o gráfico não mostra faixas
 
+#### Scenario: Faixa amarela de Pending
+- **WHEN** o endpoint Push recebe `status=pending` às 10:05 e `status=up` às 10:07, e o período selecionado é 24h
+- **THEN** o gráfico, no dashboard e na página pública, mostra uma faixa amarela das 10:05 às 10:07

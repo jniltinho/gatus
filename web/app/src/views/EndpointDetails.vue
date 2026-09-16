@@ -92,6 +92,7 @@
                 :duration="selectedChartDuration"
                 :serverUrl="serverUrl"
                 :events="endpointStatus.events || []"
+                :results="(currentStatus && currentStatus.results) || []"
               />
             </CardContent>
           </Card>
