@@ -53,11 +53,13 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 	// Forged parameters and malformed envelopes are rejected without deriving a key
 	for name, change := range map[string]func(map[string]any){
-		"memory":        func(m map[string]any) { m["kdf"].(map[string]any)["memoryKiB"] = 262144 },
-		"threads":       func(m map[string]any) { m["kdf"].(map[string]any)["threads"] = 4 },
-		"kdf-name":      func(m map[string]any) { m["kdf"].(map[string]any)["name"] = "scrypt" },
-		"cipher-name":   func(m map[string]any) { m["cipher"].(map[string]any)["name"] = "aes-128-gcm" },
-		"short-nonce":   func(m map[string]any) { m["cipher"].(map[string]any)["nonce"] = base64.StdEncoding.EncodeToString(make([]byte, 8)) },
+		"memory":      func(m map[string]any) { m["kdf"].(map[string]any)["memoryKiB"] = 262144 },
+		"threads":     func(m map[string]any) { m["kdf"].(map[string]any)["threads"] = 4 },
+		"kdf-name":    func(m map[string]any) { m["kdf"].(map[string]any)["name"] = "scrypt" },
+		"cipher-name": func(m map[string]any) { m["cipher"].(map[string]any)["name"] = "aes-128-gcm" },
+		"short-nonce": func(m map[string]any) {
+			m["cipher"].(map[string]any)["nonce"] = base64.StdEncoding.EncodeToString(make([]byte, 8))
+		},
 		"unknown-field": func(m map[string]any) { m["extra"] = true },
 	} {
 		changed := cloneFields(fields)

@@ -395,12 +395,12 @@ const readFile = async (file) => {
     try {
       parsed = JSON.parse(text)
     } catch (e) {
-      restoreError.value = 'The file is not a Gatus backup: it is not valid JSON.'
+      restoreError.value = 'The file is not a backup: it is not valid JSON.'
       return
     }
     const format = detectBackupFormat(parsed)
     if (format === 'unknown') {
-      restoreError.value = 'The file is not a Gatus backup: unknown format.'
+      restoreError.value = 'The file is not a backup: unknown format.'
       return
     }
     parsedFile.value = parsed
