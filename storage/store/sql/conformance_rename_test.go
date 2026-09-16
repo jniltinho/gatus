@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,6 +44,11 @@ func TestConformance_RenameManagedEndpoint(t *testing.T) {
 			t.Fatalf("failed to get the uptime of the renamed endpoint: %v", err)
 		}
 		_, oldKeyErr := store.GetEndpointStatusByKey(original.Key(), paging.NewEndpointStatusParams())
-		return fmt.Sprintf("%s\nuptime=%.4f\nold key: %v", endpointFingerprint(t, store, renamed.Key()), uptime, oldKeyErr)
+		// Fork: the buckets of the response time chart follow the endpoint
+		buckets := bucketsFingerprint(t, store, renamed.Key(), start.Add(-24*time.Hour), start.Add(24*time.Hour))
+		if !strings.Contains(buckets, "bucket 60 ") {
+			t.Errorf("expected the buckets to follow the renamed endpoint, got %q", buckets)
+		}
+		return fmt.Sprintf("%s\nuptime=%.4f\nold key: %v\n%s", endpointFingerprint(t, store, renamed.Key()), uptime, oldKeyErr, buckets)
 	})
 }

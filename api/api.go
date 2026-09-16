@@ -159,6 +159,8 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 	protectedAPIRouter.Get("/v1/endpoints/:key/statuses", EndpointStatus(cfg))
 	// Fork: notifications of the new results of an endpoint in real time, see api/live_updates.go
 	protectedAPIRouter.Get("/v1/endpoints/:key/events", endpointEventsHandler(cfg))
+	// Fork: data of the response time chart of the endpoint details, see api/response_time_chart.go
+	protectedAPIRouter.Get("/v1/endpoints/:key/response-time-chart", endpointResponseTimeChartHandler(cfg))
 	protectedAPIRouter.Get("/v1/suites/statuses", SuiteStatuses(cfg))
 	protectedAPIRouter.Get("/v1/suites/:key/statuses", SuiteStatus(cfg))
 	// Administration of endpoints (fork): only registered when enabled, see api/admin.go

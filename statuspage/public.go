@@ -145,11 +145,17 @@ func findShownEndpoint(page *pageconfig.Page, key string) (EndpointRef, bool) {
 // cachedAssembly returns the payload cached under cacheKey or assembles it once for all concurrent requests, in a slot of
 // assemblySemaphore. A failed assembly is cached for unavailableCacheTTL; a timeout waiting for a slot is not cached.
 func cachedAssembly(cacheKey string, ttl time.Duration, slug string, assembleFunc func() ([]byte, error)) ([]byte, error) {
-	if body, cached, err := cachedPublicPage(cacheKey); cached {
+	return cachedAssemblyIn(publicCache, &assemblies, cacheKey, ttl, slug, assembleFunc)
+}
+
+// cachedAssemblyIn is cachedAssembly with the cache and the deduplication group given, so that the payloads of the
+// response time chart do not evict the payloads of the pages (fork)
+func cachedAssemblyIn(cache *gocache.Cache, group *singleflight.Group, cacheKey string, ttl time.Duration, slug string, assembleFunc func() ([]byte, error)) ([]byte, error) {
+	if body, cached, err := cachedPayload(cache, cacheKey); cached {
 		return body, err
 	}
-	value, err, _ := assemblies.Do(cacheKey, func() (any, error) {
-		if body, cached, err := cachedPublicPage(cacheKey); cached {
+	value, err, _ := group.Do(cacheKey, func() (any, error) {
+		if body, cached, err := cachedPayload(cache, cacheKey); cached {
 			return body, err
 		}
 		release, acquired := acquireSlot(assemblySemaphore)
@@ -161,10 +167,10 @@ func cachedAssembly(cacheKey string, ttl time.Duration, slug string, assembleFun
 		body, err := assembleFunc()
 		if err != nil {
 			logr.Errorf("[statuspage.cachedAssembly] Failed to assemble status page with slug=%s: %s", slug, err.Error())
-			publicCache.SetWithTTL(cacheKey, unavailableMarker{}, unavailableCacheTTL)
+			cache.SetWithTTL(cacheKey, unavailableMarker{}, unavailableCacheTTL)
 			return nil, ErrPageUnavailable
 		}
-		publicCache.SetWithTTL(cacheKey, body, ttl)
+		cache.SetWithTTL(cacheKey, body, ttl)
 		return body, nil
 	})
 	if err != nil {
@@ -173,8 +179,8 @@ func cachedAssembly(cacheKey string, ttl time.Duration, slug string, assembleFun
 	return value.([]byte), nil
 }
 
-func cachedPublicPage(cacheKey string) ([]byte, bool, error) {
-	value, exists := publicCache.Get(cacheKey)
+func cachedPayload(cache *gocache.Cache, cacheKey string) ([]byte, bool, error) {
+	value, exists := cache.Get(cacheKey)
 	if !exists {
 		return nil, false, nil
 	}

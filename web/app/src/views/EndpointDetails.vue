@@ -76,24 +76,23 @@
             <CardHeader>
               <div class="flex items-center justify-between">
                 <CardTitle>Response Time Trend</CardTitle>
+                <!-- Fork: periods of the chart of Uptime Kuma, remembered in the browser -->
                 <select
-                  v-model="selectedChartDuration"
+                  v-model="selectedChartPeriod"
+                  aria-label="Period of the response time chart"
                   class="text-sm bg-background border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
+                  data-testid="response-time-chart-period"
                 >
-                  <option value="24h">24 hours</option>
-                  <option value="7d">7 days</option>
-                  <option value="30d">30 days</option>
+                  <option v-for="option in CHART_PERIOD_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
                 </select>
               </div>
             </CardHeader>
             <CardContent>
+              <!-- Fork: protected route of the chart of Uptime Kuma -->
               <ResponseTimeChart
                 v-if="currentStatus && currentStatus.key"
-                :endpointKey="currentStatus.key"
-                :duration="selectedChartDuration"
-                :serverUrl="serverUrl"
-                :events="currentStatus.events || []"
-                :results="currentStatus.results || []"
+                :chartUrl="`/api/v1/endpoints/${encodeURIComponent(currentStatus.key)}/response-time-chart`"
+                :period="selectedChartPeriod"
                 :refreshKey="latestResult ? latestResult.timestamp : null"
               />
             </CardContent>
@@ -182,6 +181,7 @@ import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/tim
 import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
 import { watchEndpointResults } from '@/utils/liveUpdates'
+import { CHART_PERIOD_OPTIONS, readStoredPeriod, storePeriod } from '@/utils/responseTimeChart'
 
 const router = useRouter()
 const route = useRoute()
@@ -194,7 +194,8 @@ const currentPage = ref(1)
 const resultPageSize = 50
 const showResponseTimeChartAndBadges = ref(false)
 const showAverageResponseTime = ref(localStorage.getItem('gatus:show-average-response-time') !== 'false')
-const selectedChartDuration = ref('24h')
+// Fork: period of the response time chart, remembered in the browser
+const selectedChartPeriod = ref(readStoredPeriod())
 const isRefreshing = ref(false)
 
 const latestResult = computed(() => {
@@ -372,6 +373,11 @@ const generateHealthBadgeImageURL = () => {
 const generateResponseTimeBadgeImageURL = (duration) => {
   return `/api/v1/endpoints/${endpointStatus.value.key}/response-times/${duration}/badge.svg`
 }
+
+// Fork: the chosen period of the chart is remembered in the browser
+watch(selectedChartPeriod, (period) => {
+  storePeriod(period)
+})
 
 // Fork: another endpoint on the same screen starts from scratch, with its own real-time channel
 watch(() => route.params.key, (key, previousKey) => {

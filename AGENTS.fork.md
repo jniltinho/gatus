@@ -100,6 +100,16 @@ Change (archived): `openspec/changes/archive/2026-09-16-realtime-endpoint-update
 - `security/basic_auth.go` treats `Accept: text/event-stream` as a browser request (no `WWW-Authenticate`), because an `EventSource` cannot send custom headers.
 - Frontend: `utils/liveUpdates.js` (`npm run test:unit`); on errors, only a CLOSED `EventSource` is reopened with backoff, never a CONNECTING one.
 
+## Response time chart in the format of the Uptime Kuma
+
+Change: `openspec/changes/kuma-response-time-chart/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#response-time-chart`); spec in `openspec/specs/response-time-chart`.
+
+- The aggregates are in the fork table `endpoint_response_time_buckets` (minute for 24 h, hour for 7 days), written by `InsertEndpointResult` **after** the commit of the result, in a short transaction of its own (`insertResponseTimeBuckets`): a failure only loses the buckets and must never undo the result (PostgreSQL and `mysqlTx` abort the whole transaction on the first failed statement). The minimum and the maximum use `LEAST(COALESCE(current, new), COALESCE(new, current))` (scalar `MIN`/`MAX` on SQLite), because MySQL and SQLite return NULL with a NULL argument.
+- Only Up results of at least 1 ms (`Duration.Milliseconds() > 0`) enter the average, the minimum and the maximum. Timestamps are truncated in UTC.
+- Reads through the optional `store.ResponseTimeChartReader`; Recent uses a light query without the write-through cache. The memory store keeps the buckets in its own maps under the store lock.
+- `api/response_time_chart.go`: the protected route checks the key in memory, the public one uses `statuspage.IsEndpointShown` (identical 404) before validating `period` (400). The public payload is cached in `statuspage.chartCache`, separate from `publicCache`, with the sequence of `liveupdates` for Recent and the current minute for the other periods. Recent is limited to 100 results (50 on public pages).
+- Frontend: `utils/responseTimeChart.js` ports `PingChart.vue` of the Uptime Kuma (the aggregates are walked from the newest, like the Kuma, and the series reversed); `npm run test:unit`. The chart exposes `data-period`, `data-line-points`, `data-down-columns` and `data-pending-columns` for the end-to-end tests.
+
 ## Login screen of security.basic
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`); specs in `openspec/specs/basic-login-page` and `admin-access-control`.

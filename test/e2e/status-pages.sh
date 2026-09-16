@@ -189,11 +189,21 @@ public wait "$(testid recent-check-0)" >/dev/null || fail "the public table of c
 [ "$(js public "document.querySelectorAll('[data-testid=\"recent-check-message\"]').length")" = 0 ] || fail "the public table of checks shows messages"
 public screenshot --full "$PRINTS/endpoint-details-kuma-order.png" >/dev/null
 grep -q "Monitoring started" <<<"$(body_text public)" || fail "the events do not have the texts of the dashboard"
-public eval "const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '7d'; select.dispatchEvent(new Event('change'))" >/dev/null
-public wait 1000 >/dev/null
+# Chart in the format of the Uptime Kuma: Recent by default, then the aggregates of 24 hours, remembered after a reload
+[ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.period")" = "recent" ] || fail "the chart did not open in Recent"
+[ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.linePoints")" -gt 0 ] || fail "the Recent chart has no point"
+public eval "(() => { const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '24h'; select.dispatchEvent(new Event('change')) })()" >/dev/null
+public wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the chart did not load the 24h period"
+public wait 1500 >/dev/null
 public screenshot --full "$PRINTS/02b-endpoint-details.png" >/dev/null
 requests=$(public network requests 2>/dev/null)
-grep -q "_panel/response-times/7d/history" <<<"$requests" || fail "changing the period did not load the 7d history"
+grep -q "/api/v1/status-pages/services/endpoints/_panel/response-time-chart?period=24h" <<<"$requests" || fail "changing the period did not load the public chart of 24h"
+[ "$(api_status "$BASE/api/v1/status-pages/services/endpoints/core_missing/response-time-chart?period=24h")" = 404 ] || fail "expected 404 from the chart of an endpoint that is not on the page"
+[ "$(api_status "$BASE/api/v1/status-pages/services/endpoints/_panel/response-time-chart?period=30d")" = 400 ] || fail "expected 400 from an invalid period of the chart"
+public reload >/dev/null
+public wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the period of the chart was not remembered after a reload"
+public eval "(() => { const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = 'recent'; select.dispatchEvent(new Event('change')) })()" >/dev/null
+public wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev/null
 grep -q "/api/v1/config" <<<"$requests" && fail "the details page called /api/v1/config"
 grep -qE '\b401\b' <<<"$requests" && fail "a request of the details page received 401"
 public click "$(testid status-endpoint-back)" >/dev/null
@@ -245,6 +255,11 @@ for _ in $(seq 1 10); do
   sleep 0.5
 done
 [ "$shown" = true ] || fail "the pending push did not show up on the public details page within 5 seconds"
+for _ in $(seq 1 10); do
+  [ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.pendingColumns")" -gt 0 ] && break
+  sleep 0.5
+done
+[ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.pendingColumns")" -gt 0 ] || fail "the pending push is not a yellow column of the public chart"
 [ "$(js public "window.__e2eNoReload === true")" = true ] || fail "the public details page was reloaded"
 public wait 2000 >/dev/null
 public screenshot --full "$PRINTS/endpoint-details-realtime-pending.png" >/dev/null

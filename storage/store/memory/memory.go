@@ -29,6 +29,12 @@ type Store struct {
 	// Sessions of the login screen of security.basic, by token hash (fork, see login_sessions.go)
 	loginSessionsMutex sync.RWMutex
 	loginSessions      map[string]common.LoginSession
+
+	// Fork: minute and hour buckets of the response time chart by endpoint key, last clean up of each endpoint and the
+	// clock of the buckets, which the tests can replace (see response_time_buckets.go). Guarded by the lock of the store.
+	responseTimeBuckets         map[string]map[responseTimeBucketKey]*common.ResponseTimeBucket
+	responseTimeBucketsCleanUps map[string]time.Time
+	now                         func() time.Time
 }
 
 // NewStore creates a new store using gocache.Cache
@@ -207,6 +213,8 @@ func (s *Store) InsertEndpointResult(ep *endpoint.Endpoint, result *endpoint.Res
 	}
 	AddResult(status.(*endpoint.Status), result, s.maximumNumberOfResults, s.maximumNumberOfEvents)
 	s.endpointCache.Set(endpointKey, status)
+	// Fork: buckets of the response time chart
+	s.addResponseTimeBuckets(endpointKey, result)
 	s.Unlock()
 	return nil
 }
@@ -240,6 +248,10 @@ func (s *Store) InsertSuiteResult(su *suite.Suite, result *suite.Result) error {
 
 // DeleteAllEndpointStatusesNotInKeys removes all Status that are not within the keys provided
 func (s *Store) DeleteAllEndpointStatusesNotInKeys(keys []string) int {
+	// Fork: the lock of the store guards the buckets of the response time chart, removed with their endpoints
+	s.Lock()
+	defer s.Unlock()
+	s.forgetResponseTimeBuckets(keys)
 	var keysToDelete []string
 	for _, existingKey := range s.endpointCache.GetKeysByPattern("*", 0) {
 		shouldDelete := !slices.Contains(keys, existingKey)
@@ -323,6 +335,10 @@ func (s *Store) HasEndpointStatusNewerThan(key string, timestamp time.Time) (boo
 func (s *Store) Clear() {
 	s.endpointCache.Clear()
 	s.suiteCache.Clear()
+	// Fork: buckets of the response time chart
+	s.Lock()
+	s.responseTimeBuckets, s.responseTimeBucketsCleanUps = nil, nil
+	s.Unlock()
 }
 
 // Save persists the cache to the store file

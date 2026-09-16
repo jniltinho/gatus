@@ -46,13 +46,6 @@ export const relativeTimeLabel = (timestamp, now) => {
   return hours === 1 ? '1 hour ago' : `${hours} hours ago`
 }
 
-// Periods of the response time charts, like the endpoint details page of the dashboard
-export const RESPONSE_TIME_DURATIONS = [
-  { value: '24h', label: '24 hours' },
-  { value: '7d', label: '7 days' },
-  { value: '30d', label: '30 days' }
-]
-
 // formatMilliseconds formats a response time, or a dash without execution
 export const formatMilliseconds = (milliseconds) => (milliseconds === null || milliseconds === undefined ? '—' : `${milliseconds} ms`)
 

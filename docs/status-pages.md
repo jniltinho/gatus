@@ -105,8 +105,8 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
 - the bars of the latest checks;
 - the panel of numbers of the dashboard: response time of the last check, average response time over 24 hours and uptime
   over 24 hours, 7 days and 30 days;
-- **Response Time Trend**: the same chart as the dashboard, with the 24 hours / 7 days / 30 days selector and the
-  periods when the endpoint was down as red bands and the pending periods as yellow bands;
+- **Response Time Trend**: the same chart as the dashboard, in the format of the chart of the Uptime Kuma, with the
+  Recent / 3h / 6h / 24h / 1w selector (see [response time chart](#response-time-chart));
 - **Checks table**, collapsed by default: status (Up, Down or Pending), date and time and response time of the latest
   checks, or, with `show-messages: true`, the same columns as the dashboard (status, date and time, message and origin),
   never with the errors of the checks;
@@ -116,13 +116,46 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
 A key of an endpoint that is not on the page, or of a page that is not published, shows "Page not found". The page
 updates in [real time](#real-time-updates) and also refreshes every 60 seconds, pausing while the tab is hidden.
 
+## Response time chart
+
+The **Response Time Trend** chart of the endpoint details pages, on the dashboard and on the public status pages,
+follows the chart of the monitor page of the Uptime Kuma:
+
+- **Recent** (the default): one point per check or push, the latest 100 results (50 on a public page). A Down result
+  is a translucent red column and a Pending result a translucent yellow column.
+- **3h, 6h and 24h**: one point per minute; **1w**: one point per hour. The green line is the average response time,
+  with lighter lines for the minimum and the maximum. A minute or an hour without Up results and with Down results is
+  a red column; one with Pending results, or with Up results mixed with Down or Pending results, is a yellow column.
+- The line only has the Up results with a response time of at least 1 ms: a push without `ping` shows only its
+  column.
+- A long gap without results (more than 10 intervals of the endpoint) breaks the line.
+- The browser remembers the chosen period. Recent updates as soon as a result arrives, the other periods at most once
+  a minute.
+
+Gatus stores the aggregates of every result per minute for 24 hours and per hour for 7 days, in the
+`endpoint_response_time_buckets` table (or in memory). **After upgrading, the 3h to 1w periods start empty and fill up
+over time**; Recent shows the results already stored right away.
+
+| Route | Access |
+|-------|--------|
+| `GET /api/v1/endpoints/<key>/response-time-chart?period=recent\|3h\|6h\|24h\|1w` | Same authentication as `/api/v1/endpoints/<key>/statuses`; 404 for an unknown key |
+| `GET /api/v1/status-pages/<slug>/endpoints/<key>/response-time-chart?period=...` | Public; the same 404 as the status pages for a key that is not on a published page, then 400 for an invalid period |
+
+```json
+{"period":"24h","intervalSeconds":60,"bucketSeconds":60,"from":"2026-09-15T18:01:00Z","to":"2026-09-16T18:00:00Z",
+ "buckets":[{"timestamp":"2026-09-16T17:59:00Z","up":1,"down":0,"pending":0,"avgMs":35,"minMs":35,"maxMs":35}]}
+```
+
+The responses only have the time, the status and the response time: never messages, errors or hostnames. The public
+route is cached for up to 30 seconds (Recent is renewed by a new result recorded by the same instance).
+
 ## Real-time updates
 
 The endpoint details pages, on the dashboard (`/endpoints/<key>`) and on the public status pages
 (`/status/<slug>/endpoints/<key>`), show a new result within about 2 seconds, without reloading the page: a check, a
 push (including `status=pending`), a heartbeat failure or a result of the external endpoint API. The bars, the panel of
-numbers, the red and yellow bands of **Response Time Trend** and the table of checks update without a loading indicator.
-The line of the chart reloads at most once every 60 seconds. The page of the status page itself (`/status/<slug>`)
+numbers, **Response Time Trend** and the table of checks update without a loading indicator. The Recent period of the
+chart reloads right away, the other periods at most once every 60 seconds. The page of the status page itself (`/status/<slug>`)
 keeps refreshing every 60 seconds.
 
 The browser opens a [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) channel
@@ -239,6 +272,7 @@ expiration, alerts and `extra-labels`; the page payload has no key and no event.
 - The page in the browser refreshes every 60 seconds and pauses while the tab is hidden; the details pages also update
   in [real time](#real-time-updates).
 - The key of the cached details includes the sequence of the results of the endpoint, so a new result renews them.
+- The data of the response time chart has a cache of its own, so that the charts never evict the pages.
 
 ## Rate limit
 
@@ -267,7 +301,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.16
+    image: jniltinho/gatus:v5.36.0-fork.17
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -347,7 +381,8 @@ reloads.
 ## Going back to the original Gatus
 
 The `status-pages` section and the `managed_status_pages` table are ignored by the original Gatus, and the pages stop
-existing. Back up the database before switching versions. Previous versions of the fork reject the pages managed through
+existing. Back up the database before switching versions. The `endpoint_response_time_buckets` table of the response
+time chart is also ignored and can be dropped. Previous versions of the fork reject the pages managed through
 the web with `show-messages`: turn it off before going back.
 
 ## End-to-end tests

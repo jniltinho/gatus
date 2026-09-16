@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gatus/v5/alerting/alert"
@@ -63,6 +64,12 @@ type Store struct {
 
 	maximumNumberOfResults int // maximum number of results that an endpoint can have
 	maximumNumberOfEvents  int // maximum number of events that an endpoint can have
+
+	// Fork: last clean up of the response time buckets of each endpoint key, and the clock of the buckets, which the
+	// tests can replace (see response_time_buckets.go)
+	responseTimeBucketsMutex    sync.Mutex
+	responseTimeBucketsCleanUps map[string]time.Time
+	now                         func() time.Time
 }
 
 // NewStore initializes the database and creates the schema if it doesn't already exist in the path specified
@@ -141,7 +148,11 @@ func (s *Store) createSchema() error {
 		return err
 	}
 	// Sessions of the login screen of security.basic (see login_sessions.go)
-	return s.createLoginSessionsSchema()
+	if err = s.createLoginSessionsSchema(); err != nil {
+		return err
+	}
+	// Minute and hour aggregates of the results, for the response time chart (see response_time_buckets.go)
+	return s.createResponseTimeBucketsSchema()
 }
 
 // GetAllEndpointStatuses returns all monitored endpoint.Status
@@ -414,6 +425,8 @@ func (s *Store) insertEndpointResultWithoutRetry(ep *endpoint.Endpoint, result *
 // DeleteAllEndpointStatusesNotInKeys removes all rows owned by an endpoint whose key is not within the keys provided
 func (s *Store) DeleteAllEndpointStatusesNotInKeys(keys []string) int {
 	logr.Debugf("[sql.DeleteAllEndpointStatusesNotInKeys] Called with %d keys", len(keys))
+	// Fork: the clean ups of the response time buckets of the removed endpoints are forgotten
+	s.forgetResponseTimeBucketsCleanUps(keys)
 	var err error
 	var result sql.Result
 	if len(keys) == 0 {
@@ -595,6 +608,7 @@ func (s *Store) HasEndpointStatusNewerThan(key string, timestamp time.Time) (boo
 // Clear deletes everything from the store
 func (s *Store) Clear() {
 	_, _ = s.db.Exec("DELETE FROM endpoints")
+	s.forgetResponseTimeBucketsCleanUps(nil)
 	if s.writeThroughCache != nil {
 		_ = s.writeThroughCache.DeleteKeysByPattern("*")
 	}
@@ -608,6 +622,7 @@ func (s *Store) Save() error {
 // Close the database handle
 func (s *Store) Close() {
 	_ = s.db.Close()
+	s.forgetResponseTimeBucketsCleanUps(nil)
 	if s.writeThroughCache != nil {
 		// Clear the cache too. If the store's been closed, we don't want to keep the cache around.
 		_ = s.writeThroughCache.DeleteKeysByPattern("*")
