@@ -52,4 +52,4 @@
   - `test/e2e/status-pages.sh`: página com `show-messages` (tabela igual à do dashboard, erro de verificação ativa fora) e sem a opção, e estado Pending;
   - prints claro e escuro em `dist/prints/`.
 - [x] 4.3 `go test ./... -race` com PostgreSQL, MySQL e MariaDB, `make lint` e `openspec validate refine-push-status --strict`.
-- [ ] 4.4 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub, pacote `mariadb` e arquivamento da change.
+- [x] 4.4 PR no `jniltinho/gatus` com CI verde e merge, release com imagem no Docker Hub, pacote `mariadb` e arquivamento da change.

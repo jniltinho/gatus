@@ -27,7 +27,7 @@ Cada endpoint do payload público MUST ter `responseTime` com as médias de temp
 - **THEN** `responseTime["24h"]` é 200
 
 ### Requirement: API pública de detalhes do endpoint
-A rota pública `GET /api/v1/status-pages/:slug/endpoints/:key` MUST responder sem autenticação, para um endpoint mostrado pela página publicada, `{"page": {"slug", "title"}, "name", "group", "status", "updatedAt", "uptime", "responseTime", "results", "events"}`, com os resultados e o uptime iguais aos da página e os eventos `START`, `HEALTHY` e `UNHEALTHY` mais recentes (no máximo 50, em ordem cronológica, só com `type` e `timestamp`), sem chave, URL, hostname, erros ou condições. Quando a página tem `show-certificate-expiration: true` e o endpoint tem resultado publicado com certificado, a resposta MUST ter também `certificateExpiresInDays`, calculado como no payload da página. Página não publicada, chave de endpoint fora da página ou caminho desconhecido MUST responder o 404 idêntico das status pages, contando no limitador e sem ler o storage. A resposta MUST ficar em cache por 30 segundos por slug, revisão, geração e chave, com `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 segundos para erro de leitura. Um endpoint da página ainda sem registro no storage MUST sair com estado `unknown` e sem eventos.
+A rota pública `GET /api/v1/status-pages/:slug/endpoints/:key` MUST responder sem autenticação, para um endpoint mostrado pela página publicada, `{"page": {"slug", "title", "showMessages"}, "name", "group", "status", "updatedAt", "uptime", "responseTime", "results", "events"}`, com os resultados e o uptime iguais aos da página e os eventos `START`, `HEALTHY` e `UNHEALTHY` mais recentes (no máximo 50, em ordem cronológica, só com `type` e `timestamp`), sem chave, URL, hostname, erros ou condições. Os resultados MUST ter `pending: true` quando forem Pending. Quando a página tem `show-certificate-expiration: true` e o endpoint tem resultado publicado com certificado, a resposta MUST ter também `certificateExpiresInDays`, calculado como no payload da página. `page.showMessages` MUST refletir a opção `show-messages` da página. Quando a opção está ligada, os resultados MUST ter `message` e `origin` conforme as mensagens opcionais das status pages. Página não publicada, chave de endpoint fora da página ou caminho desconhecido MUST responder o 404 idêntico das status pages, contando no limitador e sem ler o storage. A resposta MUST ficar em cache por 30 segundos por slug, revisão, geração e chave, com `singleflight`, o mesmo semáforo das montagens e cache negativo de 5 segundos para erro de leitura. Um endpoint da página ainda sem registro no storage MUST sair com estado `unknown` e sem eventos.
 
 #### Scenario: Detalhes de um endpoint da página
 - **WHEN** a página publicada `infra` mostra `api` do grupo `core`, que teve uma execução com sucesso e depois uma falha
@@ -47,6 +47,11 @@ A rota pública `GET /api/v1/status-pages/:slug/endpoints/:key` MUST responder s
 - **THEN** `GET /api/v1/status-pages/infra/endpoints/core_api` tem `certificateExpiresInDays` igual a 73
 - **AND** sem a opção, a resposta não tem o campo
 
+#### Scenario: Detalhes com mensagens
+- **WHEN** a página `jobs` tem `show-messages: true` e o endpoint Push `backup` recebeu `status=pending&msg=Aguardando`
+- **THEN** a resposta de `GET /api/v1/status-pages/jobs/endpoints/jobs_backup` tem `page.showMessages: true`
+- **AND** o último resultado tem `pending: true`, `message` `Aguardando` e `origin` `push`
+
 ### Requirement: Campo charts obsoleto
 O campo `charts` MUST continuar aceito no YAML e nas definições gerenciadas gravadas por versões anteriores, com os mesmos limites, mas MUST ser ignorado: o payload não tem `chart`, a carga MUST registrar aviso de campo obsoleto e a validação da administração MUST devolver aviso `type: "charts"`. O formulário da administração MUST NOT enviar `charts`, de modo que salvar a página remove o campo.
 
@@ -55,12 +60,31 @@ O campo `charts` MUST continuar aceito no YAML e nas definições gerenciadas gr
 - **THEN** a página continua publicada, sem gráfico embutido, e a validação devolve o aviso `charts`
 
 ### Requirement: Destaques e página de detalhes nas telas
-A página pública MUST mostrar os destaques no topo, em cartões com nome, grupo, estado, uptime e tempo médio de resposta de 24h, 7d e 30d, último tempo de resposta, barras e um link "View details", e MUST NOT mostrar gráfico embutido. O nome de cada endpoint MUST levar à página pública `/status/<slug>/endpoints/<chave>`, que MUST seguir o layout da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`): cartões de estado, tempo médio, faixa de tempo de resposta e última verificação, barras, gráfico Response Time Trend com o mesmo componente do dashboard e seletor 24h/7d/30d, badges de tempo de resposta, uptime e saúde, e eventos, com link de volta à status page, sem chamar `/api/v1/config` e sem 401. O formulário da administração MUST permitir marcar "em destaque", respeitando o limite de 10, e o cabeçalho da edição MUST ter o endereço público como link que abre em nova aba.
+A página pública MUST mostrar os destaques no topo, em cartões com nome, grupo, estado, uptime e tempo médio de resposta de 24h, 7d e 30d, último tempo de resposta, barras e um link "View details", e MUST NOT mostrar gráfico embutido. O nome de cada endpoint MUST levar à página pública `/status/<slug>/endpoints/<chave>`, que MUST seguir o layout da página de detalhes do endpoint do dashboard (`/endpoints/<chave>`), nesta ordem:
+- barras;
+- painel de números;
+- gráfico Response Time Trend com o mesmo componente do dashboard, seletor 24h/7d/30d e faixas fora do ar;
+- tabela de verificações;
+- badges de tempo de resposta, saúde e eventos.
+
+A página MUST ter link de volta à status page, sem chamar `/api/v1/config` e sem 401. O estado Pending MUST aparecer em amarelo. A tabela de verificações MUST ser igual à do dashboard (Status, Date and time, Message e Origin) quando `page.showMessages` é verdadeiro, mesmo que nenhum resultado tenha mensagem, e MUST mostrar Status, Date and time e Response time sem a opção. Na página pública, a tabela MUST mostrar somente `message` e `origin` do payload, sem montar mensagem a partir de outros campos. O formulário da administração MUST permitir marcar "em destaque", respeitando o limite de 10, e o cabeçalho da edição MUST ter o endereço público como link que abre em nova aba.
 
 #### Scenario: Visitante abre os detalhes de um endpoint
 - **WHEN** o visitante clica no nome de `panel` na status page `services`
-- **THEN** a página `/status/services/endpoints/_panel` mostra o gráfico de tempo de resposta e os eventos
+- **THEN** a página `/status/services/endpoints/_panel` mostra o painel de números, o gráfico de tempo de resposta e os eventos
 - **AND** ao escolher `7d` no seletor, o gráfico busca `/api/v1/endpoints/_panel/response-times/7d/history`, sem chamar `/api/v1/config` e sem 401
+
+#### Scenario: Tabela pública com mensagens
+- **WHEN** a página `jobs` tem `show-messages: true` e o visitante abre os detalhes de `backup`
+- **THEN** a tabela de verificações tem as colunas Status, Date and time, Message e Origin, como no dashboard
+
+#### Scenario: Mensagens ligadas sem mensagens
+- **WHEN** a página `infra` tem `show-messages: true` e o endpoint TCP `core/db` só tem resultados sem mensagem
+- **THEN** a tabela de verificações tem as colunas Status, Date and time, Message e Origin, com a mensagem vazia
+
+#### Scenario: Endpoint Pending na página pública
+- **WHEN** o último resultado de `backup` é Pending
+- **THEN** o estado, a barra e o badge da tabela aparecem em amarelo com o rótulo Pending, e não "No data"
 
 #### Scenario: Administrador marca destaque
 - **WHEN** o administrador marca `api` como destaque e salva
