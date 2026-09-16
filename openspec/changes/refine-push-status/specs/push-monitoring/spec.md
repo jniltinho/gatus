@@ -6,7 +6,7 @@ O sistema MUST suportar um terceiro status de resultado, Pending, além de suces
 - MUST NOT criar evento;
 - MUST contar como execução sem sucesso no uptime e nas métricas.
 
-A criação de eventos MUST comparar cada resultado que não é Pending com o tipo do último evento HEALTHY ou UNHEALTHY do endpoint: um sucesso MUST criar HEALTHY e uma falha MUST criar UNHEALTHY quando esse último evento for do outro tipo ou não existir. Sem eventos, o evento START MUST continuar sendo gravado. Sem resultados Pending, os eventos MUST ser os mesmos de antes.
+A criação de eventos MUST comparar cada resultado que não é Pending com o tipo do último evento HEALTHY ou UNHEALTHY do endpoint: um sucesso MUST criar HEALTHY e uma falha MUST criar UNHEALTHY quando esse último evento for do outro tipo ou não existir. A ausência de evento HEALTHY ou UNHEALTHY MUST ser tratada como "não existe", sem erro, inclusive quando o único evento é START. Sem eventos, o evento START MUST continuar sendo gravado. Sem resultados Pending, os eventos MUST ser os mesmos de antes.
 
 As telas do dashboard MUST mostrar Pending em amarelo, com o rótulo "Pending":
 - nas barras de resultados;
@@ -52,8 +52,8 @@ O resumo do dashboard MUST mostrar a contagem de endpoints cujo último resultad
 
 ### Requirement: Tentativas antes da queda de endpoints Push
 Endpoints Push gerenciados e external endpoints do arquivo com heartbeat MUST aceitar `heartbeat.retries`, inteiro de 0 a 100, com padrão 0. Um valor fora da faixa MUST invalidar a definição. Um endpoint ativo com `heartbeat.retries`, ou um external endpoint do arquivo com `heartbeat.retries` maior que 0 sem `heartbeat.interval`, MUST ser rejeitado. As tentativas MUST valer para os resultados da URL de push e da API upstream `POST /api/v1/endpoints/:key/external`. Com `retries` maior que 0:
-- um envio com status diferente de `up` e de `pending`, ou um intervalo completo sem envio, MUST registrar Pending enquanto o número de resultados assim seguidos for menor ou igual a `retries`;
-- o resultado seguinte assim MUST registrar falha, com alertas e evento, e os seguintes MUST continuar registrando falha até um sucesso;
+- um envio com status diferente de `up` e de `pending`, ou um intervalo completo sem envio, MUST registrar Pending quando menos de `retries` resultados assim tiverem sido convertidos em Pending desde o último sucesso;
+- esgotadas as tentativas, o resultado MUST registrar falha, com alertas e evento, e os seguintes MUST continuar registrando falha até um sucesso;
 - um envio `up` MUST zerar a contagem;
 - um envio `pending` MUST NOT alterar a contagem.
 
@@ -63,6 +63,10 @@ Um resultado convertido em Pending MUST ficar sem erros, e os erros MUST virar a
 - **WHEN** um endpoint Push com intervalo de 1 minuto e `retries: 2` fica 3 minutos sem envio
 - **THEN** o endpoint registra Pending, Pending e falha, nessa ordem
 - **AND** só a falha conta para os alertas e cria evento
+
+#### Scenario: Sem tentativas
+- **WHEN** um endpoint Push com `retries: 0` recebe `status=down`
+- **THEN** o endpoint registra falha imediatamente
 
 #### Scenario: Envio down com tentativas
 - **WHEN** um endpoint Push com `retries: 1` recebe `status=down` e depois `status=down`

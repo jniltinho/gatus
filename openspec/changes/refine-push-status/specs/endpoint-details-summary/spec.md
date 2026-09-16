@@ -2,7 +2,7 @@
 
 ### Requirement: Resumo na API protegida de status do endpoint
 `GET /api/v1/endpoints/:key/statuses` MUST incluir os campos do fork:
-- `push`: verdadeiro para endpoints Push gerenciados, inclusive desabilitados, e para external endpoints do arquivo;
+- `push`: verdadeiro para endpoints Push gerenciados em qualquer estado (habilitados, desabilitados ou em conflito) e para external endpoints do arquivo, habilitados ou não;
 - `currentResponseTime`: duração em milissegundos do último resultado, `null` quando é zero, independente da página de resultados pedida;
 - `uptime`: razões de 0 a 1 em `24h`, `7d` e `30d`, `null` sem execução no período;
 - `responseTime`: médias em milissegundos em `24h`, `7d` e `30d`, `null` sem execução no período.
@@ -59,7 +59,7 @@ O gráfico de tempo de resposta dos detalhes do endpoint, no dashboard e na pág
 - cada faixa MUST ser recortada no período selecionado (24h, 7d ou 30d), inclusive quando a queda começou antes dele;
 - o eixo do tempo MUST ficar fixo no período selecionado.
 
-As faixas MUST substituir as linhas tracejadas dos eventos. Ao passar o mouse sobre a faixa, o gráfico MUST mostrar o início e a duração da queda. Resultados Pending MUST NOT gerar faixas.
+O gráfico MUST ser mostrado, no dashboard e na página pública, sempre que o endpoint tiver pelo menos um resultado, inclusive com todas as durações zero (envios sem `ping`). As faixas MUST substituir as linhas tracejadas dos eventos. Ao passar o mouse sobre a faixa, o gráfico MUST mostrar o início e a duração da queda. Resultados Pending MUST NOT gerar faixas.
 
 #### Scenario: Queda de 10 minutos
 - **WHEN** o endpoint ficou fora do ar das 10:00 às 10:10 de hoje e o período selecionado é 24h
@@ -81,6 +81,10 @@ As faixas MUST substituir as linhas tracejadas dos eventos. Ao passar o mouse so
 #### Scenario: Lista de eventos truncada
 - **WHEN** os eventos carregados começam com um HEALTHY há 2 horas, sem START, e o primeiro ponto do gráfico é de há 5 horas
 - **THEN** a faixa vai de há 5 horas até há 2 horas
+
+#### Scenario: Push sem ping
+- **WHEN** um endpoint Push só recebeu envios sem `ping` e teve uma queda
+- **THEN** o dashboard e a página pública mostram o gráfico com a faixa da queda
 
 #### Scenario: Queda fora do período
 - **WHEN** a única queda ocorreu e terminou há 10 dias e o período selecionado é 7d

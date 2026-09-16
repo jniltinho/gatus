@@ -75,7 +75,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
 - **Gravação e leitura:** a linha é gravada quando há mensagem, origem ou Pending. `loadEndpointResultMessages` lê `pending`.
 - **Leitura nula:** a leitura usa `sql.NullBool`, porque resultados sem linha de mensagem não têm a coluna. Nenhuma consulta filtra por `pending`.
 - **Memória:** o store em memória guarda o `Result` inteiro.
-- **Resumo:** `ResultSummary` ganha `Pending`, `Message`, `Origin` e `HTTPStatus`. O SQL lê esses campos em `endpoint_summary_batch.go` com `LEFT JOIN endpoint_result_messages` e `status` de `endpoint_results`, e a memória copia do `Result`. Só o payload de detalhes com `show-messages` publica mensagem e origem.
+- **Resumo:** `ResultSummary` ganha `Pending`, `Message`, `Origin`, `HTTPStatus` e `Errors` (campo interno, fora de qualquer JSON). O SQL lê esses campos em `endpoint_summary_batch.go` com `LEFT JOIN endpoint_result_messages` e `status` e `errors` de `endpoint_results`, e a memória copia do `Result`. Os `Errors` só servem para reconhecer o prefixo do heartbeat de resultados antigos. Só o payload de detalhes com `show-messages` publica mensagem e origem.
 - **Índice:** `endpoint_events` ganha o índice `(endpoint_id, endpoint_event_id)` onde não existir: `CREATE INDEX IF NOT EXISTS` no SQLite e no PostgreSQL. No MySQL/MariaDB, a chave estrangeira já indexa `endpoint_id`. Ele atende a consulta do último evento (D3).
 
 **Alternativas consideradas:**
@@ -94,10 +94,11 @@ A marca é persistida em `endpoint_result_messages.pending`:
   - um resultado Pending nunca cria evento;
   - um resultado com sucesso cria HEALTHY quando o último evento desse tipo é UNHEALTHY ou não existe;
   - uma falha cria UNHEALTHY quando o último é HEALTHY ou não existe;
-  - o START continua sendo gravado quando o endpoint não tem eventos.
+  - o START continua sendo gravado quando o endpoint não tem eventos;
+  - a ausência de HEALTHY/UNHEALTHY é um resultado vazio válido, e não um erro. Hoje `getLastEndpointResultSuccessValue` devolve `errNoRowsReturned` e o chamador não cria evento, e esse padrão não pode ser copiado. Com o primeiro resultado Pending, o único evento é START, e o sucesso seguinte precisa criar HEALTHY.
 - **Implementação:**
   - SQL: uma consulta `SELECT event_type FROM endpoint_events WHERE endpoint_id = $1 AND event_type IN ('HEALTHY','UNHEALTHY') ORDER BY endpoint_event_id DESC LIMIT 1` substitui `getLastEndpointResultSuccessValue` em `InsertEndpointResult`;
-  - memória: percorre `Events` do fim para o começo.
+  - memória: percorre `Events` do fim para o começo, ignorando START.
 - **Resultado:**
   - sem Pending, o comportamento é o mesmo do upstream, porque o último evento desse tipo sempre reflete o último resultado;
   - com Pending, a regra continua certa depois de um primeiro resultado Pending e depois de mais Pending do que `maximum-number-of-results`;
@@ -116,7 +117,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
   - Em janela de manutenção, o resultado é gravado como hoje, sem alertas, e o contador não avança.
 - **Descarte:** o contador e o `lastPush` da chave são apagados:
   - nos fluxos de renomear e remover de `managedendpoint`, depois do commit;
-  - no diff da recarga do YAML, para as chaves que deixam de existir.
+  - na recarga da configuração, depois de `managedendpoint.Load`, para as chaves que deixam de existir entre `cfg.ExternalEndpoints` e os endpoints Push gerenciados. Hoje o ciclo de recarga não tem esse gancho, e ele é criado nesta change.
 
   Hoje `lastPushes` nunca é apagado.
 - **Conversão em Pending:** quando um resultado down vira Pending, `Errors` é esvaziado. Se não há mensagem, os erros unidos por `; ` viram a mensagem.
@@ -148,7 +149,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
 ### D6. Mesma tabela na página pública, com `show-messages`
 
 - **Opção:** `show-messages` por página, booleana, padrão falso, no YAML (`config/statuspage`) e na administração (checkbox "Show messages" ao lado de "Show certificate expiration", com a mesma validação e versão).
-- **Payload de detalhes:** somente com a opção, o payload de detalhes do endpoint (`GET /api/v1/status-pages/:slug/endpoints/:key`) inclui em cada resultado:
+- **Payload de detalhes:** `page` ganha `showMessages`, que reflete a opção. A tela escolhe as colunas por ele, e não pela presença de mensagens (uma página só com verificações TCP não teria nenhuma). Somente com a opção, o payload de detalhes do endpoint (`GET /api/v1/status-pages/:slug/endpoints/:key`) inclui em cada resultado:
   - `message`, montada no servidor a partir de `ResultSummary` pela mesma regra do dashboard, sem os erros:
     - a mensagem do resultado (envio ou heartbeat);
     - senão, o texto de heartbeat reconhecido pelo prefixo nos `Errors` de resultados antigos;
@@ -160,6 +161,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
 - **Payload da página:** `GET /api/v1/status-pages/:slug` continua sem mensagens.
 - **Tabela pública:**
   - com a opção, `RecentChecksTable` recebe `show-message` e fica igual à do dashboard (Status, Date and time, Message, Origin);
+  - na página pública, o componente usa só `message` e `origin` do payload, sem a montagem do dashboard (mensagem, erros, status HTTP), para nunca publicar erros por engano;
   - sem a opção, continua com Response time.
 - **Cache:** mudar a opção cria uma nova revisão, então o cache não serve respostas antigas.
 
@@ -169,7 +171,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
 
 - **Dados:**
   - a API protegida `GET /api/v1/endpoints/:key/statuses` ganha os campos do fork:
-    - `push`: verdadeiro quando a chave é de um endpoint Push gerenciado (`managedendpoint`, mesmo desabilitado) ou de `cfg.ExternalEndpoints`, como em `statuspage/registry.go`;
+    - `push`: verdadeiro quando a chave é de um endpoint Push gerenciado em qualquer estado (`managedendpoint`) ou de `cfg.ExternalEndpoints` com qualquer `enabled`. Não usa o filtro de `statuspage/registry.go`, que só lista os habilitados;
     - `uptime` e `responseTime` (`24h`, `7d`, `30d`, nulos sem execução);
     - `currentResponseTime`: duração em ms do último resultado, nulo com zero, independente da paginação;
   - os valores são calculados com `GetEndpointSummaries` e as funções de uptime e média do `statuspage`, exportadas, numa leitura a mais só nessa rota;
@@ -185,7 +187,7 @@ A marca é persistida em `endpoint_result_messages.pending`:
   | Uptime (30d) | `uptime.30d` |
 
 - **Rótulos:** com `push: true`, "Response" vira "Ping" no dashboard. Na página pública fica "Response", porque o payload público não diz se o endpoint é Push.
-- **Valores:** uptime com até duas casas, sem zeros à direita; "—" se nulo. A formatação fica numa função pura em `utils/detailsSummary.js`, com testes unitários. A média de 24h inclui as durações zero dos envios sem `ping`, como o payload público já faz. Isso fica documentado.
+- **Valores:** uptime com até duas casas, sem zeros à direita; "—" se nulo. A formatação reutiliza `formatUptime` de `utils/statusPage.js`. O que faltar fica numa função pura em `utils/detailsSummary.js`, com testes unitários. A média de 24h inclui as durações zero dos envios sem `ping`, como o payload público já faz. Isso fica documentado.
 - **Sem resultados:** um endpoint sem resultados continua com 404 na API protegida, e o dashboard mostra a tela de não encontrado como hoje. Os "—" valem para períodos sem execução e para a página pública.
 - **Atualização e leiaute:** o painel atualiza com os resultados e quebra em duas colunas em telas estreitas.
 - **Cartões que continuam:** badges de tempo de resposta, "Current Health" e "Events". O estado atual fica no "Current Health" e a última verificação na barra.
@@ -203,7 +205,8 @@ A marca é persistida em `endpoint_result_messages.pending`:
 - **Tooltip:** a faixa mostra o início e a duração.
 - **Substituição:** as faixas substituem as linhas tracejadas, no dashboard e na página pública, que usam o mesmo componente.
 - **Testes:** o cálculo fica numa função pura em `utils/downtime.js`, com testes unitários.
-- **Condições:** Pending não gera faixa. O gráfico continua oculto quando nenhum resultado tem duração, como hoje.
+- **Condições:** Pending não gera faixa.
+- **Visibilidade:** hoje o dashboard esconde o gráfico quando nenhum resultado tem duração maior que zero (`EndpointDetails.vue`), e a página pública mostra com qualquer resultado. As duas passam a mostrar o gráfico sempre que houver pelo menos um resultado, para as faixas de queda aparecerem também em endpoints Push sem `ping`.
 
 ### D9. Status pages públicas
 

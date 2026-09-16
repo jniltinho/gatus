@@ -29,6 +29,40 @@ Os erros das verificações ativas MUST NOT ser publicados. O payload da página
 
 ## MODIFIED Requirements
 
+### Requirement: Seção de configuração status-pages
+O arquivo de configuração MUST aceitar a seção opcional `status-pages` com:
+- `enabled` (booleano, padrão `true`);
+- `trusted-proxies` (lista de IPs ou CIDRs, padrão vazia);
+- `rate-limit` (inteiro não negativo, padrão `120`, `0` desliga o limite);
+- `pages` (lista de páginas).
+
+Cada página MUST aceitar `slug`, `title`, `description`, `groups`, `endpoints`, `show-certificate-expiration` (booleano, padrão `false`), `show-messages` (booleano, padrão `false`) e `enabled` (padrão `true` no YAML). Com `enabled: false` na seção, nenhuma página MUST ser publicada, e as rotas públicas MUST continuar respondendo como para uma página inexistente, sem `WWW-Authenticate`, com ou sem `security`.
+
+#### Scenario: Página definida no YAML
+- **WHEN** a configuração tem `status-pages.pages` com a página `infra`, título `Infraestrutura` e `groups: [core]`
+- **THEN** a configuração é válida
+- **AND** `GET /api/v1/status-pages/infra` responde 200
+
+#### Scenario: Seção desligada
+- **WHEN** a configuração tem `security.basic`, `status-pages.enabled: false` e a página `infra`
+- **THEN** `GET /api/v1/status-pages/infra` responde o 404 idêntico sem `WWW-Authenticate`
+- **AND** `GET /status/infra` responde 200 com o HTML da SPA
+
+#### Scenario: Sem a seção
+- **WHEN** a configuração não tem a seção `status-pages`
+- **THEN** a configuração é válida
+- **AND** `GET /api/v1/status-pages/qualquer` responde 404
+
+#### Scenario: Página com a expiração do certificado
+- **WHEN** a página `infra` do YAML tem `show-certificate-expiration: true`
+- **THEN** a configuração é válida
+- **AND** os endpoints da página com certificado têm `certificateExpiresInDays` no payload
+
+#### Scenario: Página com mensagens
+- **WHEN** a página `jobs` do YAML tem `show-messages: true`
+- **THEN** a configuração é válida
+- **AND** o payload de detalhes dos endpoints de `jobs` tem `page.showMessages: true`
+
 ### Requirement: Payload público sanitizado
 A resposta de `GET /api/v1/status-pages/:slug` MUST conter apenas:
 - `slug`, `title`, `description`, `status`, `updatedAt`, `truncated`, `featured` e `groups`;

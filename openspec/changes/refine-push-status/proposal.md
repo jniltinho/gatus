@@ -46,8 +46,10 @@ Hoje o uptime aparece em imagens de badge, o gráfico marca as quedas com linhas
 ### Modified Capabilities
 
 - `push-monitoring`: `status=pending`, status Pending, tentativas no heartbeat e nos envios, exceção de Pending para os endpoints ativos e badge Pending na tabela de verificações.
-- `public-status-pages`: resultados e estado Pending, agregação dos estados e opção `show-messages`.
-- `status-page-highlights`: página pública de detalhes com Pending, mensagens opcionais, painel de números e faixas fora do ar.
+- `public-status-pages`: `show-messages` na seção de configuração, resultados e estado Pending, agregação dos estados e mensagens opcionais.
+- `status-page-highlights`: página pública de detalhes com Pending, mensagens opcionais (`page.showMessages`), painel de números e faixas fora do ar.
+- `admin-web-ui`: campo "Retries" no formulário de endpoints Push.
+- `status-page-web-ui`: opção "Show messages" no formulário de status pages.
 
 ## Impact
 
