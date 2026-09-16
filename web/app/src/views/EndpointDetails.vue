@@ -131,24 +131,10 @@
             </CardContent>
           </Card>
 
-          <Card v-if="events && events.length > 0">
-            <CardHeader>
-              <CardTitle>Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="space-y-4">
-                <div v-for="event in events" :key="event.timestamp" class="flex items-start gap-4 pb-4 border-b last:border-0">
-                  <div class="mt-1">
-                    <ArrowUpCircle v-if="event.type === 'HEALTHY'" class="h-5 w-5 text-green-500" />
-                    <ArrowDownCircle v-else-if="event.type === 'UNHEALTHY'" class="h-5 w-5 text-red-500" />
-                    <PlayCircle v-else class="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div class="flex-1">
-                    <p class="font-medium">{{ event.fancyText }}</p>
-                    <p class="text-sm text-muted-foreground">{{ prettifyTimestamp(event.timestamp) }} • {{ event.fancyTimeAgo }}</p>
-                  </div>
-                </div>
-              </div>
+          <!-- Fork: the events are collapsed by default, like the Checks table -->
+          <Card v-if="events && events.length > 0" data-testid="endpoint-events">
+            <CardContent class="pt-6">
+              <EventsTimeline :items="eventItems" />
             </CardContent>
           </Card>
         </div>
@@ -166,7 +152,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, RefreshCw, ArrowUpCircle, ArrowDownCircle, PlayCircle, Activity, Timer } from 'lucide-vue-next'
+import { ArrowLeft, RefreshCw, Activity, Timer } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -176,6 +162,7 @@ import Pagination from '@/components/Pagination.vue'
 import Loading from '@/components/Loading.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
+import EventsTimeline from '@/components/EventsTimeline.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
 import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
@@ -190,6 +177,8 @@ const emit = defineEmits(['showTooltip'])
 const endpointStatus = ref(null) // For paginated historical data
 const currentStatus = ref(null) // For current/latest status (always page 1)
 const events = ref([])
+// Fork: items of the collapsible events, see components/EventsTimeline.vue
+const eventItems = computed(() => events.value.map((event) => ({ key: `${event.type}-${event.timestamp}`, type: event.type, text: event.fancyText, dateTime: prettifyTimestamp(event.timestamp), timeAgo: event.fancyTimeAgo })))
 const currentPage = ref(1)
 const resultPageSize = 50
 const showResponseTimeChartAndBadges = ref(false)

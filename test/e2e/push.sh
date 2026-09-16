@@ -315,6 +315,15 @@ set_theme admin light
 step "Real time: a pending push shows up on the details page without reloading it"
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
 admin wait "$(testid details-summary)" >/dev/null
+# The events of the dashboard are collapsed by default, like the Checks table
+admin wait "$(testid events-toggle)" >/dev/null || fail "the events are not shown on the details page"
+[ "$(selector_count events-list)" = 0 ] || fail "the events of the dashboard should be collapsed by default"
+admin click "$(testid events-toggle)" >/dev/null
+admin wait "$(testid events-list)" >/dev/null || fail "the events of the dashboard did not expand"
+admin scrollintoview "$(testid events-list)" >/dev/null
+admin screenshot "$PRINTS/12-events-expanded.png" >/dev/null
+admin click "$(testid events-toggle)" >/dev/null
+admin scrollintoview "$(testid details-summary)" >/dev/null
 [ "$(selector_count recent-checks-table)" = 0 ] && admin click "$(testid recent-checks-toggle)" >/dev/null
 admin wait "$(testid recent-check-0)" >/dev/null
 # The marker only survives if the page is not reloaded

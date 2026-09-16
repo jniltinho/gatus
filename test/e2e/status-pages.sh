@@ -196,7 +196,19 @@ public click "$(testid recent-checks-toggle)" >/dev/null
 public wait "$(testid recent-check-0)" >/dev/null || fail "the public table of checks did not expand"
 [ "$(js public "document.querySelectorAll('[data-testid=\"recent-check-message\"]').length")" = 0 ] || fail "the public table of checks shows messages"
 public screenshot --full "$PRINTS/endpoint-details-kuma-order.png" >/dev/null
-grep -q "Monitoring started" <<<"$(body_text public)" || fail "the events do not have the texts of the dashboard"
+# The events are collapsed by default, like the Checks table, and the browser remembers when they are expanded
+[ "$(js public "document.querySelectorAll('[data-testid=\"events-list\"]').length")" = 0 ] || fail "the events should be collapsed by default"
+[ "$(js public "document.querySelector('[data-testid=\"events-toggle\"]').getAttribute('aria-expanded')")" = false ] || fail "the toggle of the events should not be expanded"
+grep -qE 'Events(\\n| )?\([0-9]+\)' <<<"$(js public "document.querySelector('[data-testid=\"events-toggle\"]').innerText")" || fail "the toggle of the events does not show their number"
+public scrollintoview "$(testid events-toggle)" >/dev/null
+public click "$(testid events-toggle)" >/dev/null
+public wait "$(testid events-list)" >/dev/null || fail "the events did not expand"
+grep -q "Monitoring started" <<<"$(js public "document.querySelector('[data-testid=\"events-list\"]').innerText")" || fail "the events do not have the texts of the dashboard"
+public reload >/dev/null
+public wait "$(testid events-list)" >/dev/null || fail "the expanded events were not remembered after a reload"
+public screenshot --full "$PRINTS/endpoint-details-events.png" >/dev/null
+public scrollintoview "$(testid events-toggle)" >/dev/null
+public click "$(testid events-toggle)" >/dev/null
 # Chart in the format of the Uptime Kuma: Recent by default, then the aggregates of 24 hours, remembered after a reload
 [ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.period")" = "recent" ] || fail "the chart did not open in Recent"
 # The local checks of _panel may take less than 1 ms, which the chart does not draw (like the Uptime Kuma): only the load

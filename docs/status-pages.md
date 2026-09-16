@@ -111,7 +111,8 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
   checks, or, with `show-messages: true`, the same columns as the dashboard (status, date and time, message and origin),
   never with the errors of the checks;
 - response time and health badges;
-- the events (monitoring started, became healthy, was unhealthy for…), the latest 50.
+- **Events**, collapsed by default like the table of checks (the browser remembers when it is expanded): monitoring
+  started, became healthy, was unhealthy for…, the latest 50.
 
 A key of an endpoint that is not on the page, or of a page that is not published, shows "Page not found". The page
 updates in [real time](#real-time-updates) and also refreshes every 60 seconds, pausing while the tab is hidden.
@@ -301,7 +302,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.19
+    image: jniltinho/gatus:v5.36.0-fork.20
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
