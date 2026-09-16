@@ -180,12 +180,12 @@ The details page of an endpoint (`/endpoints/<key>`) follows the order of the mo
 - a panel of numbers: **Response (Current)** and **Avg. Response (24h)** (**Ping** on Push endpoints) and the
   **Uptime** over 24 hours, 7 days and 30 days, with "—" without data. The average includes the pushes without `ping`
   as 0 ms;
-- the **Response Time Trend** chart, shown as soon as there is a result, with the periods when the endpoint was down
-  as red bands and the pending periods (from a Pending result to the next result that is not pending) as yellow
-  bands;
+- the **Response Time Trend** chart, shown as soon as there is a result, in the format of the chart of the Uptime
+  Kuma: Recent (one point per push, Down in red and Pending in yellow columns), 3h, 6h, 24h and 1w, see
+  [response time chart](status-pages.md#response-time-chart);
 - the table of checks, with the pagination.
 
-The details page updates in real time: a push shows up on the bars, the panel, the bands of the chart and the table
+The details page updates in real time: a push shows up on the bars, the panel, the chart and the table
 within about 2 seconds, without reloading the page, even with the table on another page of results. See
 [real-time updates](status-pages.md#real-time-updates) for the routes, the limits and the reverse proxy.
 

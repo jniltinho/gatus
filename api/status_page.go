@@ -33,6 +33,8 @@ func registerStatusPageRoutes(app *fiber.App, unprotectedAPIRouter fiber.Router,
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key", statusPageEndpointHandler(notFound))
 		// Fork: notifications of the new results of an endpoint of the page in real time, see api/live_updates.go
 		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/events", statusPageEndpointEventsHandler(notFound, cfg.StatusPages.TrustedProxyPrefixes()))
+		// Fork: data of the response time chart of an endpoint of the page, see api/response_time_chart.go
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/response-time-chart", statusPageResponseTimeChartHandler(cfg, notFound))
 	}
 	unprotectedAPIRouter.All("/v1/status-pages", notFound)
 	unprotectedAPIRouter.All("/v1/status-pages/*", notFound)

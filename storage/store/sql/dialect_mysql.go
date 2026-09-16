@@ -111,10 +111,17 @@ func (s *Store) dialectQuery(mysqlQuery, query string) string {
 // InsertEndpointResult inserts the result of an endpoint, see insertEndpointResultWithoutRetry. With MySQL and MariaDB,
 // a deadlock, a lock wait timeout or a certification conflict of Galera fails the transaction (see mysqlTx), which is
 // then attempted once more.
+//
+// Fork: once the result is committed, it is added to the buckets of the response time chart in a short transaction of
+// its own (see insertResponseTimeBuckets), which never changes the error returned.
 func (s *Store) InsertEndpointResult(ep *endpoint.Endpoint, result *endpoint.Result) error {
-	return s.retryOnTransientMySQLError("InsertEndpointResult", func() error {
+	err := s.retryOnTransientMySQLError("InsertEndpointResult", func() error {
 		return s.insertEndpointResultWithoutRetry(ep, result)
 	})
+	if err == nil {
+		s.insertResponseTimeBuckets(ep, result)
+	}
+	return err
 }
 
 // InsertSuiteResult inserts the result of a suite, see insertSuiteResultWithoutRetry and InsertEndpointResult

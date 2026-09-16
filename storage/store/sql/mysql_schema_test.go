@@ -25,13 +25,13 @@ func TestNewStore_MySQLSchema(t *testing.T) {
 		}
 		_ = rows.Close()
 		slices.Sort(tables)
-		expectedTables := []string{"endpoint_alerts_triggered", "endpoint_events", "endpoint_result_conditions", "endpoint_result_messages", "endpoint_results", "endpoint_uptimes", "endpoints", "login_sessions", "managed_endpoints", "managed_status_pages", "push_keys", "suite_results", "suites"}
+		expectedTables := []string{"endpoint_alerts_triggered", "endpoint_events", "endpoint_response_time_buckets", "endpoint_result_conditions", "endpoint_result_messages", "endpoint_results", "endpoint_uptimes", "endpoints", "login_sessions", "managed_endpoints", "managed_status_pages", "push_keys", "suite_results", "suites"}
 		if !slices.Equal(tables, expectedTables) {
 			t.Errorf("expected the InnoDB tables %v, got %v", expectedTables, tables)
 		}
 		var cascadingForeignKeys int
-		if err := store.db.QueryRow(`SELECT COUNT(*) FROM information_schema.referential_constraints WHERE constraint_schema = DATABASE() AND delete_rule = 'CASCADE'`).Scan(&cascadingForeignKeys); err != nil || cascadingForeignKeys != 8 {
-			t.Errorf("expected 8 foreign keys with ON DELETE CASCADE, got %d (err=%v)", cascadingForeignKeys, err)
+		if err := store.db.QueryRow(`SELECT COUNT(*) FROM information_schema.referential_constraints WHERE constraint_schema = DATABASE() AND delete_rule = 'CASCADE'`).Scan(&cascadingForeignKeys); err != nil || cascadingForeignKeys != 9 {
+			t.Errorf("expected 9 foreign keys with ON DELETE CASCADE, got %d (err=%v)", cascadingForeignKeys, err)
 		}
 		// Removing an endpoint removes its rows in every table that references it
 		if _, err := store.db.Exec(`INSERT INTO endpoints (endpoint_key, endpoint_name, endpoint_group) VALUES ($1, $2, $3)`, "core_api", "api", "core"); err != nil {

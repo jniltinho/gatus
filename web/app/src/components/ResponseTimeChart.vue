@@ -1,303 +1,290 @@
 <template>
-  <div class="relative w-full" style="height: 300px;">
+  <!-- Fork: chart in the format of the monitor page of Uptime Kuma, see utils/responseTimeChart.js -->
+  <div
+    class="relative w-full"
+    :style="{ height: `${height}px` }"
+    data-testid="response-time-chart"
+    :data-period="loadedPeriod"
+    :data-loading="loading ? 'true' : 'false'"
+    :data-line-points="summary.linePoints"
+    :data-down-columns="summary.downColumns"
+    :data-pending-columns="summary.pendingColumns"
+  >
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-background/50">
       <Loading />
     </div>
     <div v-else-if="error" class="absolute inset-0 flex items-center justify-center text-muted-foreground">
       {{ error }}
     </div>
-    <Line v-else :data="chartData" :options="chartOptions" />
+    <Line v-else-if="series" :data="chartData" :options="chartOptions" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Line } from 'vue-chartjs'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, TimeScale } from 'chart.js'
-import annotationPlugin from 'chartjs-plugin-annotation'
+import { Chart as ChartJS, BarController, BarElement, Filler, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from 'chart.js'
 import 'chartjs-adapter-date-fns'
-import { generatePrettyTimeDifference } from '@/utils/time'
-import { downtimeIntervals, pendingIntervals } from '@/utils/downtime'
+import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
+import { CHART_COLORS, RECENT_PERIOD, bucketDatasets, chartSummary, isChartPeriod, recentDatasets } from '@/utils/responseTimeChart'
 import Loading from './Loading.vue'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, TimeScale, annotationPlugin)
+ChartJS.register(LineController, BarController, LineElement, BarElement, PointElement, LinearScale, TimeScale, Tooltip, Filler)
 
 const props = defineProps({
-  endpointKey: {
+  // Base of the route of the chart, protected or public, without the query
+  chartUrl: {
     type: String,
     required: true
   },
-  duration: {
+  period: {
     type: String,
-    required: true,
-    validator: (value) => ['24h', '7d', '30d'].includes(value)
+    default: RECENT_PERIOD,
+    validator: (value) => isChartPeriod(value)
   },
-  serverUrl: {
-    type: String,
-    default: '..'
-  },
-  events: {
-    type: Array,
-    default: () => []
-  },
-  // Fork: the latest results, whose pending periods are shown in yellow
-  results: {
-    type: Array,
-    default: () => []
-  },
-  // Fork: changes with the data of the page (for example, the timestamp of the latest result), so that the line is
-  // fetched again in the background, at most once every LINE_REFRESH_INTERVAL_MS
+  // Changes with the data of the page (the timestamp of the latest result), so that the chart is fetched again
   refreshKey: {
     type: [String, Number],
     default: null
+  },
+  // Public route of a status page: fetched without credentials
+  publicRoute: {
+    type: Boolean,
+    default: false
   }
 })
 
-// Fork: the line is the hourly average and its route has no cache, so it is not fetched again more often than this
-const LINE_REFRESH_INTERVAL_MS = 60000
+// The aggregates are not fetched again more often than this
+const AGGREGATES_REFRESH_INTERVAL_MS = 60000
 
 const loading = ref(true)
 const error = ref(null)
-const timestamps = ref([])
-const values = ref([])
+const payload = ref(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const hoveredAnnotation = ref(null)
+const windowWidth = ref(window.innerWidth)
 
-const DURATIONS_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000
-}
+// Height of Uptime Kuma, by the width of the window instead of the width of the screen
+const height = computed(() => {
+  if (windowWidth.value < 576) {
+    return 275
+  }
+  if (windowWidth.value < 768) {
+    return 320
+  }
+  if (windowWidth.value < 992) {
+    return 300
+  }
+  return 250
+})
 
-// End of the period of the chart, updated with the data so that the period follows the refreshes (fork)
-const periodEnd = ref(Date.now())
-const periodStart = computed(() => periodEnd.value - DURATIONS_MS[props.duration])
+const loadedPeriod = computed(() => (payload.value ? payload.value.period : ''))
 
-// Fork: pending periods, from the first pending result to the next result that is not pending, clipped to the period
-const pendings = computed(() => pendingIntervals(props.results, periodStart.value, periodEnd.value).map((interval) => ({
-  ...interval,
-  ongoing: interval.end === periodEnd.value,
-  duration: generatePrettyTimeDifference(interval.end, interval.start)
-})))
+const series = computed(() => {
+  const data = payload.value
+  if (!data) {
+    return null
+  }
+  if (data.period === RECENT_PERIOD) {
+    return recentDatasets(data.results, data.intervalSeconds)
+  }
+  return bucketDatasets(data.buckets, data.period, data.intervalSeconds)
+})
 
-// Fork: periods out of service, from each UNHEALTHY event to the next HEALTHY event, clipped to the period of the chart
-const downtimes = computed(() => {
-  const firstPoint = timestamps.value.length > 0 ? new Date(timestamps.value[0]).getTime() : null
-  return downtimeIntervals(props.events, periodStart.value, periodEnd.value, firstPoint).map((interval) => ({
-    ...interval,
-    ongoing: interval.end === periodEnd.value,
-    duration: generatePrettyTimeDifference(interval.end, interval.start)
-  }))
+const summary = computed(() => chartSummary(series.value))
+
+const barDataset = (data) => ({
+  type: 'bar',
+  data: data.bars,
+  borderColor: CHART_COLORS.none,
+  backgroundColor: data.barColors,
+  yAxisID: 'y1',
+  barThickness: 'flex',
+  barPercentage: 1,
+  categoryPercentage: 1,
+  inflateAmount: 0.05,
+  label: 'status'
+})
+
+const lineDataset = (data, label, borderColor, backgroundColor) => ({
+  data,
+  fill: 'origin',
+  tension: 0.2,
+  borderColor,
+  backgroundColor,
+  yAxisID: 'y',
+  label
 })
 
 const chartData = computed(() => {
-  if (timestamps.value.length === 0) {
+  const data = series.value
+  if (!data) {
+    return { datasets: [] }
+  }
+  if (payload.value.period === RECENT_PERIOD) {
     return {
-      labels: [],
-      datasets: []
+      datasets: [
+        lineDataset(data.line, 'ping', CHART_COLORS.line, CHART_COLORS.recentFill),
+        barDataset(data)
+      ]
     }
   }
-  const labels = timestamps.value.map(ts => new Date(ts))
   return {
-    labels,
-    datasets: [{
-      label: 'Response Time (ms)',
-      data: values.value,
-      borderColor: isDark.value ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
-      backgroundColor: isDark.value ? 'rgba(96, 165, 250, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-      borderWidth: 2,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      tension: 0.1,
-      fill: true
-    }]
+    datasets: [
+      lineDataset(data.line, 'avg-ping', CHART_COLORS.line, CHART_COLORS.bucketFill),
+      lineDataset(data.min, 'min-ping', CHART_COLORS.minLine, CHART_COLORS.bucketFill),
+      lineDataset(data.max, 'max-ping', CHART_COLORS.maxLine, CHART_COLORS.bucketFill),
+      barDataset(data)
+    ]
   }
 })
 
-const chartOptions = computed(() => {
-  // Include hoveredAnnotation in dependency tracking
-  // eslint-disable-next-line no-unused-vars
-  const _ = hoveredAnnotation.value
+const numberFormat = new Intl.NumberFormat()
 
+const chartOptions = computed(() => {
+  const gridColor = isDark.value ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+  const textColor = isDark.value ? 'rgba(220,220,220,1.0)' : 'rgba(12,12,18,1.0)'
+  const tickColor = isDark.value ? '#9ca3af' : '#6b7280'
   return {
     responsive: true,
     maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false
+    layout: {
+      padding: {
+        left: 10,
+        right: 30,
+        top: 30,
+        bottom: 10
+      }
     },
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        backgroundColor: isDark.value ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDark.value ? '#f9fafb' : '#111827',
-        bodyColor: isDark.value ? '#d1d5db' : '#374151',
-        borderColor: isDark.value ? '#4b5563' : '#e5e7eb',
-        borderWidth: 1,
-        padding: 12,
-        cornerRadius: 0,
-        displayColors: false,
-        callbacks: {
-          title: (tooltipItems) => {
-            if (tooltipItems.length > 0) {
-              const date = new Date(tooltipItems[0].parsed.x)
-              return date.toLocaleString()
-            }
-            return ''
-          },
-          label: (context) => {
-            const value = context.parsed.y
-            return `${value}ms`
-          }
-        }
-      },
-      annotation: {
-        // Fork: translucent red boxes over the periods out of service, in the place of the dashed lines of the events, and
-        // yellow boxes over the pending periods
-        annotations: pendings.value.reduce((acc, pending, index) => {
-          const name = `pending-${index}`
-          acc[name] = {
-            type: 'box',
-            xMin: pending.start,
-            xMax: pending.end,
-            backgroundColor: isDark.value ? 'rgba(250, 204, 21, 0.2)' : 'rgba(234, 179, 8, 0.18)',
-            borderColor: isDark.value ? 'rgba(250, 204, 21, 0.7)' : 'rgba(202, 138, 4, 0.7)',
-            borderWidth: 1,
-            enter() {
-              hoveredAnnotation.value = name
-            },
-            leave() {
-              hoveredAnnotation.value = null
-            },
-            label: {
-              borderRadius: 0,
-              display: () => hoveredAnnotation.value === name,
-              content: [pending.ongoing ? 'Status: PENDING' : 'Status: RESOLVED', `Pending for ${pending.duration}`, `Started at ${new Date(pending.start).toLocaleString()}`],
-              backgroundColor: 'rgba(202, 138, 4, 0.95)',
-              color: '#ffffff',
-              font: {
-                size: 11
-              },
-              padding: 6,
-              position: { x: 'center', y: 'start' }
-            }
-          }
-          return acc
-        }, downtimes.value.reduce((acc, downtime, index) => {
-          const name = `downtime-${index}`
-          acc[name] = {
-            type: 'box',
-            xMin: downtime.start,
-            xMax: downtime.end,
-            backgroundColor: isDark.value ? 'rgba(248, 113, 113, 0.2)' : 'rgba(239, 68, 68, 0.15)',
-            borderColor: isDark.value ? 'rgba(248, 113, 113, 0.5)' : 'rgba(239, 68, 68, 0.4)',
-            borderWidth: 1,
-            enter() {
-              hoveredAnnotation.value = name
-            },
-            leave() {
-              hoveredAnnotation.value = null
-            },
-            label: {
-              borderRadius: 0,
-              display: () => hoveredAnnotation.value === name,
-              content: [downtime.ongoing ? 'Status: ONGOING' : 'Status: RESOLVED', `Down for ${downtime.duration}`, `Started at ${new Date(downtime.start).toLocaleString()}`],
-              backgroundColor: 'rgba(239, 68, 68, 0.9)',
-              color: '#ffffff',
-              font: {
-                size: 11
-              },
-              padding: 6,
-              position: { x: 'center', y: 'start' }
-            }
-          }
-          return acc
-        }, {}))
+    elements: {
+      point: {
+        // Points hidden unless hovered
+        radius: 0,
+        hitRadius: 100
       }
     },
     scales: {
       x: {
         type: 'time',
-        // Fork: the axis is fixed to the period, so that the periods out of service do not stretch it
-        min: periodStart.value,
-        max: periodEnd.value,
         time: {
-          unit: props.duration === '24h' ? 'hour' : props.duration === '7d' ? 'day' : 'day',
+          minUnit: 'minute',
+          round: 'second',
+          tooltipFormat: 'yyyy-MM-dd HH:mm:ss',
           displayFormats: {
-            hour: 'MMM d, ha',
-            day: 'MMM d'
+            minute: 'HH:mm',
+            hour: 'MM-dd HH:mm'
           }
         },
-        grid: {
-          color: isDark.value ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)',
-          drawBorder: false
-        },
         ticks: {
-          color: isDark.value ? '#9ca3af' : '#6b7280',
+          sampleSize: 3,
           maxRotation: 0,
-          autoSkipPadding: 20
+          autoSkipPadding: 30,
+          padding: 3,
+          color: tickColor
+        },
+        grid: {
+          color: gridColor,
+          offset: false
         }
       },
       y: {
-        beginAtZero: true,
-        grid: {
-          color: isDark.value ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)',
-          drawBorder: false
+        title: {
+          display: true,
+          text: 'Resp. Time (ms)',
+          color: tickColor
         },
+        offset: false,
         ticks: {
-          color: isDark.value ? '#9ca3af' : '#6b7280',
-          callback: (value) => `${value}ms`
+          color: tickColor
+        },
+        grid: {
+          color: gridColor
         }
+      },
+      y1: {
+        display: false,
+        position: 'right',
+        grid: {
+          drawOnChartArea: false
+        },
+        min: 0,
+        max: 1,
+        offset: false
+      }
+    },
+    bounds: 'ticks',
+    plugins: {
+      tooltip: {
+        mode: 'nearest',
+        intersect: false,
+        padding: 10,
+        backgroundColor: isDark.value ? 'rgba(32,42,38,1.0)' : 'rgba(212,232,222,1.0)',
+        bodyColor: textColor,
+        titleColor: textColor,
+        // Only the line of the response time, not the columns nor the minimum and maximum
+        filter: (tooltipItem) => tooltipItem.datasetIndex === 0,
+        callbacks: {
+          label: (context) => ` ${numberFormat.format(context.parsed.y)} ms`
+        }
+      },
+      legend: {
+        display: false
       }
     }
   }
 })
 
-// Fork: generation of the requests, so that a response of an older request does not replace a newer one
+// Generation of the requests, so that a response of an older request does not replace a newer one
 let requestGeneration = 0
-// Fork: when the line was last fetched, and the fetch scheduled for the end of the interval of LINE_REFRESH_INTERVAL_MS
+let fetching = false
+// A refresh asked during a fetch, done when it ends
+let pendingRefresh = false
+// When the chart was last fetched, and the fetch of the aggregates scheduled for the end of the interval
 let lastFetchAt = 0
-let backgroundRefreshTimer = null
+let refreshTimer = null
 
-const cancelBackgroundRefresh = () => {
-  clearTimeout(backgroundRefreshTimer)
-  backgroundRefreshTimer = null
+const cancelScheduledRefresh = () => {
+  clearTimeout(refreshTimer)
+  refreshTimer = null
 }
 
-// fetchData fetches the line of the chart. With silent, used by the refreshes of the page, the spinner is not shown
-// and the chart is kept as it is while fetching, and also when the fetch fails
-const fetchData = async ({ silent = false } = {}) => {
+// fetchChart fetches the data of the chart. With silent, used by the refreshes, the spinner is not shown and the chart
+// is kept as it is while fetching, and also when the fetch fails.
+const fetchChart = async ({ silent = false } = {}) => {
   const generation = ++requestGeneration
-  cancelBackgroundRefresh()
+  cancelScheduledRefresh()
+  fetching = true
+  pendingRefresh = false
   lastFetchAt = Date.now()
   if (!silent) {
     loading.value = true
     error.value = null
   }
+  const options = props.publicRoute ? { credentials: 'omit' } : { credentials: 'include', headers: PROTECTED_API_HEADERS }
   try {
-    const response = await fetch(`${props.serverUrl}/api/v1/endpoints/${props.endpointKey}/response-times/${props.duration}/history`, {
-      credentials: 'include'
-    })
+    const response = await fetch(`${props.chartUrl}?period=${encodeURIComponent(props.period)}`, options)
     if (generation !== requestGeneration) {
       return
     }
-    if (response.status === 200) {
-      const data = await response.json()
-      if (generation !== requestGeneration) {
-        return
+    if (response.status === 401 && !props.publicRoute) {
+      notifyUnauthorized()
+      if (!silent) {
+        error.value = 'Failed to load chart data'
       }
-      periodEnd.value = Date.now()
-      timestamps.value = data.timestamps || []
-      values.value = data.values || []
-      error.value = null
-    } else {
+      return
+    }
+    if (response.status !== 200) {
       if (!silent) {
         error.value = 'Failed to load chart data'
       }
       console.error('[ResponseTimeChart] Error:', await response.text())
+      return
     }
+    const data = await response.json()
+    if (generation !== requestGeneration) {
+      return
+    }
+    payload.value = data
+    error.value = null
   } catch (err) {
     if (generation !== requestGeneration) {
       return
@@ -308,62 +295,77 @@ const fetchData = async ({ silent = false } = {}) => {
     console.error('[ResponseTimeChart] Error:', err)
   } finally {
     if (generation === requestGeneration) {
+      fetching = false
       loading.value = false
+      if (pendingRefresh) {
+        pendingRefresh = false
+        refresh()
+      }
     }
   }
 }
 
-// refreshInBackground fetches the line again without the spinner, right away when the last fetch is older than
-// LINE_REFRESH_INTERVAL_MS, or else once at the end of that interval, however many changes arrive in the meantime
-const refreshInBackground = () => {
-  if (backgroundRefreshTimer !== null) {
+// refresh fetches the chart again without the spinner: right away in Recent, and at most once every
+// AGGREGATES_REFRESH_INTERVAL_MS in the other periods, with the fetch scheduled for the end of the interval
+const refresh = () => {
+  if (fetching) {
+    pendingRefresh = true
     return
   }
-  const waitMs = lastFetchAt + LINE_REFRESH_INTERVAL_MS - Date.now()
+  if (props.period === RECENT_PERIOD) {
+    fetchChart({ silent: true })
+    return
+  }
+  if (refreshTimer !== null) {
+    return
+  }
+  const waitMs = lastFetchAt + AGGREGATES_REFRESH_INTERVAL_MS - Date.now()
   if (waitMs <= 0) {
-    fetchData({ silent: true })
+    fetchChart({ silent: true })
     return
   }
-  backgroundRefreshTimer = setTimeout(() => {
-    backgroundRefreshTimer = null
-    fetchData({ silent: true })
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    refresh()
   }, waitMs)
 }
 
-watch(() => props.duration, () => {
-  fetchData()
-})
-
-// Fork: the timer of the interval starts over with another endpoint
-watch(() => props.endpointKey, () => {
-  timestamps.value = []
-  values.value = []
-  fetchData()
+// Another period or endpoint: the chart is cleared and the spinner is shown
+watch(() => [props.chartUrl, props.period], ([url, period], [previousUrl, previousPeriod]) => {
+  if (url === previousUrl && period === previousPeriod) {
+    return
+  }
+  payload.value = null
+  fetchChart()
 })
 
 watch(() => props.refreshKey, (value, previous) => {
-  if (value === previous || loading.value) {
+  if (value === previous) {
     return
   }
-  refreshInBackground()
+  refresh()
 })
 
-// Fork: the events come with the refreshes of the page, so an ongoing period out of service follows the current time
-watch(() => props.events, () => {
-  periodEnd.value = Date.now()
+const onResize = () => {
+  windowWidth.value = window.innerWidth
+}
+
+let themeObserver = null
+
+onMounted(() => {
+  fetchChart()
+  window.addEventListener('resize', onResize)
+  themeObserver = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark')
+  })
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })
 
 onUnmounted(() => {
-  cancelBackgroundRefresh()
   requestGeneration++
-})
-
-onMounted(() => {
-  fetchData()
-  const observer = new MutationObserver(() => {
-    isDark.value = document.documentElement.classList.contains('dark')
-  })
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-  onUnmounted(() => observer.disconnect())
+  pendingRefresh = false
+  cancelScheduledRefresh()
+  window.removeEventListener('resize', onResize)
+  themeObserver?.disconnect()
 })
 </script>

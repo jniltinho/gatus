@@ -66,17 +66,17 @@
             <div class="flex items-center justify-between gap-4">
               <CardTitle>Response Time Trend</CardTitle>
               <select
-                v-model="chartDuration"
+                v-model="chartPeriod"
                 aria-label="Period of the response time chart"
                 class="border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring dark:border-gray-700"
                 data-testid="status-endpoint-chart-duration"
               >
-                <option v-for="option in RESPONSE_TIME_DURATIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+                <option v-for="option in CHART_PERIOD_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
           </CardHeader>
           <CardContent>
-            <ResponseTimeChart :key="key" :endpoint-key="key" :duration="chartDuration" server-url="" :events="details.events" :results="results" :refresh-key="lastResult ? lastResult.timestamp : null" />
+            <ResponseTimeChart :key="key" :chart-url="chartUrl" :period="chartPeriod" :refresh-key="lastResult ? lastResult.timestamp : null" public-route />
           </CardContent>
         </Card>
 
@@ -144,7 +144,8 @@ import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
-import { describeEvents, formatDateTime, relativeTimeLabel, RESPONSE_TIME_DURATIONS, SLUG_PATTERN } from '@/utils/statusPage'
+import { describeEvents, formatDateTime, relativeTimeLabel, SLUG_PATTERN } from '@/utils/statusPage'
+import { CHART_PERIOD_OPTIONS, readStoredPeriod, storePeriod } from '@/utils/responseTimeChart'
 import { certificateClass, certificateText } from '@/utils/certificate'
 import { watchEndpointResults } from '@/utils/liveUpdates'
 
@@ -167,7 +168,8 @@ const details = ref(null)
 const state = ref('loading')
 const errorMessage = ref('')
 const now = ref(Date.now())
-const chartDuration = ref('24h')
+// Period of the response time chart of Uptime Kuma, remembered in the browser
+const chartPeriod = ref(readStoredPeriod())
 const narrowScreen = window.matchMedia('(max-width: 639px)')
 const bars = ref(narrowScreen.matches ? 25 : 50)
 
@@ -194,6 +196,9 @@ const hasResponseTimes = computed(() => results.value.length > 0)
 const healthStatus = computed(() => ({ up: 'healthy', pending: 'pending', down: 'unhealthy' }[details.value?.status] || 'unknown'))
 // With show-messages, the table of checks has the same columns as the dashboard, even without any message (fork)
 const showMessages = computed(() => details.value?.page?.showMessages === true)
+
+// Public route of the response time chart
+const chartUrl = computed(() => `/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}/response-time-chart`)
 
 // badgeURL returns the address of a badge of the endpoint, public in the original Gatus
 const badgeURL = (path) => `/api/v1/endpoints/${encodeURIComponent(key.value)}/${path}`
@@ -298,6 +303,10 @@ const handleVisibilityChange = () => {
 const handleScreenChange = (event) => {
   bars.value = event.matches ? 25 : 50
 }
+
+watch(chartPeriod, (period) => {
+  storePeriod(period)
+})
 
 watch([slug, key], () => {
   details.value = null

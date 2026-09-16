@@ -255,7 +255,7 @@ admin wait "$(testid push-keys-table)" >/dev/null
 admin screenshot --full "$PRINTS/08-push-keys-dark.png" >/dev/null
 admin set media light >/dev/null
 
-step "Pending: status=pending in yellow, retries of the heartbeat, panel of numbers with Ping and downtime band"
+step "Pending: status=pending in yellow, retries of the heartbeat and panel of numbers with Ping"
 push "$BASE/api/push/$KUMA_TOKEN?status=down&msg=Queda&ping=90" | grep -q '"ok":true' || fail "the down push was not accepted"
 sleep 1
 push "$BASE/api/push/$KUMA_TOKEN?status=up&msg=Voltou&ping=40" | grep -q '"ok":true' || fail "the up push was not accepted"
@@ -324,9 +324,49 @@ done
 [ "$shown" = true ] || fail "the pending push did not show up on the details page within 5 seconds"
 [ "$(admin eval "window.__e2eNoReload === true" 2>/dev/null | tr -d '"')" = true ] || fail "the details page was reloaded"
 admin get text "$(testid recent-check-0)" | grep -q "Pending" || fail "the real-time push is not shown as Pending"
+# Chart in the format of the Uptime Kuma: the Down push is a red column and the Pending pushes are yellow columns
+chart_data() {
+  admin eval "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.$1" 2>/dev/null | tr -d '"'
+}
+for _ in $(seq 1 10); do
+  [ "$(chart_data pendingColumns)" -ge 2 ] && break
+  sleep 0.5
+done
+[ "$(chart_data period)" = recent ] || fail "the chart did not open in Recent"
+[ "$(chart_data pendingColumns)" -ge 2 ] || fail "the pending pushes are not yellow columns of the chart"
+[ "$(chart_data downColumns)" -ge 1 ] || fail "the down push is not a red column of the chart"
+[ "$(chart_data linePoints)" -ge 1 ] || fail "the chart has no line point"
 admin wait 2000 >/dev/null
 admin screenshot --full "$PRINTS/12-realtime-pending.png" >/dev/null
 admin screenshot "$PRINTS/12-realtime-pending-viewport.png" >/dev/null
+
+step "Chart periods: 24h and 1w with the aggregates, remembered after a reload"
+admin network requests --clear >/dev/null 2>&1 || true
+admin eval "(() => { const select = document.querySelector('[data-testid=\"response-time-chart-period\"]'); select.value = '24h'; select.dispatchEvent(new Event('change')) })()" >/dev/null
+admin wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the chart did not load the 24h period"
+# The down, up and pending pushes share a minute, which is a yellow (mixed) column
+[ "$(( $(chart_data downColumns) + $(chart_data pendingColumns) ))" -ge 1 ] || fail "the minute of the down and pending pushes is not a column"
+admin eval "(() => { const select = document.querySelector('[data-testid=\"response-time-chart-period\"]'); select.value = '1w'; select.dispatchEvent(new Event('change')) })()" >/dev/null
+admin wait "[data-testid=\"response-time-chart\"][data-period=\"1w\"]" >/dev/null || fail "the chart did not load the 1w period"
+requests=$(admin network requests 2>/dev/null)
+grep -q "/api/v1/endpoints/_kuma-backup/response-time-chart?period=24h" <<<"$requests" || fail "the 24h chart was not requested"
+grep -q "/api/v1/endpoints/_kuma-backup/response-time-chart?period=1w" <<<"$requests" || fail "the 1w chart was not requested"
+authenticated "$BASE/api/v1/endpoints/_kuma-backup/response-time-chart?period=1w" | python3 -c '
+import json, sys
+chart = json.load(sys.stdin)
+buckets = chart["buckets"]
+sys.exit(0 if chart["bucketSeconds"] == 3600 and buckets and sum(b["pending"] for b in buckets) >= 2 and sum(b["down"] for b in buckets) >= 1 else 1)
+' || fail "the 1w chart does not have the pending and down pushes"
+admin reload >/dev/null
+admin wait "[data-testid=\"response-time-chart\"][data-period=\"1w\"]" >/dev/null || fail "the period of the chart was not remembered after a reload"
+admin wait 2000 >/dev/null
+admin screenshot "$PRINTS/13-chart-1w.png" >/dev/null
+admin set media dark >/dev/null
+admin eval "(() => { const select = document.querySelector('[data-testid=\"response-time-chart-period\"]'); select.value = 'recent'; select.dispatchEvent(new Event('change')) })()" >/dev/null
+admin wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev/null
+admin wait 2000 >/dev/null
+admin screenshot "$PRINTS/14-chart-recent-dark.png" >/dev/null
+admin set media light >/dev/null
 
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null
