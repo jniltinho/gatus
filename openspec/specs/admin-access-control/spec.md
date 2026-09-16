@@ -57,6 +57,7 @@ Para requisições `POST`, `PUT` e `DELETE` a `/api/v1/admin/*`, o sistema MUST:
 - aceitar requisições sem `Origin` e sem `Referer`;
 - rejeitar com 415 requisições com corpo cujo tipo de mídia não seja `application/json`, `application/yaml`, `application/x-yaml` ou `text/yaml`, aceitando parâmetros como `charset`;
 - aceitar a origem `http://localhost:8081` quando `ENVIRONMENT=dev`.
+- nas rotas de backup e restore, exigir `Content-Type: application/json`, inclusive com corpo vazio, respondendo 415 aos demais tipos.
 
 #### Scenario: Origem diferente
 - **WHEN** um navegador envia `DELETE /api/v1/admin/endpoints/core_api` com `Origin: https://site-malicioso.exemplo`
@@ -90,6 +91,10 @@ Para requisições `POST`, `PUT` e `DELETE` a `/api/v1/admin/*`, o sistema MUST:
 #### Scenario: Cliente de linha de comando
 - **WHEN** uma requisição autenticada chega sem `Origin`, sem `Referer` e com `Content-Type: application/json`
 - **THEN** a requisição é processada
+
+#### Scenario: Restore em YAML
+- **WHEN** uma requisição `POST /api/v1/admin/restore/preview` chega com `Content-Type: application/yaml`
+- **THEN** a API responde 415
 
 ### Requirement: Auditoria de alterações
 Toda criação, alteração, renomeação, remoção, habilitação e desabilitação de endpoint gerenciado MUST ser registrada no log com a operação, a chave do endpoint e o autor (usuário basic ou subject OIDC); na renomeação, a linha MUST conter a chave antiga e a nova. O log MUST NOT incluir valores de headers, corpo, URL com credenciais, segredos de client ou SSH, ou `provider-override`.

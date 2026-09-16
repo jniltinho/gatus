@@ -54,7 +54,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-admin-endpoint-manag
 
 ## Backup and restore of the administration
 
-Change: `openspec/changes/add-admin-backup-restore/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#backup-and-restore`); spec in `openspec/specs/admin-backup-restore`.
+Change (archived): `openspec/changes/archive/2026-09-16-add-admin-backup-restore/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#backup-and-restore`); spec in `openspec/specs/admin-backup-restore`.
 
 - `adminbackup` builds the file (versioned JSON, strict decoding, 2 MiB), encrypts it (Argon2id with the fixed parameters of version 1, AES-256-GCM, the JSON of `envelopeHeader` as AAD, at most 2 derivations at once) and plans and applies the restores. The plan simulates the items in the order push keys → endpoints → status pages and must predict the apply: when a service rule changes, change the plan too (`managedendpoint.ValidateRestore`, `statuspage.ValidateRestore`, `pushkey.ValidateRestoredKey`).
 - The restore never calls `prepare(raw, key)` nor generates push tokens: masked secrets (`HasMaskedSecret`, every place written by `MaskSecrets`) and push endpoints without token are skipped. It never deletes items nor changes keys or slugs.

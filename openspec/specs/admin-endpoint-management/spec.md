@@ -90,7 +90,7 @@ O sistema MUST expor as operações abaixo, respondendo em JSON com erros no for
 - `POST /api/v1/admin/endpoints/test`: valida e executa uma verificação única;
 - `GET /api/v1/admin/metadata`: tipos de alerta configurados, túneis disponíveis e labels Prometheus permitidas.
 
-Operações que alteram um endpoint existente MUST exigir `If-Match` com a versão atual, respondendo 428 sem o header e 412 com versão diferente. Corpos acima de 256 KB MUST ser rejeitados com 413. Enquanto um ciclo de partida ou recarga estiver em andamento (incluindo a partida inicial dos endpoints), as escritas MUST responder 503 sem validar nem gravar nada.
+Operações que alteram um endpoint existente MUST exigir `If-Match` com a versão atual, respondendo 428 sem o header e 412 com versão diferente. Corpos acima de 256 KB MUST ser rejeitados com 413, exceto nas rotas de restore da capability `admin-backup-restore`, que aceitam até 3,5 MiB. Enquanto um ciclo de partida ou recarga estiver em andamento (incluindo a partida inicial dos endpoints), as escritas MUST responder 503 sem validar nem gravar nada.
 
 #### Scenario: Listagem indica a origem
 - **WHEN** o YAML define 2 endpoints e existe 1 endpoint gerenciado
