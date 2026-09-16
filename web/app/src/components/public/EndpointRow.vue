@@ -72,7 +72,7 @@
     </div>
     <p class="mt-1 min-h-[1rem] text-xs text-muted-foreground" aria-live="polite" data-testid="status-endpoint-detail">
       <template v-if="activeResult">
-        {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : 'Failure' }} · {{ activeResult.durationMs }} ms
+        {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : (activeResult.pending ? 'Pending' : 'Failure') }} · {{ activeResult.durationMs }} ms
       </template>
     </p>
   </li>
@@ -130,10 +130,11 @@ const activeResult = computed(() => (activeIndex.value !== null ? displayedResul
 
 const statusLabel = computed(() => STATUS_LABELS[props.endpoint.status]?.endpoint || STATUS_LABELS.unknown.endpoint)
 
-const dotClass = computed(() => ({ up: 'bg-green-500', down: 'bg-red-500' }[props.endpoint.status] || 'bg-gray-400'))
+const dotClass = computed(() => ({ up: 'bg-green-500', pending: 'bg-yellow-400', down: 'bg-red-500' }[props.endpoint.status] || 'bg-gray-400'))
 
 const statusTextClass = computed(() => ({
   up: 'text-green-700 dark:text-green-400',
+  pending: 'text-yellow-700 dark:text-yellow-400',
   down: 'text-red-700 dark:text-red-400'
 }[props.endpoint.status] || 'text-muted-foreground'))
 
@@ -150,6 +151,10 @@ const barClass = (result, index) => {
   const active = activeIndex.value === index
   if (result.success) {
     return active ? 'bg-green-700' : 'bg-green-500'
+  }
+  // Fork: Pending results are not successful, but are shown in yellow
+  if (result.pending) {
+    return active ? 'bg-yellow-600' : 'bg-yellow-400'
   }
   return active ? 'bg-red-700' : 'bg-red-500'
 }

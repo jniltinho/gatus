@@ -42,6 +42,7 @@ status-pages:
 | `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
 | `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
 | `show-certificate-expiration` | Optional, defaults to `false`. Shows below the name of each endpoint how many days are left until its TLS certificate expires, like the *Show Certificate Expiry* option of Uptime Kuma. |
+| `show-messages` | Optional, defaults to `false`. Shows, on the details page of each endpoint, the same table of checks as the dashboard, with the message and the origin of each result. Only the messages of pushes and heartbeats and the HTTP status of the checks (`HTTP 200`) are published, never the errors of the checks. The message of a push is published as it was sent. |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
 A page must select at least one group, endpoint or featured endpoint. A group or key that does not exist yet does not invalidate the page:
@@ -87,7 +88,8 @@ Statuses:
 | Status | Endpoint | Group and page |
 |--------|----------|----------------|
 | Operational / Up | last result succeeded | every endpoint with results is up |
-| Partial outage | — | some endpoints are up and others are down |
+| Pending (yellow) | last result is [Pending](push-monitoring.md#pending-status-and-retries) | — |
+| Partial outage | — | any other combination, including only pending endpoints |
 | Major outage / Down | last result failed | every endpoint with results is down |
 | No data | no result yet | no endpoint has results |
 
@@ -101,12 +103,13 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
 
 - the days until the TLS certificate expires, below the title, when the page has `show-certificate-expiration: true`;
 - the bars of the latest checks;
-- current status, average response time and response time range of the latest checks, and time of the last check;
-- uptime badges;
+- the panel of numbers of the dashboard: response time of the last check, average response time over 24 hours and uptime
+  over 24 hours, 7 days and 30 days;
 - **Response Time Trend**: the same chart as the dashboard, with the 24 hours / 7 days / 30 days selector and the
-  unhealthy periods marked;
-- **Checks table**, collapsed by default: status, date and time and response time of the latest checks, without the
-  messages nor the errors;
+  periods when the endpoint was down as red bands;
+- **Checks table**, collapsed by default: status (Up, Down or Pending), date and time and response time of the latest
+  checks, or, with `show-messages: true`, the same columns as the dashboard (status, date and time, message and origin),
+  never with the errors of the checks;
 - response time and health badges;
 - the events (monitoring started, became healthy, was unhealthy for…), the latest 50.
 
@@ -282,7 +285,8 @@ reloads.
 ## Going back to the original Gatus
 
 The `status-pages` section and the `managed_status_pages` table are ignored by the original Gatus, and the pages stop
-existing. Back up the database before switching versions.
+existing. Back up the database before switching versions. Previous versions of the fork reject the pages managed through
+the web with `show-messages`: turn it off before going back.
 
 ## End-to-end tests
 

@@ -32,7 +32,7 @@
           </tr>
           <tr v-for="(row, index) in rows" :key="`${row.timestamp}-${index}`" class="border-t dark:border-gray-700" :data-testid="`recent-check-${index}`">
             <td class="px-3 py-2">
-              <span :class="['border px-1.5 py-0.5 text-xs font-medium', row.success ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300' : 'border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300']">{{ row.success ? 'Up' : 'Down' }}</span>
+              <span :class="['border px-1.5 py-0.5 text-xs font-medium', STATUS_CLASSES[row.status]]">{{ STATUS_TEXTS[row.status] }}</span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap text-muted-foreground dark:text-gray-400">{{ row.dateTime }}</td>
             <template v-if="showMessage">
@@ -51,16 +51,27 @@
 
 <script setup>
 // Table of the results of the current page, from the most recent to the oldest (fork). The columns follow the table of
-// the Uptime Kuma (Status, DateTime, Message), with the origin at the end. On the public status pages (showMessage
-// false), the results have no message nor errors, so the table shows the response time instead. It starts collapsed,
-// and the choice of the viewer is remembered in the browser.
+// the Uptime Kuma (Status, DateTime, Message), with the origin at the end. On the public status pages without
+// show-messages (showMessage false), the results have no message, so the table shows the response time instead. With
+// sanitized, the table only shows the message and the origin of the payload, never built from the errors or the HTTP
+// status, so that nothing else is published by mistake. It starts collapsed, and the choice of the viewer is
+// remembered in the browser.
 import { computed, ref } from 'vue'
 import { ChevronDown, ChevronRight } from 'lucide-vue-next'
 
 const props = defineProps({
   results: { type: Array, default: () => [] },
   showMessage: { type: Boolean, default: true },
+  sanitized: { type: Boolean, default: false },
 })
+
+// Pending results are not successful, but are shown in yellow
+const STATUS_TEXTS = { up: 'Up', pending: 'Pending', down: 'Down' }
+const STATUS_CLASSES = {
+  up: 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300',
+  pending: 'border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  down: 'border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300',
+}
 
 const STORAGE_KEY = 'gatus:show-recent-checks-table'
 
@@ -83,8 +94,11 @@ const toggle = () => {
   }
 }
 
-// The message of a push; otherwise the errors; otherwise the HTTP status of the check
+// The message of a push; otherwise the errors; otherwise the HTTP status of the check. Sanitized: only the message
 const messageOf = (result) => {
+  if (props.sanitized) {
+    return typeof result.message === 'string' ? result.message : ''
+  }
   if (result.message) {
     return result.message
   }
@@ -102,7 +116,7 @@ const responseTimeOf = (result) => {
 
 const rows = computed(() => [...props.results].reverse().map((result) => ({
   timestamp: result.timestamp,
-  success: result.success,
+  status: result.success ? 'up' : (result.pending ? 'pending' : 'down'),
   dateTime: new Date(result.timestamp).toLocaleString(),
   push: result.origin === 'push',
   message: props.showMessage ? messageOf(result) : '',

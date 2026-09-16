@@ -95,7 +95,8 @@ func TestAdminAPI_PushEndpoints(t *testing.T) {
 		t.Fatalf("expected the active endpoint to receive push, got %v", site)
 	}
 	env.expectStatus(t, http.MethodGet, "/api/push/erp-site-token?status=down&msg=Latencia%20alta", "", nil, http.StatusOK)
-	if result, _ := latestResult(t, "erp_site"); result == nil || result.Success || result.Origin != endpoint.ResultOriginPush || result.Message != "Latencia alta" {
+	// The first check of the new endpoint can be stored after the push, so the push is looked up by origin
+	if result := latestPushResult(t, "erp_site"); result == nil || result.Success || result.Message != "Latencia alta" {
 		t.Errorf("expected the push in the history of the active endpoint, got %+v", result)
 	}
 	globalKey, err := pushkey.Create("akamai", "admin")

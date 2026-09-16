@@ -25,6 +25,17 @@ type ResultSummary struct {
 	// CertificateExpiration is the duration between the result and the expiration of the TLS certificate, or zero without
 	// certificate. Status pages only publish the days derived from it, when they are configured to (fork).
 	CertificateExpiration time.Duration
+
+	// Pending is whether the result is pending (fork)
+	Pending bool
+
+	// Message, Origin, HTTPStatus and Errors are only used by the details page of a status page that shows messages, which
+	// publishes the message, the origin and the HTTP status but never the errors: the errors are only read to recognize
+	// the message of the heartbeat of results stored before it had one (fork)
+	Message    string
+	Origin     string
+	HTTPStatus int
+	Errors     []string
 }
 
 // EndpointSummary is the latest results and the uptimes of an endpoint, for the public status pages

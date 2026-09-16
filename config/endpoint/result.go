@@ -36,6 +36,11 @@ type Result struct {
 	// Origin is where the result comes from (fork): ResultOriginPush for pushed results, empty for the checks of Gatus
 	Origin string `json:"origin,omitempty"`
 
+	// Pending is whether the result is pending (fork): a push with status=pending, or a failure of a push endpoint
+	// converted by its retries. A pending result is never successful, is left out of the alerts and of the events, and
+	// counts as an execution without success in the uptime.
+	Pending bool `json:"pending,omitempty"`
+
 	// ConditionResults are the results of each of the Endpoint's Condition
 	ConditionResults []*ConditionResult `json:"conditionResults,omitempty"`
 

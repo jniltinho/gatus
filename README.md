@@ -14,7 +14,8 @@ This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus) that adds:
 - **MySQL and MariaDB storage**: `storage.type: mysql` for MySQL 8.4+ and MariaDB 10.11+, besides SQLite and
   PostgreSQL. [docs/storage-mysql.md](docs/storage-mysql.md)
 - **Push monitoring compatible with the Uptime Kuma**: scripts and services report their status at
-  `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys and push on active endpoints.
+  `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys, push on active endpoints and a
+  Pending status (yellow) with retries.
   [docs/push-monitoring.md](docs/push-monitoring.md)
 - **TLS certificate expiration**: days until the certificate expires, discreetly below the name of the endpoint on the
   dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md)

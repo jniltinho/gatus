@@ -63,59 +63,13 @@
             </CardContent>
           </Card>
 
-          <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium text-muted-foreground">Current Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div class="text-2xl font-bold">{{ currentHealthStatus === 'healthy' ? 'Operational' : 'Issues Detected' }}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium text-muted-foreground">Avg Response Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div class="text-2xl font-bold">{{ pageAverageResponseTime }}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium text-muted-foreground">Response Time Range</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div class="text-2xl font-bold">{{ pageResponseTimeRange }}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium text-muted-foreground">Last Check</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div class="text-2xl font-bold">{{ lastCheckTime }}</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Uptime Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div v-for="period in ['30d', '7d', '24h', '1h']" :key="period" class="text-center">
-                  <p class="text-sm text-muted-foreground mb-2">
-                    {{ period === '30d' ? 'Last 30 days' : period === '7d' ? 'Last 7 days' : period === '24h' ? 'Last 24 hours' : 'Last hour' }}
-                  </p>
-                  <img :src="generateUptimeBadgeImageURL(period)" :alt="`${period} uptime`" class="mx-auto" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <!-- Fork: numbers of the endpoint, in the place of the cards and of the uptime badges of the original Gatus -->
+          <DetailsSummary
+            :push="endpointStatus.push === true"
+            :current-response-time="endpointStatus.currentResponseTime"
+            :uptime="endpointStatus.uptime"
+            :response-time="endpointStatus.responseTime"
+          />
 
           <Card v-if="showResponseTimeChartAndBadges" data-testid="response-time-trend">
             <CardHeader>
@@ -220,6 +174,7 @@ import Pagination from '@/components/Pagination.vue'
 import Loading from '@/components/Loading.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
+import DetailsSummary from '@/components/DetailsSummary.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
 import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
@@ -248,6 +203,8 @@ const latestResult = computed(() => {
 
 const currentHealthStatus = computed(() => {
   if (!latestResult.value) return 'unknown'
+  // Fork: a Pending result is not a success, but is shown in yellow
+  if (latestResult.value.pending) return 'pending'
   return latestResult.value.success ? 'healthy' : 'unhealthy'
 })
 
@@ -272,60 +229,6 @@ const toggleShowAverageResponseTime = () => {
   showAverageResponseTime.value = !showAverageResponseTime.value
   localStorage.setItem('gatus:show-average-response-time', showAverageResponseTime.value ? 'true' : 'false')
 }
-
-const pageAverageResponseTime = computed(() => {
-  // Use endpointStatus for current page's average response time
-  if (!endpointStatus.value || !endpointStatus.value.results || endpointStatus.value.results.length === 0) {
-    return 'N/A'
-  }
-  let total = 0
-  let count = 0
-  for (const result of endpointStatus.value.results) {
-    if (result.duration) {
-      total += result.duration
-      count++
-    }
-  }
-  if (count === 0) return 'N/A'
-  return `${Math.round(total / count / 1000000)}ms`
-})
-
-const pageResponseTimeRange = computed(() => {
-  // Use endpointStatus for current page's response time range
-  if (!endpointStatus.value || !endpointStatus.value.results || endpointStatus.value.results.length === 0) {
-    return 'N/A'
-  }
-  let min = Infinity
-  let max = 0
-  let hasData = false
-  
-  for (const result of endpointStatus.value.results) {
-    const duration = result.duration
-    if (duration) {
-      min = Math.min(min, duration)
-      max = Math.max(max, duration)
-      hasData = true
-    }
-  }
-  
-  if (!hasData) return 'N/A'
-  const minMs = Math.trunc(min / 1000000)
-  const maxMs = Math.trunc(max / 1000000)
-  // If min and max are the same, show single value
-  if (minMs === maxMs) {
-    return `${minMs}ms`
-  }
-  return `${minMs}-${maxMs}ms`
-})
-
-const lastCheckTime = computed(() => {
-  // Use currentStatus for real-time last check time
-  if (!currentStatus.value || !currentStatus.value.results || currentStatus.value.results.length === 0) {
-    return 'Never'
-  }
-  return generatePrettyTimeAgo(currentStatus.value.results[currentStatus.value.results.length - 1].timestamp)
-})
-
 
 const fetchData = async () => {
   isRefreshing.value = true
@@ -380,13 +283,10 @@ const fetchData = async () => {
       }
       events.value = processedEvents
       
+      // Fork: the chart is shown as soon as there is a result, even when every duration is zero (pushes without ping),
+      // so that the periods out of service are also shown
       if (data.results && data.results.length > 0) {
-        for (let i = 0; i < data.results.length; i++) {
-          if (data.results[i].duration > 0) {
-            showResponseTimeChartAndBadges.value = true
-            break
-          }
-        }
+        showResponseTimeChartAndBadges.value = true
       }
     } else {
       console.error('[Details][fetchData] Error:', await response.text())
@@ -417,10 +317,6 @@ const prettifyTimestamp = (timestamp) => {
 
 const generateHealthBadgeImageURL = () => {
   return `/api/v1/endpoints/${endpointStatus.value.key}/health/badge.svg`
-}
-
-const generateUptimeBadgeImageURL = (duration) => {
-  return `/api/v1/endpoints/${endpointStatus.value.key}/uptimes/${duration}/badge.svg`
 }
 
 const generateResponseTimeBadgeImageURL = (duration) => {

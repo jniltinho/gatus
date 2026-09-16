@@ -19,7 +19,7 @@ Any HTTP method is accepted (`GET`, `POST`, ...), without the authentication of 
 
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
-| `status` | `up` | `up` records a success; any other value (`down`, `warning`, ...) records a failure |
+| `status` | `up` | `up` records a success; `pending` records a **Pending** result (yellow), an extension of Gatus; any other value (`down`, `warning`, ...) records a failure, or a Pending result while the endpoint has [retries](#pending-status-and-retries) left |
 | `msg` | `OK` | Message of the result, shown in the dashboard (up to 1024 bytes). On a failure it is also the error used by the alerts |
 | `ping` | empty | Response time in milliseconds. Empty, non-numeric or `0` is ignored; below 0 or above 100000000000 is rejected |
 
@@ -93,6 +93,7 @@ external-endpoints:
     token: "keSDu7G855jvVat1xWiY2Gk4CkL1End5"
     heartbeat:
       interval: 25h   # optional in the configuration file
+      retries: 2      # optional, requires interval, see "Pending status and retries"
     alerts:
       - type: slack
 ```
@@ -144,6 +145,29 @@ https://status.example.com/api/push/<global-key>/erp_site?status=down&msg=Latenc
   push record one failure each.
 - An accepted push restarts the count. After a start or a configuration reload, the count starts at that moment.
 - Disabling, removing or renaming an endpoint stops its heartbeat before the response.
+- The text of the heartbeat is also the message of the result, so that the public status pages with `show-messages` can
+  show it.
+
+## Pending status and retries
+
+Besides up (green) and down (red), a result can be **Pending** (yellow). It is a feature of Gatus: the Uptime Kuma
+records `status=pending` as down and only has green and red.
+
+- `status=pending` records a Pending result with the `msg` of the push, on Push endpoints and on active endpoints that
+  accept push. It also restarts the count of the heartbeat, so that a job that keeps reporting "in progress" does not
+  fail.
+- **Retries** (`heartbeat.retries`, 0 to 100, default 0; "Retries" in the form of Push endpoints) record the next
+  failures as Pending before a failure: a push with a status other than `up` and `pending`, or an interval without push,
+  is Pending while fewer than `retries` failures were converted since the last success, and only then a failure, with
+  alerts and events. A push `up` resets the count; a push `pending` and the maintenance windows do not change it. They
+  also apply to the route of the original Gatus (`/api/v1/endpoints/{key}/external`) of the external endpoints of the
+  configuration file. A converted result keeps no errors: they become its message.
+- A Pending result neither triggers nor resolves alerts, does not change their counters and does not create events
+  (became healthy, became unhealthy). It counts as an execution without success in the uptime and in the Prometheus
+  metrics, and as a failure in the counters and filters of the dashboard.
+- The count of the retries is kept in memory, per endpoint, across configuration reloads. A restart of Gatus starts it
+  again, so up to `retries` more Pending results can be recorded before the next failure. Removing or renaming the
+  endpoint, or removing it from the configuration file, forgets it.
 
 ## Dashboard
 
@@ -151,12 +175,20 @@ Below the name of the endpoint, a small line shows when its TLS certificate expi
 Dec 1, 2026"), from the most recent check with a certificate: in the secondary color, amber from 14 days and red from
 7 days or once expired. Pushes do not hide it, and endpoints without TLS do not show it.
 
-The details page of an endpoint (`/endpoints/<key>`) follows the order of the monitor page of the Uptime Kuma: the bars
-of **Recent Checks**, the numbers and the uptime, the **Response Time Trend** chart (when the results have a response
-time) and the table of checks, with the pagination. **Checks table** expands the table of the results of the page, from
-the most recent to the oldest, with the status, the date and time, the message (the `msg` of the push, otherwise the
-errors, otherwise the HTTP status of the check) and the origin (Push or Check). The table starts collapsed and the
-browser remembers whether it was expanded. The public status pages never show messages nor errors.
+The details page of an endpoint (`/endpoints/<key>`) follows the order of the monitor page of the Uptime Kuma:
+- the bars of **Recent Checks**;
+- a panel of numbers: **Response (Current)** and **Avg. Response (24h)** (**Ping** on Push endpoints) and the
+  **Uptime** over 24 hours, 7 days and 30 days, with "—" without data. The average includes the pushes without `ping`
+  as 0 ms;
+- the **Response Time Trend** chart, shown as soon as there is a result, with the periods when the endpoint was down
+  as red bands;
+- the table of checks, with the pagination.
+
+**Checks table** expands the table of the results of the page, from the most recent to the oldest, with the status (Up,
+Down or Pending), the date and time, the message (the `msg` of the push, otherwise the errors, otherwise the HTTP status
+of the check) and the origin (Push or Check). The table starts collapsed and the browser remembers whether it was
+expanded. The public status pages only show messages on the details pages of the pages with `show-messages`, and never
+the errors of the checks.
 
 ## Migrating scripts from the Uptime Kuma
 
@@ -246,6 +278,10 @@ definition shows it masked.
 The original image ignores the `push_keys` and `endpoint_result_messages` tables, does not answer `/api/push` and marks
 the Push endpoints managed through the web as invalid, keeping their history. The `push` section of the configuration
 file must be removed, because the original image rejects unknown keys.
+
+Previous versions of the fork show the Pending results as failures. Before going back to them, remove
+`heartbeat.retries` from the Push endpoints and `show-messages` from the status pages managed through the web: their
+definitions are decoded strictly and would be rejected. In the configuration file both are ignored.
 
 ## End-to-end tests
 

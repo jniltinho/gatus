@@ -82,11 +82,18 @@
                 </span>
               </span>
             </label>
-            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm sm:col-span-2 dark:border-gray-700">
+            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
               <input v-model="form.showCertificateExpiration" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-certificate-expiration" />
               <span>
                 <span class="block font-medium text-foreground dark:text-gray-200">Show certificate expiration</span>
                 <span class="block text-xs text-muted-foreground dark:text-gray-400">Shows below the name of each endpoint how many days are left until its TLS certificate expires.</span>
+              </span>
+            </label>
+            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
+              <input v-model="form.showMessages" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-messages" />
+              <span>
+                <span class="block font-medium text-foreground dark:text-gray-200">Show messages</span>
+                <span class="block text-xs text-muted-foreground dark:text-gray-400">Messages of pushes and HTTP status are public; errors of checks are never published.</span>
               </span>
             </label>
           </div>
@@ -201,7 +208,7 @@
           <ChevronRight v-else class="h-4 w-4 shrink-0 text-muted-foreground dark:text-gray-400" />
           <span class="min-w-0 flex-1">
             <span class="block text-base font-semibold text-foreground dark:text-gray-100">Preview of the saved version</span>
-            <span class="mt-0.5 block text-xs text-muted-foreground dark:text-gray-400">{{ preview.title }} · {{ pageStatusLabel(preview.status) }}</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground dark:text-gray-400">{{ preview.title }} · {{ pageStatusLabel(preview.status) }}<template v-if="savedShowMessages"> · <span data-testid="status-page-preview-show-messages">Messages shown on the details pages</span></template></span>
           </span>
         </button>
         <div v-if="previewExpanded" class="border-t px-5 pb-5 pt-4 dark:border-gray-700">
@@ -261,6 +268,8 @@ const endpointSearch = ref('')
 const onlySelected = ref(false)
 const validation = ref(null)
 const preview = ref(null)
+// show-messages of the saved version, which the payload of the preview does not have (fork)
+const savedShowMessages = ref(false)
 const previewExpanded = ref(true)
 const copied = ref(false)
 let copiedTimer = null
@@ -268,7 +277,7 @@ let copiedTimer = null
 const MAXIMUM_FEATURED = 10
 
 // The deprecated charts are not part of the form: saving a page removes them
-const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false })
+const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false, showMessages: false })
 const form = reactive(emptyForm())
 
 // Message shown after the route changes from the creation to the edition of the created page
@@ -343,6 +352,7 @@ const currentDocument = () => ({
   featured: [...form.featured],
   // Only sent when checked, like the other optional fields of the definition (fork)
   ...(form.showCertificateExpiration ? { 'show-certificate-expiration': true } : {}),
+  ...(form.showMessages ? { 'show-messages': true } : {}),
   enabled: form.enabled
 })
 
@@ -362,9 +372,11 @@ const loadDetail = async () => {
       groups: definition.groups || [],
       endpoints: definition.endpoints || [],
       featured: definition.featured || [],
-      showCertificateExpiration: definition['show-certificate-expiration'] === true
+      showCertificateExpiration: definition['show-certificate-expiration'] === true,
+      showMessages: definition['show-messages'] === true
     })
   }
+  savedShowMessages.value = form.showMessages
 }
 
 const load = async () => {
@@ -434,6 +446,7 @@ const save = async () => {
       const { data } = await statusPagesApi.update(props.slug, currentDocument(), version.value)
       version.value = data.version || version.value
       savedError.value = ''
+      savedShowMessages.value = form.showMessages
       preview.value = null
       success.value = data.published ? 'Status page saved and published.' : 'Status page saved. It is not published.'
     } else {

@@ -415,6 +415,10 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	}
 	newState := newStateFromPrepared(updated, prepared, effective)
 	replaceState(key, newState)
+	if renaming && newKey != key {
+		// Fork: the time of the last push and the retries used of the old key are not carried to the new key
+		watchdog.ForgetExternalEndpoint(key)
+	}
 	if renaming {
 		logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s renamed to key=%s by %s", key, newKey, auditAuthor(author))
 	} else {
@@ -476,6 +480,7 @@ func (s *Service) Delete(key string, expectedVersion int64, author string) (int,
 		metrics.DeleteMetricsForEndpointKey(key)
 	}
 	removeState(key)
+	watchdog.ForgetExternalEndpoint(key)
 	logr.Infof("[managedendpoint.Delete] Managed endpoint with key=%s deleted by %s (triggered alerts: %d)", key, auditAuthor(author), triggeredAlerts)
 	return triggeredAlerts, nil
 }

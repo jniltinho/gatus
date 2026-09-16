@@ -76,16 +76,29 @@ func getStartAndEndIndex(numberOfResults int, page, pageSize int) (int, int) {
 	return start, end
 }
 
+// lastHealthEventType returns the type of the last HEALTHY or UNHEALTHY event, and false without such an event (fork)
+func lastHealthEventType(events []*endpoint.Event) (endpoint.EventType, bool) {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == endpoint.EventHealthy || events[i].Type == endpoint.EventUnhealthy {
+			return events[i].Type, true
+		}
+	}
+	return "", false
+}
+
 // AddResult adds a Result to Status.Results and makes sure that there are
 // no more than MaximumNumberOfResults results in the Results slice
 func AddResult(ss *endpoint.Status, result *endpoint.Result, maximumNumberOfResults, maximumNumberOfEvents int) {
 	if ss == nil {
 		return
 	}
-	if len(ss.Results) > 0 {
-		// Check if there's any change since the last result
-		if ss.Results[len(ss.Results)-1].Success != result.Success {
-			ss.Events = append(ss.Events, endpoint.NewEventFromResult(result))
+	// Fork: a pending result does not create events, and the other results are compared with the last healthy or
+	// unhealthy event instead of the last result, which can be pending. Without such an event (first result, or only
+	// pending results so far), the event is created.
+	if !result.Pending {
+		event := endpoint.NewEventFromResult(result)
+		if lastEventType, found := lastHealthEventType(ss.Events); !found || lastEventType != event.Type {
+			ss.Events = append(ss.Events, event)
 			if len(ss.Events) > maximumNumberOfEvents {
 				// Doing ss.Events[1:] would usually be sufficient, but in the case where for some reason, the slice has
 				// more than one extra element, we can get rid of all of them at once and thus returning the slice to a
@@ -93,9 +106,6 @@ func AddResult(ss *endpoint.Status, result *endpoint.Result, maximumNumberOfResu
 				ss.Events = ss.Events[len(ss.Events)-maximumNumberOfEvents:]
 			}
 		}
-	} else {
-		// This is the first result, so we need to add the first healthy/unhealthy event
-		ss.Events = append(ss.Events, endpoint.NewEventFromResult(result))
 	}
 	ss.Results = append(ss.Results, result)
 	if len(ss.Results) > maximumNumberOfResults {

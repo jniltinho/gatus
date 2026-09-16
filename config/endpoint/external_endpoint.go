@@ -16,6 +16,14 @@ var (
 
 	// ErrExternalEndpointHeartbeatIntervalTooLow is the error with which Gatus will panic if an external endpoint's heartbeat interval is less than 10 seconds.
 	ErrExternalEndpointHeartbeatIntervalTooLow = errors.New("heartbeat interval must be at least 10 seconds")
+
+	// ErrExternalEndpointHeartbeatRetriesOutOfRange is returned when the heartbeat retries of an external endpoint are not
+	// between 0 and MaximumHeartbeatRetries (fork)
+	ErrExternalEndpointHeartbeatRetriesOutOfRange = errors.New("heartbeat retries must be between 0 and 100")
+
+	// ErrExternalEndpointHeartbeatRetriesWithoutInterval is returned when an external endpoint has heartbeat retries
+	// without heartbeat interval (fork)
+	ErrExternalEndpointHeartbeatRetriesWithoutInterval = errors.New("heartbeat retries require a heartbeat interval")
 )
 
 // ExternalEndpoint is an endpoint whose result is pushed from outside Gatus, which means that
@@ -61,6 +69,13 @@ func (externalEndpoint *ExternalEndpoint) ValidateAndSetDefaults() error {
 	if externalEndpoint.Heartbeat.Interval != 0 && externalEndpoint.Heartbeat.Interval < 10*time.Second {
 		// If the heartbeat interval is set (non-0), it must be at least 10 seconds.
 		return ErrExternalEndpointHeartbeatIntervalTooLow
+	}
+	// Fork: retries convert failures into pending results, see watchdog/push.go
+	if externalEndpoint.Heartbeat.Retries < 0 || externalEndpoint.Heartbeat.Retries > MaximumHeartbeatRetries {
+		return ErrExternalEndpointHeartbeatRetriesOutOfRange
+	}
+	if externalEndpoint.Heartbeat.Retries > 0 && externalEndpoint.Heartbeat.Interval == 0 {
+		return ErrExternalEndpointHeartbeatRetriesWithoutInterval
 	}
 	return nil
 }

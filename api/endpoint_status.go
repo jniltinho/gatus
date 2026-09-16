@@ -104,7 +104,7 @@ func EndpointStatus(cfg *config.Config) fiber.Handler {
 			logr.Errorf("[api.EndpointStatus] Endpoint with key=%s not found", key)
 			return c.Status(404).SendString("not found")
 		}
-		output, err := json.Marshal(endpointStatus)
+		output, err := json.Marshal(newEndpointStatusResponse(cfg, key, endpointStatus))
 		if err != nil {
 			logr.Errorf("[api.EndpointStatus] Unable to marshal object to JSON: %s", err.Error())
 			return c.Status(500).SendString("unable to marshal object to JSON")

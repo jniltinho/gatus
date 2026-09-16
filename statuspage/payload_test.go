@@ -102,6 +102,8 @@ type allowedEndpoint struct {
 		Timestamp  string `json:"timestamp"`
 		Success    bool   `json:"success"`
 		DurationMs int64  `json:"durationMs"`
+		// Only published for pending results (fork)
+		Pending bool `json:"pending"`
 	} `json:"results"`
 	// Only published when the page shows the certificate expiration (fork)
 	CertificateExpiresInDays *int `json:"certificateExpiresInDays"`
@@ -128,10 +130,20 @@ func TestBuildPayload_Allowlist(t *testing.T) {
 
 type allowedEndpointDetails struct {
 	Page struct {
-		Slug  string `json:"slug"`
-		Title string `json:"title"`
+		Slug         string `json:"slug"`
+		Title        string `json:"title"`
+		ShowMessages bool   `json:"showMessages"`
 	} `json:"page"`
 	allowedEndpoint
+	// Only published when the page shows messages (fork)
+	Results []struct {
+		Timestamp  string `json:"timestamp"`
+		Success    bool   `json:"success"`
+		DurationMs int64  `json:"durationMs"`
+		Pending    bool   `json:"pending"`
+		Message    string `json:"message"`
+		Origin     string `json:"origin"`
+	} `json:"results"`
 	Group     string `json:"group"`
 	UpdatedAt string `json:"updatedAt"`
 	Events    []struct {

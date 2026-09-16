@@ -73,7 +73,8 @@ func registerPushRoutes(unprotectedAPIRouter fiber.Router, cfg *config.Config) {
 	unprotectedAPIRouter.All("/push/*", notFound)
 }
 
-// pushHandler receives a push with the parameters of the Uptime Kuma: status (up or anything else), msg and ping
+// pushHandler receives a push with the parameters of the Uptime Kuma: status (up or anything else), msg and ping. The
+// status pending is an extension of the fork: it records a pending result, while the Uptime Kuma records a failure.
 func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []netip.Prefix) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Like the Uptime Kuma, the ping is checked before the monitor
@@ -100,13 +101,14 @@ func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []n
 		result := &endpoint.Result{
 			Timestamp: time.Now(),
 			Success:   status == "up",
+			Pending:   status == "pending",
 			Message:   endpoint.TruncateResultMessage(message),
 			Origin:    endpoint.ResultOriginPush,
 		}
 		if ping != nil {
 			result.Duration = time.Duration(*ping * float64(time.Millisecond))
 		}
-		if !result.Success {
+		if !result.Success && !result.Pending {
 			result.Errors = []string{result.Message}
 		}
 		// The registry processes the pushes of the monitored endpoints and heartbeats, so that none is accepted once they
@@ -125,9 +127,9 @@ func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []n
 			return sendPushResponse(c, fiber.StatusNotFound, pushResponse{Message: pushStorageErrorMessage})
 		}
 		if len(globalKeyName) > 0 {
-			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s with the global key %s; success=%v", target.Key, globalKeyName, result.Success)
+			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s with the global key %s; success=%v; pending=%v", target.Key, globalKeyName, result.Success, result.Pending)
 		} else {
-			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s; success=%v", target.Key, result.Success)
+			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s; success=%v; pending=%v", target.Key, result.Success, result.Pending)
 		}
 		return sendPushResponse(c, fiber.StatusOK, pushResponse{OK: true})
 	}
