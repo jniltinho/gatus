@@ -17,7 +17,6 @@
       <form class="border bg-card p-6 shadow-sm dark:border-gray-700" data-testid="login-card" @submit.prevent="submit">
         <div class="mb-6 flex flex-col items-center gap-3 text-center">
           <img v-if="logo" :src="logo" alt="" class="h-12 w-12 object-contain" />
-          <img v-else src="@/assets/logo.svg" alt="" class="h-12 w-12 object-contain" />
           <div>
             <h1 class="text-xl font-semibold tracking-tight" data-testid="login-title">{{ header }}</h1>
             <p class="mt-1 text-sm text-muted-foreground">Sign in to continue</p>
@@ -92,7 +91,7 @@ const props = defineProps({
 const templateValue = (value, placeholder) => (value && value !== placeholder ? value : '')
 
 const logo = templateValue(window.config?.logo, '{{ .UI.Logo }}')
-const header = templateValue(window.config?.header, '{{ .UI.Header }}') || 'Gatus'
+const header = templateValue(window.config?.header, '{{ .UI.Header }}') || 'Status'
 
 const username = ref('')
 const password = ref('')

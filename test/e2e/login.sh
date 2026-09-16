@@ -149,6 +149,8 @@ wait_for login-card
 [ "$(js 'new URLSearchParams(location.search).get("redirect")')" = /admin ] || fail "expected redirect=/admin, got $(js 'location.search')"
 [ "$(js 'document.querySelector("header") === null && document.querySelector("[data-testid=admin-link]") === null')" = true ] || fail "the login screen should not show the dashboard header"
 [ "$(js 'Math.abs(document.querySelector("[data-testid=login-card]").getBoundingClientRect().top - innerHeight * 0.15) < 2')" = true ] || fail "the card should start at 15% of the height of the window"
+[ "$(js 'document.querySelector("[data-testid=login-title]").textContent.trim()')" = Status ] || fail "expected the default header Status on the login screen, got $(js 'document.querySelector("[data-testid=login-title]").textContent')"
+[ "$(js 'document.querySelector("[data-testid=login-card] img") === null')" = true ] || fail "the login screen should not show a logo without ui.logo"
 browser screenshot "$PRINTS/01-login-light.png" >/dev/null
 
 step "Theme toggle: dark login screen"
@@ -180,6 +182,10 @@ step "Dashboard, endpoint details and suite details with the session"
 browser open "$BASE/" >/dev/null
 wait_for logout-button
 wait_for admin-link
+[ "$(js 'document.querySelector("header h1").textContent.trim()')" = Status ] || fail "expected the default header Status on the dashboard, got $(js 'document.querySelector("header h1").textContent')"
+[ "$(js 'document.querySelector("header img") === null')" = true ] || fail "the dashboard header should not show a logo without ui.logo"
+[ "$(js '!document.body.innerText.includes("Gatus") && document.querySelector("#social, a[href*=\"github.com\"], a[href*=\"gatus.io\"]") === null')" = true ] || fail "the dashboard should not show the Gatus name, the GitHub link nor the Powered by footer"
+[ "$(js 'document.title')" = "Health Dashboard | Status" ] || fail "expected the default title, got $(js 'document.title')"
 browser open "$BASE/endpoints/core_health" >/dev/null
 wait_for recent-checks-card
 expect_location /endpoints/core_health
@@ -211,6 +217,7 @@ browser open "$BASE/status/services" >/dev/null
 wait_for public-layout
 expect_location /status/services
 [ "$(js 'document.querySelector("[data-testid=login-card]") === null')" = true ] || fail "the public status page should not ask for a login"
+[ "$(js 'document.querySelector("[data-testid=public-layout] header img") === null && document.querySelector("[data-testid=public-layout] header").innerText.includes("Status")')" = true ] || fail "the public header should show Status without a logo"
 browser screenshot "$PRINTS/07-public-status-page.png" >/dev/null
 
 step "Limit of failed logins: 429 with Retry-After, also with the right password, and message on the login screen"

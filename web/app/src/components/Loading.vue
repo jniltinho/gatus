@@ -1,18 +1,12 @@
 <template>
-  <div class="flex justify-center items-center">
-    <img 
-      :class="[
-        'animate-spin rounded-full opacity-60 grayscale',
-        sizeClass,
-      ]"
-      src="../assets/logo.svg" 
-      alt="Gatus logo" 
-    />
+  <div class="flex justify-center items-center" role="status" aria-label="Loading">
+    <Loader2 :class="['animate-spin opacity-60', sizeClass]" aria-hidden="true" />
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { Loader2 } from 'lucide-vue-next'
 
 const props = defineProps({
   size: {
