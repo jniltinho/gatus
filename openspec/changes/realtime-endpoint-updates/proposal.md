@@ -7,7 +7,7 @@ Depois de um push, a página de detalhes do endpoint só mostra o resultado novo
 - **Aviso em tempo real de resultado novo:** um canal SSE por endpoint avisa o navegador quando o endpoint grava um resultado, seja verificação, push ou heartbeat:
   - `GET /api/v1/endpoints/{key}/events`, protegida como as outras rotas de status;
   - `GET /api/v1/status-pages/{slug}/endpoints/{key}/events`, pública, só para endpoints mostrados por uma página publicada.
-- **Aviso sem dados:** o evento só diz que há resultado novo e o instante dele. A página busca os dados pelas rotas que já existem, então nada novo é publicado e a sanitização das status pages não muda.
+- **Aviso sem dados:** o evento só diz que há resultado novo, com uma sequência para reconectar sem perder avisos. A página busca os dados pelas rotas que já existem, então nada novo é publicado e a sanitização das status pages não muda.
 - **Detalhes do endpoint, no dashboard e na página pública:** ao receber o aviso, a página atualiza barras, painel de números, gráfico (linha e faixas vermelhas e amarelas) e tabela de checks. O gráfico passa a recarregar a cada atualização da página, inclusive nas automáticas.
 - **Limites e robustez:**
   - número máximo de conexões abertas no total e por IP;
@@ -27,6 +27,8 @@ Depois de um push, a página de detalhes do endpoint só mostra o resultado novo
 ### Modified Capabilities
 
 - `status-page-highlights`: a API pública de detalhes renova o cache quando o endpoint grava um resultado novo.
+- `public-status-pages`: exceção do limite de conexões para os canais de eventos e cabeçalhos das respostas de eventos.
+- `basic-login-page`: `Accept: text/event-stream` também evita o `WWW-Authenticate` num 401.
 
 ## Impact
 
