@@ -13,6 +13,7 @@ import (
 	"gatus/v5/config/ui"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
+	"github.com/gofiber/fiber/v2"
 )
 
 func TestSinglePageApplication(t *testing.T) {
@@ -104,4 +105,62 @@ func TestSinglePageApplication(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The theme of the HTML follows a valid theme cookie or ui.dark-mode, dark by default, on the dashboard and on the
+// public status pages (fork)
+func TestSinglePageApplication_DefaultTheme(t *testing.T) {
+	for _, path := range []string{"/", "/login", "/status/services"} {
+		for name, scenario := range map[string]struct {
+			darkMode      *bool
+			cookie        string
+			expectedClass string
+			expectedDflt  string
+			expectedColor string
+		}{
+			"default":            {darkMode: nil, cookie: "", expectedClass: "dark", expectedDflt: "dark", expectedColor: "#030712"},
+			"light-config":       {darkMode: boolPointer(false), cookie: "", expectedClass: "", expectedDflt: "", expectedColor: "#f7f9fb"},
+			"light-cookie":       {darkMode: nil, cookie: "theme=light", expectedClass: "", expectedDflt: "dark", expectedColor: "#f7f9fb"},
+			"dark-cookie":        {darkMode: boolPointer(false), cookie: "theme=dark", expectedClass: "dark", expectedDflt: "", expectedColor: "#030712"},
+			"invalid-cookie":     {darkMode: nil, cookie: "theme=foo", expectedClass: "dark", expectedDflt: "dark", expectedColor: "#030712"},
+			"invalid-cookie-off": {darkMode: boolPointer(false), cookie: "theme=foo", expectedClass: "", expectedDflt: "", expectedColor: "#f7f9fb"},
+		} {
+			t.Run(path+"/"+name, func(t *testing.T) {
+				uiConfig := ui.GetDefaultConfig()
+				uiConfig.DarkMode = scenario.darkMode
+				request := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+				if len(scenario.cookie) > 0 {
+					request.Header.Set("Cookie", scenario.cookie)
+				}
+				response, err := fiberTestApp(path, uiConfig).Test(request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer response.Body.Close()
+				body, _ := io.ReadAll(response.Body)
+				html := string(body)
+				if !strings.Contains(html, `<html lang="en" class="`+scenario.expectedClass+`" data-default-theme="`+scenario.expectedDflt+`">`) {
+					t.Errorf("unexpected html element for class=%q default=%q: %s", scenario.expectedClass, scenario.expectedDflt, html[:min(len(html), 200)])
+				}
+				if !strings.Contains(html, `<meta name="theme-color" content="`+scenario.expectedColor+`"`) {
+					t.Errorf("expected the theme color %s", scenario.expectedColor)
+				}
+			})
+		}
+	}
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
+
+// fiberTestApp serves the single page application at path, like the dashboard or like the public status pages
+func fiberTestApp(path string, uiConfig *ui.Config) *fiber.App {
+	app := fiber.New()
+	if strings.HasPrefix(path, "/status/") {
+		app.Get(path, renderSPA(uiConfig, setPublicHeaders))
+	} else {
+		app.Get(path, SinglePageApplication(uiConfig))
+	}
+	return app
 }

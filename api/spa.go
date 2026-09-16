@@ -12,17 +12,8 @@ import (
 
 func SinglePageApplication(uiConfig *ui.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		vd := ui.ViewData{UI: uiConfig}
-		{
-			themeFromCookie := string(c.Request().Header.Cookie("theme"))
-			if len(themeFromCookie) > 0 {
-				if themeFromCookie == "dark" {
-					vd.Theme = "dark"
-				}
-			} else if uiConfig.IsDarkMode() { // Since there's no theme cookie, we'll rely on ui.DarkMode
-				vd.Theme = "dark"
-			}
-		}
+		// Fork: the same theme rules as the public status pages, see themeFromRequest
+		vd := ui.ViewData{UI: uiConfig, Theme: themeFromRequest(c, uiConfig), DefaultTheme: defaultTheme(uiConfig)}
 		t, err := template.ParseFS(static.FileSystem, static.IndexPath)
 		if err != nil {
 			// This should never happen, because ui.ValidateAndSetDefaults validates that the template works.

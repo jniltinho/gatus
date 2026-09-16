@@ -21,7 +21,7 @@ func renderSPA(uiConfig *ui.Config, headers func(c *fiber.Ctx)) fiber.Handler {
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse template. This should never happen, because the template is validated on start.")
 		}
 		var body bytes.Buffer
-		if err := indexTemplate.Execute(&body, ui.ViewData{UI: uiConfig, Theme: themeFromRequest(c, uiConfig)}); err != nil {
+		if err := indexTemplate.Execute(&body, ui.ViewData{UI: uiConfig, Theme: themeFromRequest(c, uiConfig), DefaultTheme: defaultTheme(uiConfig)}); err != nil {
 			logr.Errorf("[api.renderSPA] Failed to execute template: %s", err.Error())
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to execute template. This should never happen, because the template is validated on start.")
 		}
@@ -33,14 +33,20 @@ func renderSPA(uiConfig *ui.Config, headers func(c *fiber.Ctx)) fiber.Handler {
 	}
 }
 
-// themeFromRequest returns the theme of the theme cookie or, without cookie, the one configured in ui.dark-mode
+// themeFromRequest returns the theme of a valid theme cookie (dark or light) or, without one, the theme of ui.dark-mode.
+// Fork: an invalid cookie is ignored, like in the browser (see web/app/src/utils/theme.js).
 func themeFromRequest(c *fiber.Ctx, uiConfig *ui.Config) string {
-	if themeFromCookie := string(c.Request().Header.Cookie("theme")); len(themeFromCookie) > 0 {
-		if themeFromCookie == "dark" {
-			return "dark"
-		}
+	switch string(c.Request().Header.Cookie("theme")) {
+	case "dark":
+		return "dark"
+	case "light":
 		return ""
 	}
+	return defaultTheme(uiConfig)
+}
+
+// defaultTheme returns the theme configured in ui.dark-mode, dark by default
+func defaultTheme(uiConfig *ui.Config) string {
 	if uiConfig.IsDarkMode() {
 		return "dark"
 	}

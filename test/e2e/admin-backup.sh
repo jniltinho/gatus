@@ -85,6 +85,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Fork: the theme is chosen by the theme cookie, like the theme button, because the operating system preference is not
+# followed (dark by default, see ui.dark-mode). It also applies the theme to the page that is already open.
+set_theme() {
+  local session=$1 theme=$2
+  "$session" cookies set theme "$theme" --url "$BASE" >/dev/null
+  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$theme' === 'dark')" >/dev/null 2>&1 || true
+}
+
 STEP=0
 step() {
   STEP=$((STEP + 1))
@@ -113,6 +121,28 @@ login_screen() {
   admin click "$(testid login-submit)" >/dev/null
   admin wait "$(testid logout-button)" >/dev/null || fail "the login did not work"
 }
+# layout_ok checks that the page does not scroll (with the subpixel tolerance of the lists) and that the given elements
+# are inside the window, so that a content cut by the fixed height of the layout is detected
+layout_ok() {
+  local label=$1
+  shift
+  local checks="document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1"
+  for id in "$@"; do
+    checks="$checks && (() => { const element = document.querySelector('[data-testid=\"$id\"]'); if (!element) return false; const rect = element.getBoundingClientRect(); return rect.top >= 0 && rect.bottom <= innerHeight + 1 })()"
+  done
+  [ "$(js "$checks")" = true ] || fail "the Backup tab scrolls or cuts its content: $label"
+}
+# not_covered checks that a click at the center of the element reaches it, for example with a toast visible
+not_covered() {
+  admin scrollintoview "$(testid "$1")" >/dev/null 2>&1 || true
+  [ "$(js "(() => { const element = document.querySelector('[data-testid=\"$1\"]'); const rect = element.getBoundingClientRect(); const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2); return element === hit || element.contains(hit) })()")" = true ] || fail "$1 is covered at $2"
+}
+focus_inside() {
+  js "document.querySelector('[data-testid=\"$1\"]').contains(document.activeElement)"
+}
+toast_text() {
+  js "Array.from(document.querySelectorAll('[data-testid=\"toast\"][data-type=\"$1\"]')).map((toast) => toast.innerText).join(' | ')"
+}
 plan_action() {
   js "document.querySelector('[data-testid=\"restore-plan-row-$1-$2\"]')?.dataset.action || ''"
 }
@@ -136,13 +166,17 @@ KEY_TOKEN=$(authenticated -H 'Content-Type: application/json' -d '{"name":"akama
 step "Backup tab: counts, download without and with password"
 admin set viewport 1280 900 >/dev/null
 login_screen
+set_theme admin light
 admin open "$BASE/admin/backup" >/dev/null
 admin wait "$(testid admin-backup)" >/dev/null || fail "the Backup tab did not open"
 admin wait 1000 >/dev/null
 grep -q "1" <<<"$(js "document.querySelector('[data-testid=\"backup-section-download\"]').innerText")" || fail "the counts are not shown"
 [ "$(js "document.querySelectorAll('[data-testid=\"backup-plaintext-warning\"]').length")" = 1 ] || fail "the warning about secrets in plain text is not shown"
-admin screenshot --full "$PRINTS/01-backup-tab.png" >/dev/null
+layout_ok "without encryption" backup-download restore-preview
+admin screenshot "$PRINTS/01-backup-tab.png" >/dev/null
 admin download "$(testid backup-download)" "$WORK/plain.json" >/dev/null || fail "the plain backup was not downloaded"
+admin wait "[data-testid=\"toast\"][data-type=\"success\"]" >/dev/null || fail "the download did not show a toast"
+grep -q "Backup downloaded" <<<"$(toast_text success)" || fail "unexpected toast of the download"
 python3 - "$WORK/plain.json" "$PUSH_TOKEN" <<'PY' || fail "the plain backup does not have the registered items"
 import json, sys
 backup = json.load(open(sys.argv[1]))
@@ -153,7 +187,14 @@ PY
 admin click "$(testid backup-encrypt)" >/dev/null
 admin fill "$(testid backup-password)" "$BACKUP_PASSWORD" >/dev/null
 admin fill "$(testid backup-password-confirm)" "$BACKUP_PASSWORD" >/dev/null
-admin screenshot --full "$PRINTS/02-backup-encrypted.png" >/dev/null
+layout_ok "with encryption" backup-download restore-preview
+admin screenshot "$PRINTS/02-backup-encrypted.png" >/dev/null
+for size in "1280 720" "1024 600"; do
+  admin set viewport $size >/dev/null
+  admin wait 300 >/dev/null
+  layout_ok "with encryption at $size" backup-download restore-preview
+done
+admin set viewport 1280 900 >/dev/null
 admin download "$(testid backup-download)" "$WORK/encrypted.json" >/dev/null || fail "the encrypted backup was not downloaded"
 grep -q '"gatus-admin-backup-encrypted"' "$WORK/encrypted.json" || fail "the backup is not encrypted"
 grep -q "$PUSH_TOKEN" "$WORK/encrypted.json" && fail "the encrypted backup has the token in plain text"
@@ -163,6 +204,7 @@ stop_gatus
 step "Target installation: preview with the status page of the file skipped"
 start_gatus target
 login_screen
+set_theme admin light
 admin open "$BASE/admin/backup" >/dev/null
 admin wait "$(testid restore-file)" >/dev/null || fail "the restore section did not open"
 admin upload "$(testid restore-file)" "$WORK/plain.json" >/dev/null
@@ -173,25 +215,47 @@ admin wait "$(testid restore-plan-table)" >/dev/null || fail "the preview was no
 [ "$(plan_action endpoint jobs_backup)" = create ] || fail "the endpoint is not planned to be created"
 [ "$(plan_action statusPage jobs)" = skip ] || fail "the status page of the configuration file is not skipped"
 authenticated "$BASE/api/v1/admin/endpoints" | grep -q jobs_backup && fail "the preview created the endpoint"
+[ "$(js "document.querySelector('[data-testid=\"restore-plan\"]').getAttribute('role')")" = dialog ] || fail "the preview is not a dialog"
+layout_ok "with the preview" restore-plan-close restore-apply
 admin wait 500 >/dev/null
-admin screenshot --full "$PRINTS/03-restore-preview.png" >/dev/null
+admin screenshot "$PRINTS/03-restore-preview.png" >/dev/null
+for size in "1280 720" "1024 600"; do
+  admin set viewport $size >/dev/null
+  admin wait 300 >/dev/null
+  layout_ok "with the preview at $size" restore-plan-close restore-apply
+done
+admin set viewport 1280 900 >/dev/null
+for _ in $(seq 1 12); do
+  admin press Tab >/dev/null
+done
+[ "$(focus_inside restore-plan)" = true ] || fail "the focus left the preview dialog"
 
-step "Options invalidate the preview"
-admin click "$(testid restore-overwrite)" >/dev/null
+step "Closing the preview discards it"
+admin click "$(testid restore-plan-close)" >/dev/null
 admin wait 300 >/dev/null
-[ "$(js "document.querySelector('[data-testid=\"restore-apply\"]').disabled")" = true ] || fail "the restore is not disabled after changing an option"
+[ "$(js "document.querySelectorAll('[data-testid=\"restore-plan-table\"]').length")" = 0 ] || fail "the preview was not closed"
+admin click "$(testid restore-overwrite)" >/dev/null
 admin click "$(testid restore-overwrite)" >/dev/null
 admin click "$(testid restore-preview)" >/dev/null
-admin wait "$(testid restore-plan-table)" >/dev/null
+admin wait "$(testid restore-plan-table)" >/dev/null || fail "the preview did not open again"
 
 step "Restore with confirmation and results"
 admin click "$(testid restore-apply)" >/dev/null
-admin wait "$(testid confirm-accept)" >/dev/null || fail "the confirmation was not shown"
+admin wait "$(testid confirm-cancel)" >/dev/null || fail "the confirmation was not shown"
+admin wait 300 >/dev/null
+[ "$(js "document.activeElement === document.querySelector('[data-testid=\"confirm-cancel\"]')")" = true ] || fail "the initial focus of the confirmation is not Cancel"
+admin click "$(testid confirm-cancel)" >/dev/null
+admin wait 300 >/dev/null
+[ "$(focus_inside restore-plan)" = true ] || fail "the focus did not go back to the preview after cancelling the confirmation"
+admin click "$(testid restore-apply)" >/dev/null
+admin wait "$(testid confirm-accept)" >/dev/null || fail "the confirmation was not shown again"
 admin click "$(testid confirm-accept)" >/dev/null
 admin wait "$(testid restore-results-table)" >/dev/null || fail "the results were not shown"
 [ "$(result_of pushKey akamai)" = created ] && [ "$(result_of endpoint jobs_backup)" = created ] && [ "$(result_of statusPage jobs)" = skipped ] || fail "unexpected results"
+grep -q "Restore finished" <<<"$(toast_text success)" || fail "the restore did not show a toast"
 admin wait 500 >/dev/null
-admin screenshot --full "$PRINTS/04-restore-results.png" >/dev/null
+admin screenshot "$PRINTS/04-restore-results.png" >/dev/null
+admin click "$(testid restore-results-close)" >/dev/null
 curl -s "$BASE/api/push/$KEY_TOKEN/jobs_backup?status=up&msg=restored" | grep -q '"ok":true' || fail "the restored push key does not accept the original token"
 curl -s "$BASE/api/push/$PUSH_TOKEN?status=up&msg=restored" | grep -q '"ok":true' || fail "the restored push endpoint does not accept its token"
 
@@ -203,24 +267,72 @@ for _ in $(seq 1 10); do
   sleep 0.3
 done
 [ "$(plan_action pushKey akamai)" = unchanged ] && [ "$(plan_action endpoint jobs_backup)" = unchanged ] || fail "the applied items are not unchanged"
+admin press Escape >/dev/null
+admin wait 300 >/dev/null
+[ "$(js "document.querySelectorAll('[data-testid=\"restore-plan-table\"]').length")" = 0 ] || fail "Escape did not close the preview"
 
 step "Encrypted backup: wrong password, then the right one, in dark mode"
-admin set media dark >/dev/null
+set_theme admin dark
 admin reload >/dev/null
 admin wait "$(testid restore-file)" >/dev/null
 admin upload "$(testid restore-file)" "$WORK/encrypted.json" >/dev/null
 admin wait "$(testid restore-password)" >/dev/null || fail "the password of the encrypted backup is not asked"
 admin fill "$(testid restore-password)" "a wrong password" >/dev/null
 admin click "$(testid restore-preview)" >/dev/null
-admin wait "$(testid restore-error)" >/dev/null || fail "the wrong password did not show an error"
-grep -qi "invalid password" <<<"$(js "document.querySelector('[data-testid=\"restore-error\"]').innerText")" || fail "unexpected error of the wrong password"
+admin wait "[data-testid=\"toast\"][data-type=\"error\"]" >/dev/null || fail "the wrong password did not show an error toast"
+grep -qi "invalid password" <<<"$(toast_text error)" || fail "unexpected error of the wrong password"
+[ "$(js "document.querySelector('[data-testid=\"restore-password\"]').getAttribute('aria-invalid')")" = true ] || fail "the password field is not marked as invalid"
+grep -qi "invalid password" <<<"$(js "document.getElementById(document.querySelector('[data-testid=\"restore-password\"]').getAttribute('aria-describedby').split(' ')[0])?.innerText || ''")" || fail "the error is not associated with the password field"
+layout_ok "with an encrypted file and its error" backup-download restore-preview
+
+step "Toasts do not cover the actions"
+for size in "1280 900" "800 600" "390 844"; do
+  admin set viewport $size >/dev/null
+  admin wait 300 >/dev/null
+  [ "$(js "document.querySelectorAll('[data-testid=\"toast\"]').length")" -ge 1 ] || fail "expected a visible toast at $size"
+  not_covered restore-preview "$size"
+  not_covered backup-download "$size"
+done
+not_covered logout-button "390 844"
 admin fill "$(testid restore-password)" "$BACKUP_PASSWORD" >/dev/null
+[ "$(js "document.querySelector('[data-testid=\"restore-password\"]').getAttribute('aria-invalid') || 'false'")" = false ] || fail "editing the password did not clear the invalid mark"
 admin click "$(testid restore-preview)" >/dev/null
 admin wait "$(testid restore-plan-table)" >/dev/null || fail "the encrypted backup was not previewed"
+for size in "390 844" "800 600" "1280 900"; do
+  admin set viewport $size >/dev/null
+  admin wait 300 >/dev/null
+  [ "$(js "document.querySelectorAll('[data-testid=\"toast\"]').length")" -ge 1 ] || fail "expected the toast to stay while the dialog is open at $size"
+  not_covered restore-plan-close "$size"
+  not_covered restore-apply "$size"
+done
 [ "$(plan_action endpoint jobs_backup)" = unchanged ] || fail "the encrypted backup is not the same as the plain one"
 admin mouse move 5 5 >/dev/null 2>&1 || true
 admin wait 800 >/dev/null
-admin screenshot --full "$PRINTS/05-restore-encrypted-dark.png" >/dev/null
-admin set media light >/dev/null
+admin screenshot "$PRINTS/05-restore-encrypted-dark.png" >/dev/null
+admin press Escape >/dev/null
+set_theme admin light
+
+step "Rejected file: persistent status and dismissed toast"
+echo '{"not":"a backup"}' > "$WORK/not-backup.json"
+admin upload "$(testid restore-file)" "$WORK/not-backup.json" >/dev/null
+admin wait 500 >/dev/null
+grep -qi "not a backup" <<<"$(toast_text error)" || fail "the rejected file did not show an error toast"
+grep -qi "not a backup" <<<"$(js "document.querySelector('[data-testid=\"restore-file-status\"]').innerText")" || fail "the status of the file does not explain the rejection"
+while [ "$(js "document.querySelectorAll('[data-testid=\"toast\"]').length")" -gt 0 ]; do
+  admin click "$(testid toast-dismiss)" >/dev/null
+  admin wait 200 >/dev/null
+done
+grep -qi "not a backup" <<<"$(js "document.querySelector('[data-testid=\"restore-file-status\"]').innerText")" || fail "the status of the file should stay after dismissing the toast"
+
+step "An option changed while the preview is requested discards it"
+admin upload "$(testid restore-file)" "$WORK/plain.json" >/dev/null
+admin wait 500 >/dev/null
+# Holds the preview requests for 1.5 seconds, so that the option changes before the answer
+admin eval "(() => { const originalFetch = window.fetch; window.fetch = (input, init) => String(input).includes('/restore/preview') ? new Promise((resolve) => setTimeout(resolve, 1500)).then(() => originalFetch(input, init)) : originalFetch(input, init) })()" >/dev/null
+admin click "$(testid restore-preview)" >/dev/null
+admin click "$(testid restore-overwrite)" >/dev/null
+admin wait 2500 >/dev/null
+[ "$(js "document.querySelectorAll('[data-testid=\"restore-plan-table\"]').length")" = 0 ] || fail "the preview opened although an option changed during the request"
+admin reload >/dev/null
 
 echo "OK: $STEP steps; screenshots in $PRINTS"

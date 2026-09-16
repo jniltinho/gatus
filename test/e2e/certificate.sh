@@ -105,6 +105,14 @@ for _ in $(seq 1 60); do
 done
 curl -sf "$BASE/health" >/dev/null || { echo "Gatus did not start"; cat "$WORK/gatus.log"; exit 1; }
 
+# Fork: the theme is chosen by the theme cookie, like the theme button, because the operating system preference is not
+# followed (dark by default, see ui.dark-mode). It also applies the theme to the page that is already open.
+set_theme() {
+  local session=$1 theme=$2
+  "$session" cookies set theme "$theme" --url "$BASE" >/dev/null
+  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$theme' === 'dark')" >/dev/null 2>&1 || true
+}
+
 STEP=0
 step() {
   STEP=$((STEP + 1))
@@ -186,7 +194,7 @@ public screenshot "$PRINTS/03-status-page.png" >/dev/null
 public open "$BASE/status/secure/endpoints/web_site" >/dev/null
 public wait "$(testid status-endpoint-certificate)" >/dev/null || fail "the details page did not show the certificate line"
 public screenshot "$PRINTS/04-details.png" >/dev/null
-public set media dark >/dev/null
+set_theme public dark
 public open "$BASE/status/secure" >/dev/null
 public wait "$(testid status-endpoint-certificate-site)" >/dev/null
 public screenshot "$PRINTS/05-status-page-dark.png" >/dev/null

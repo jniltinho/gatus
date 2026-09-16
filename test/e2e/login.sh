@@ -142,6 +142,7 @@ grep -q gatus_session "$WORK/session.txt" || fail "the login did not set the ses
 
 step "Administration without session: login screen at 15% of the top, without the dashboard header nor the native dialog"
 browser set viewport 1280 900 >/dev/null
+# Fork: the operating system prefers the light theme, which is not followed: without a theme cookie, the theme is dark
 browser set media light >/dev/null
 browser open "$BASE/admin" >/dev/null
 wait_for login-card
@@ -151,16 +152,24 @@ wait_for login-card
 [ "$(js 'Math.abs(document.querySelector("[data-testid=login-card]").getBoundingClientRect().top - innerHeight * 0.15) < 2')" = true ] || fail "the card should start at 15% of the height of the window"
 [ "$(js 'document.querySelector("[data-testid=login-title]").textContent.trim()')" = Status ] || fail "expected the default header Status on the login screen, got $(js 'document.querySelector("[data-testid=login-title]").textContent')"
 [ "$(js 'document.querySelector("[data-testid=login-card] img") === null')" = true ] || fail "the login screen should not show a logo without ui.logo"
-browser screenshot "$PRINTS/01-login-light.png" >/dev/null
+[ "$(js 'document.documentElement.classList.contains("dark")')" = true ] || fail "without a theme cookie, the login screen should be dark even with the operating system in light mode"
+[ "$(js 'document.documentElement.dataset.defaultTheme')" = dark ] || fail "the HTML should have the default theme of ui.dark-mode"
+[ "$(js 'document.querySelector("meta[name=theme-color]").content')" = "#030712" ] || fail "the theme color should follow the dark theme"
+browser screenshot "$PRINTS/01-login-dark.png" >/dev/null
 
-step "Theme toggle: dark login screen"
+step "Theme toggle: light login screen, kept after a reload"
 browser click "$(testid login-theme-toggle)" >/dev/null
-[ "$(js 'document.documentElement.classList.contains("dark")')" = true ] || fail "the theme toggle did not switch to the dark theme"
+[ "$(js 'document.documentElement.classList.contains("dark")')" = false ] || fail "the theme toggle did not switch to the light theme"
+[ "$(js 'document.querySelector("meta[name=theme-color]").content')" = "#f7f9fb" ] || fail "the theme color should follow the light theme"
 # Waits for the color transitions and moves the mouse away from the toggle before the screenshot
 browser mouse move 0 450 >/dev/null 2>&1 || true
 browser wait 500 >/dev/null
-browser screenshot "$PRINTS/02-login-dark.png" >/dev/null
+browser screenshot "$PRINTS/02-login-light.png" >/dev/null
+browser reload >/dev/null
+wait_for login-card
+[ "$(js 'document.documentElement.classList.contains("dark")')" = false ] || fail "the light theme chosen with the toggle should be kept after a reload"
 browser click "$(testid login-theme-toggle)" >/dev/null
+[ "$(js 'document.documentElement.classList.contains("dark")')" = true ] || fail "the theme toggle did not switch back to the dark theme"
 
 step "Wrong password: generic message and still on the login screen"
 sign_in "wrong-password"

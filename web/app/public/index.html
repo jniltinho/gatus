@@ -1,17 +1,23 @@
 <!DOCTYPE html>
-<html lang="en" class="{{ .Theme }}">
+<html lang="en" class="{{ .Theme }}" data-default-theme="{{ .DefaultTheme }}">
   <head>
     <meta charset="utf-8" />
+    <!-- Fork: color of the browser by theme, before the inline script that corrects it (backticks: the HTML minifier of the build does not accept quotes inside the attribute) -->
+    <meta name="theme-color" content="{{ if eq .Theme `dark` }}#030712{{ else }}#f7f9fb{{ end }}" />
     <script type="text/javascript">
       window.config = {logo: "{{ .UI.Logo }}", header: "{{ .UI.Header }}", dashboardHeading: "{{ .UI.DashboardHeading }}", dashboardSubheading: "{{ .UI.DashboardSubheading }}", link: "{{ .UI.Link }}", buttons: [], maximumNumberOfResults: "{{ .UI.MaximumNumberOfResults }}", defaultSortBy: "{{ .UI.DefaultSortBy }}", defaultFilterBy: "{{ .UI.DefaultFilterBy }}", loginSubtitle: "{{ .UI.LoginSubtitle }}"};{{- range .UI.Buttons}}window.config.buttons.push({name:"{{ .Name }}",link:"{{ .Link }}"});{{end}}
-      // Initialize theme immediately to prevent flash
+      // Initialize theme immediately to prevent flash. Fork: same rule as utils/theme.js, a valid theme cookie or the
+      // default theme of the server (data-default-theme), dark when the template is not rendered (development server)
       (function() {
-        const themeFromCookie = document.cookie.match(/theme=(dark|light);?/)?.[1];
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (themeFromCookie === 'dark' || (!themeFromCookie && prefersDark)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
+        var root = document.documentElement;
+        var cookie = /(?:^|;\s*)theme=([^;]*)/.exec(document.cookie || '');
+        var theme = cookie ? cookie[1].trim() : '';
+        var defaultTheme = root.getAttribute('data-default-theme');
+        var dark = theme === 'dark' || theme === 'light' ? theme === 'dark' : (defaultTheme === null || defaultTheme.indexOf('{' + '{') !== -1 || defaultTheme === 'dark');
+        root.classList.toggle('dark', dark);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+          meta.setAttribute('content', dark ? '#030712' : '#f7f9fb');
         }
       })();
     </script>
@@ -28,7 +34,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="{{ .UI.Title }}" />
     <meta name="application-name" content="{{ .UI.Title }}" />
-    <meta name="theme-color" content="#f7f9fb" />
   </head>
   <body>
     <noscript><strong>Enable JavaScript to view this page.</strong></noscript>

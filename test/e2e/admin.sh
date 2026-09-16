@@ -209,6 +209,14 @@ wait_for "$(testid admin-remove-clientes_site)"
 agent-browser click "$(testid admin-remove-clientes_site)" >/dev/null
 wait_for "$(testid confirm-dialog)"
 shot 12-confirmar-remocao
+agent-browser wait 300 >/dev/null
+[ "$(agent-browser eval "document.activeElement === document.querySelector('[data-testid=\"confirm-cancel\"]')" 2>/dev/null | tr -d '"')" = true ] || fail "o foco inicial da confirmação não está em Cancel"
+agent-browser press Escape >/dev/null
+agent-browser wait 300 >/dev/null
+[ "$(agent-browser eval "document.querySelectorAll('[data-testid=\"confirm-dialog\"]').length" 2>/dev/null | tr -d '"')" = 0 ] || fail "Esc não fechou a confirmação"
+[ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/endpoints/clientes_site")" = 200 ] || fail "Esc na confirmação removeu o endpoint"
+agent-browser click "$(testid admin-remove-clientes_site)" >/dev/null
+wait_for "$(testid confirm-cancel)"
 agent-browser click "$(testid confirm-cancel)" >/dev/null
 wait_for "$(testid admin-row-clientes_site)"
 agent-browser click "$(testid admin-remove-clientes_site)" >/dev/null
