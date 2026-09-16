@@ -232,7 +232,7 @@ Para slug inexistente, slug inválido, slug vazio, caminho com mais segmentos, p
 - **AND** o storage não é consultado
 
 ### Requirement: Cabeçalhos das rotas públicas
-As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff` e `Referrer-Policy: strict-origin-when-cross-origin`. As respostas da API pública MUST incluir `Vary: Accept-Encoding`, com ou sem compressão. A API MUST responder `Cache-Control: no-cache` com 200 e `Cache-Control: no-store` com 404, 429 e 503, para que nenhum cache HTTP mantenha no ar uma página desabilitada. A rota HTML MUST responder `Cache-Control: no-cache`. A API pública MUST NOT enviar cabeçalhos CORS.
+As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff` e `Referrer-Policy: strict-origin-when-cross-origin`. As respostas da API pública MUST incluir `Vary: Accept-Encoding`, com ou sem compressão. A API MUST responder `Cache-Control: no-cache` com 200 e `Cache-Control: no-store` com 404, 429 e 503, para que nenhum cache HTTP mantenha no ar uma página desabilitada. Os canais de eventos MUST responder 200 com `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-store, no-transform` e `X-Accel-Buffering: no`, sem compressão, e 429 e 503 com `Cache-Control: no-store` e os corpos JSON das demais respostas da API pública. A rota HTML MUST responder `Cache-Control: no-cache`. A API pública MUST NOT enviar cabeçalhos CORS.
 
 #### Scenario: Página publicada
 - **WHEN** chega `GET /api/v1/status-pages/infra` para uma página publicada
@@ -241,6 +241,10 @@ As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`,
 #### Scenario: Rota HTML
 - **WHEN** chega `GET /status/infra`
 - **THEN** a resposta inclui `X-Robots-Tag: noindex, nofollow` e `Cache-Control: no-cache`
+
+#### Scenario: Canal de eventos
+- **WHEN** chega `GET /api/v1/status-pages/infra/endpoints/core_api/events` com `Accept-Encoding: br`
+- **THEN** a resposta é 200 sem compressão, com `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-store, no-transform`, `X-Accel-Buffering: no` e os cabeçalhos `X-Robots-Tag`, `X-Content-Type-Options` e `Referrer-Policy`
 
 ### Requirement: Cache e montagem única
 Cada requisição MUST capturar uma única vez o slug, a revisão em memória, a geração do ciclo e a definição da página, e a montagem MUST usar só a definição capturada. A resposta de cada revisão de página MUST ser mantida em cache próprio por até 30 s, com chave formada por slug, revisão e geração; a revisão MUST mudar a cada publicação e a cada carga, e MUST NOT ser a versão do banco. Requisições simultâneas à mesma revisão MUST disparar no máximo uma montagem, síncrona na goroutine da requisição, e no máximo 4 montagens públicas MUST rodar ao mesmo tempo. A vaga MUST ser pedida só pela montagem que efetivamente monta, depois da deduplicação, de modo que requisições da mesma revisão ocupem uma única vaga. Uma montagem que esperar mais de 5 s por vaga MUST responder 503 a todas as requisições que aguardavam por ela, sem guardar a resposta em cache. O leitor do storage MUST ser obtido a cada montagem, e nenhum leitor MUST ser reaproveitado entre recargas.
@@ -269,7 +273,7 @@ Com storage SQL, os resultados e o uptime dos endpoints da página MUST ser lido
 - **AND** a requisição seguinte a essa página tenta montar de novo
 
 ### Requirement: Limite de requisições por IP
-A API pública MUST limitar cada IP de cliente a `status-pages.rate-limit` respostas 404 por minuto, numa janela deslizante, contando os 404 da rota específica e dos caminhos fora do padrão. Requisições a uma página publicada (servida do cache, montada ou respondida com 503) MUST NOT contar nem ser bloqueadas, mesmo com o limite do IP esgotado. Ao exceder, a API MUST responder 429 com `Retry-After`, `Cache-Control: no-store` e `{"error":"too many requests"}`.
+A API pública MUST limitar cada IP de cliente a `status-pages.rate-limit` respostas 404 por minuto, numa janela deslizante, contando os 404 da rota específica e dos caminhos fora do padrão. Requisições a uma página publicada (servida do cache, montada ou respondida com 503) MUST NOT contar nem ser bloqueadas, mesmo com o limite do IP esgotado. A exceção são os canais de eventos dos endpoints de uma página publicada (`/api/v1/status-pages/{slug}/endpoints/{key}/events`), que MUST respeitar o limite de conexões abertas por IP e no total dos canais de eventos, com 429, sem contar no limite de 404. Ao exceder, a API MUST responder 429 com `Retry-After`, `Cache-Control: no-store` e `{"error":"too many requests"}`.
 
 O IP do cliente MUST ser o IP da conexão. Quando esse IP estiver em `trusted-proxies`, MUST ser o primeiro IP fora de `trusted-proxies` ao percorrer da direita para a esquerda todas as linhas de `X-Forwarded-For`, na ordem de chegada; com header ausente, entrada inválida, mais de 20 entradas ou linha acima de 1 KB, MUST ser o IP da conexão. Entradas com porta (`IP:porta`, `[v6]:porta`) MUST ser aceitas. O IP da conexão e as entradas MUST ser normalizados (IPv4 mapeado em IPv6 vira IPv4) antes da comparação com `trusted-proxies`. Endereços IPv6 MUST ser agregados por /64 na chave do limite. O comportamento de `c.IP()` no restante da aplicação MUST NOT mudar.
 
@@ -316,6 +320,11 @@ O limitador MUST manter no máximo 50 000 chaves, descartando as mais antigas, M
 #### Scenario: Recargas sucessivas
 - **WHEN** a configuração é recarregada 20 vezes
 - **THEN** o número de goroutines do processo não cresce por causa do limitador
+
+#### Scenario: Canal de eventos acima do limite de conexões
+- **WHEN** o IP de um visitante já tem 10 canais de eventos abertos e abre mais um para um endpoint de página publicada
+- **THEN** a resposta é 429 com `Retry-After: 30`, `Cache-Control: no-store` e `{"error":"too many requests"}`
+- **AND** o limite de respostas 404 do IP não muda
 
 ### Requirement: Erros internos sem detalhes
 Um endpoint selecionado sem registro no storage MUST ser tratado como `unknown`. Qualquer outra falha ao ler o storage durante a montagem MUST resultar em 503 com `{"error":"status page temporarily unavailable"}` e `Cache-Control: no-store`, sem o texto do erro na resposta. O erro MUST ser registrado no log com o slug. A falha MUST ficar em cache negativo por 5 s para a mesma revisão da página, e nenhum payload de revisão anterior MUST ser servido no lugar.

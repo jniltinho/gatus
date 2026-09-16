@@ -89,7 +89,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 
 ## Real-time endpoint updates
 
-Change: `openspec/changes/realtime-endpoint-updates/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#real-time-updates`); spec in `openspec/specs/realtime-endpoint-updates`.
+Change (archived): `openspec/changes/archive/2026-09-16-realtime-endpoint-updates/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#real-time-updates`); spec in `openspec/specs/realtime-endpoint-updates`.
 
 - `liveupdates` keeps a sequence per key that never resets (not even on reload) and notifies subscribers through channels of capacity 1. `Publish` is only called after a result is stored: `watchdog.UpdateEndpointStatus`, `processExternalEndpointResult` and `SubmitEndpointResult`. `Forget` on rename and delete, `ForgetExcept` on a successful reload.
 - The events never carry data of the result: the frontend refetches through the usual routes. The public route checks `statuspage.IsEndpointShown` before anything else, to keep the identical 404.
