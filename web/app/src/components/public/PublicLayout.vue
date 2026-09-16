@@ -10,7 +10,6 @@
           class="flex items-center gap-3 min-w-0"
         >
           <img v-if="logo" :src="logo" alt="" class="w-10 h-10 object-contain flex-shrink-0" />
-          <img v-else src="@/assets/logo.svg" alt="" class="w-10 h-10 object-contain flex-shrink-0" />
           <span class="text-lg font-semibold truncate">{{ header }}</span>
         </component>
         <button
@@ -40,7 +39,7 @@ import { toggleTheme as toggleThemeCookie, wantsDarkMode } from '@/utils/theme'
 const templateValue = (value, placeholder) => (value && value !== placeholder ? value : '')
 
 const logo = computed(() => templateValue(window.config?.logo, '{{ .UI.Logo }}'))
-const header = computed(() => templateValue(window.config?.header, '{{ .UI.Header }}') || 'Gatus')
+const header = computed(() => templateValue(window.config?.header, '{{ .UI.Header }}') || 'Status')
 const link = computed(() => templateValue(window.config?.link, '{{ .UI.Link }}') || null)
 
 const darkMode = ref(wantsDarkMode())

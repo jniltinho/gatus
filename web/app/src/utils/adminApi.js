@@ -142,7 +142,7 @@ export function describeAdminError(error) {
     case 429:
       return 'Too many endpoint tests in progress. Try again in a moment.'
     case 503:
-      return 'Gatus is starting or reloading its configuration. Try again in a moment.'
+      return 'Status is starting or reloading its configuration. Try again in a moment.'
     default:
       return (error && error.message) || 'Unexpected error.'
   }

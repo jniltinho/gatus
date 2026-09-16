@@ -69,9 +69,9 @@
               <span class="block text-sm font-medium text-foreground dark:text-gray-200">Monitor type</span>
               <Select v-model="monitorType" :options="monitorTypeOptions" class="mt-1.5" data-testid="admin-field-type" />
               <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">
-                <template v-if="isPush">Passive: Gatus does not check the endpoint, it receives pushes at its URL, like the Push monitors of the Uptime Kuma.</template>
+                <template v-if="isPush">Passive: Status does not check the endpoint, it receives pushes at its URL, like the Push monitors of Uptime Kuma.</template>
                 <template v-else-if="monitorType === 'dns'">The DNS query (query-name and query-type) is edited in YAML mode.</template>
-                <template v-else>Active: Gatus checks the URL at every interval. The type follows the scheme of the URL.</template>
+                <template v-else>Active: Status checks the URL at every interval. The type follows the scheme of the URL.</template>
                 <template v-if="isEdit"> Push endpoints and active endpoints cannot be converted into each other.</template>
               </p>
             </div>
@@ -106,7 +106,7 @@
         <section v-if="!isPush" class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="admin-section-check">
           <header class="mb-4">
             <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Check</h2>
-            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">What Gatus requests and how often.</p>
+            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">What Status requests and how often.</p>
           </header>
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="block sm:col-span-2">
