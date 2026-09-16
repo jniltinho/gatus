@@ -1,12 +1,16 @@
 // Client of the administration API of endpoints (/api/v1/admin)
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
+import { parseRetryAfter, readBlobResponse } from '@/utils/adminBackup'
 
 const BASE_URL = '/api/v1/admin'
 
 export class AdminApiError extends Error {
-  constructor(status, message) {
+  // Fork: data is the parsed JSON of the answer and retryAfter the seconds of Retry-After, used by the Backup tab
+  constructor(status, message, { data = null, retryAfter = null } = {}) {
     super(message)
     this.status = status
+    this.data = data
+    this.retryAfter = retryAfter
   }
 }
 
@@ -36,9 +40,26 @@ async function request(method, path, { body, contentType, version } = {}) {
     notifyUnauthorized()
   }
   if (!response.ok) {
-    throw new AdminApiError(response.status, (data && data.error) || response.statusText)
+    throw new AdminApiError(response.status, (data && data.error) || response.statusText, {
+      data,
+      retryAfter: parseRetryAfter(response.headers.get('Retry-After'))
+    })
   }
   return { data, status: response.status }
+}
+
+// Fork: call that answers a file (backup): Blob and name of the Content-Disposition when it is ok, AdminApiError with
+// the JSON {error} or the text of the answer otherwise (a 413 of Fiber or of a proxy is text)
+async function requestBlob(method, path, { body, contentType } = {}) {
+  const headers = { ...PROTECTED_API_HEADERS }
+  if (body !== undefined) {
+    headers['Content-Type'] = contentType
+  }
+  const response = await fetch(BASE_URL + path, { method, headers, body, credentials: 'include' })
+  return readBlobResponse(response, {
+    onUnauthorized: notifyUnauthorized,
+    createError: (status, message, options) => new AdminApiError(status, message, options)
+  })
 }
 
 export const jsonPayload = (document) => ({ body: JSON.stringify(document), contentType: 'application/json' })
@@ -56,6 +77,8 @@ export const adminApi = {
   update: (key, payload, version) => request('PUT', `/endpoints/${encodeKey(key)}`, { ...payload, version }),
   setEnabled: (key, enabled, version) => request('POST', `/endpoints/${encodeKey(key)}/${enabled ? 'enable' : 'disable'}`, { version }),
   remove: (key, version) => request('DELETE', `/endpoints/${encodeKey(key)}`, { version }),
+  // Fork: generic download of a file answered by a POST with a JSON body
+  download: (path, document) => requestBlob('POST', path, jsonPayload(document)),
 }
 
 const encodeSlug = (slug) => encodeURIComponent(slug)
@@ -88,6 +111,14 @@ export const pushKeysApi = {
   list: () => request('GET', '/push-keys'),
   create: (name) => request('POST', '/push-keys', jsonPayload({ name })),
   remove: (id) => request('DELETE', `/push-keys/${encodeURIComponent(id)}`),
+}
+
+// Backup and restore of the administration (/api/v1/admin/backup and /api/v1/admin/restore, fork)
+export const backupApi = {
+  // Without a password the body is {}, and the file is in plain text
+  download: (password) => adminApi.download('/backup', password ? { password } : {}),
+  preview: (body) => request('POST', '/restore/preview', jsonPayload(body)),
+  restore: (body) => request('POST', '/restore', jsonPayload(body)),
 }
 
 export function describePushKeyError(error) {

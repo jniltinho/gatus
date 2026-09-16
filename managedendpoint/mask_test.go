@@ -90,3 +90,33 @@ func TestRestoreMaskedSecrets_ChangedSecretIsKept(t *testing.T) {
 		t.Errorf("expected a new secret to be kept, got %v", submitted["headers"])
 	}
 }
+
+func TestHasMaskedSecret(t *testing.T) {
+	scenarios := map[string]struct {
+		definition string
+		expected   bool
+	}{
+		"clean":              {"name: a\nurl: https://user:pass@example.org?token=abc\nheaders:\n  Authorization: Bearer x\n", false},
+		"header":             {"name: a\nheaders:\n  Authorization: '********'\n", true},
+		"url-password":       {"name: a\nurl: https://user:********@example.org\n", true},
+		"url-query":          {"name: a\nurl: https://example.org?token=********\n", true},
+		"oauth2":             {"name: a\nclient:\n  oauth2:\n    client-secret: '********'\n", true},
+		"ssh":                {"name: a\nssh:\n  private-key: '********'\n", true},
+		"push-token":         {"type: push\nname: a\ntoken: '********'\n", true},
+		"push-option-token":  {"name: a\npush:\n  token: '********'\n", true},
+		"provider-override":  {"name: a\nalerts:\n  - type: slack\n    provider-override:\n      webhook-url: '********'\n", true},
+		"nested-override":    {"name: a\nalerts:\n  - type: custom\n    provider-override:\n      headers:\n        X-Key: '********'\n", true},
+		"insensitive-header": {"name: a\nheaders:\n  Accept: '********'\n", false},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			document, err := ToDocument([]byte(scenario.definition))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if actual := HasMaskedSecret(document); actual != scenario.expected {
+				t.Errorf("expected %v, got %v", scenario.expected, actual)
+			}
+		})
+	}
+}

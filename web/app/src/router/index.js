@@ -7,6 +7,7 @@ import AdminEndpointForm from '@/views/admin/AdminEndpointForm';
 import AdminStatusPages from '@/views/admin/AdminStatusPages';
 import AdminStatusPageForm from '@/views/admin/AdminStatusPageForm';
 import AdminPushKeys from '@/views/admin/AdminPushKeys';
+import AdminBackup from '@/views/admin/AdminBackup';
 import StatusPage from '@/views/public/StatusPage';
 import StatusPageEndpoint from '@/views/public/StatusPageEndpoint';
 import LoginPage from '@/views/LoginPage';
@@ -80,6 +81,13 @@ const routes = [
         name: 'AdminPushKeys',
         component: AdminPushKeys,
         meta: { admin: true, adminList: true }
+    },
+    // Backup and restore of the administration (fork): a form page, it does not fill the window like the lists
+    {
+        path: '/admin/backup',
+        name: 'AdminBackup',
+        component: AdminBackup,
+        meta: { admin: true }
     },
     // Public status pages (fork): no login screen and no call to /api/v1/config, see App.vue
     {

@@ -24,6 +24,7 @@ const (
 // ones without recent failures being forgotten first, without background goroutine. The count is per process.
 type failureLimiter struct {
 	mutex           sync.Mutex
+	window          time.Duration
 	maximumFailures int
 	maximumKeys     int
 	entries         map[netip.Prefix]*list.Element
@@ -37,7 +38,12 @@ type failureLimiterEntry struct {
 }
 
 func newFailureLimiter(maximumFailures, maximumKeys int) *failureLimiter {
+	return newFailureLimiterWithWindow(failureLimiterWindow, maximumFailures, maximumKeys)
+}
+
+func newFailureLimiterWithWindow(window time.Duration, maximumFailures, maximumKeys int) *failureLimiter {
 	return &failureLimiter{
+		window:          window,
 		maximumFailures: maximumFailures,
 		maximumKeys:     maximumKeys,
 		entries:         make(map[netip.Prefix]*list.Element),
@@ -54,7 +60,7 @@ func (limiter *failureLimiter) Blocked(clientIP netip.Addr, now time.Time) (bool
 		return false, 0
 	}
 	entry := element.Value.(*failureLimiterEntry)
-	windowEnd := entry.windowStart.Add(failureLimiterWindow)
+	windowEnd := entry.windowStart.Add(limiter.window)
 	if entry.failures < limiter.maximumFailures || !now.Before(windowEnd) {
 		return false, 0
 	}
@@ -73,7 +79,7 @@ func (limiter *failureLimiter) Failure(clientIP netip.Addr, now time.Time) {
 	if element, exists := limiter.entries[key]; exists {
 		limiter.recency.MoveToFront(element)
 		entry := element.Value.(*failureLimiterEntry)
-		if !now.Before(entry.windowStart.Add(failureLimiterWindow)) {
+		if !now.Before(entry.windowStart.Add(limiter.window)) {
 			entry.windowStart, entry.failures = now, 0
 		}
 		entry.failures++
@@ -98,4 +104,14 @@ func failureLimiterKey(clientIP netip.Addr) netip.Prefix {
 	}
 	prefix, _ := clientIP.WithZone("").Prefix(64)
 	return prefix
+}
+
+// FailureLimiter counts failures per client like the limiter of the login screen, in a window of its own (fork). It is
+// used by the passwords of the backups of the administration, so that their failures never block the login.
+type FailureLimiter = failureLimiter
+
+// NewFailureLimiter returns a failure limiter independent from the one of the login screen, blocking a client with
+// maximumFailures failures until the end of the window started by its first failure
+func NewFailureLimiter(window time.Duration, maximumFailures, maximumKeys int) *FailureLimiter {
+	return newFailureLimiterWithWindow(window, maximumFailures, maximumKeys)
 }
