@@ -1,8 +1,8 @@
 {
   "id": "gatus",
-  "name": "Gatus",
-  "short_name": "Gatus",
-  "description": "Gatus is an advanced automated status page that lets you monitor your applications and configure alerts to notify you if there's an issue",
+  "name": "Status",
+  "short_name": "Status",
+  "description": "Automated status page that lets you monitor your applications and configure alerts to notify you if there's an issue",
   "lang": "en",
   "scope": "/",
   "start_url": "/",

@@ -33,17 +33,10 @@
                 target="_blank"
                 :class="['flex items-center gap-3', link && 'hover:opacity-80 transition-opacity']"
               >
-                <div class="flex items-center justify-center w-8 h-8">
+                <div v-if="logo" class="flex items-center justify-center w-8 h-8">
                   <img
-                    v-if="logo"
                     :src="logo"
-                    alt="Gatus"
-                    class="w-full h-full object-contain"
-                  />
-                  <img
-                    v-else
-                    src="./assets/logo.svg"
-                    alt="Gatus"
+                    :alt="header"
                     class="w-full h-full object-contain"
                   />
                 </div>
@@ -127,29 +120,13 @@
         <router-view @showTooltip="showTooltip" :announcements="announcements" />
       </main>
 
-      <!-- Footer -->
-      <footer :class="['border-t mt-auto', isAdminList && 'md:hidden']">
-        <div class="container mx-auto px-4 py-6 max-w-7xl">
-          <div class="flex flex-col items-center gap-4">
-            <div class="text-sm text-muted-foreground text-center">
-              Powered by <a href="https://gatus.io" target="_blank" class="font-medium text-emerald-800 hover:text-emerald-600">Gatus</a>
-            </div>
-            <Social />
-          </div>
-        </div>
-      </footer>
     </div>
 
     <!-- OIDC Login Screen -->
     <div v-else id="login-container" class="flex items-center justify-center min-h-screen p-4">
       <Card class="w-full max-w-md">
         <CardHeader class="text-center">
-          <div v-if="logo" class="flex items-center justify-center gap-4 mb-4">
-            <img :src="logo" alt="" class="w-20 h-20 object-contain" />
-            <div class="w-px h-12 bg-border"></div>
-            <img src="./assets/logo.svg" alt="Gatus" class="w-20 h-20" />
-          </div>
-          <img v-else src="./assets/logo.svg" alt="Gatus" class="w-20 h-20 mx-auto mb-4" />
+          <img v-if="logo" :src="logo" alt="" class="w-20 h-20 object-contain mx-auto mb-4" />
           <CardTitle class="text-3xl">{{ header }}</CardTitle>
           <p class="text-muted-foreground mt-2">{{ loginSubtitle }}</p>
         </CardHeader>
@@ -191,7 +168,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { Menu, X, LogIn, LogOut } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import Social from './components/Social.vue'
 import Tooltip from './components/Tooltip.vue'
 import Loading from './components/Loading.vue'
 import PublicLayout from './components/public/PublicLayout.vue'
@@ -230,7 +206,7 @@ const logo = computed(() => {
 })
 
 const header = computed(() => {
-  return window.config && window.config.header && window.config.header !== '{{ .UI.Header }}' ? window.config.header : "Gatus"
+  return window.config && window.config.header && window.config.header !== '{{ .UI.Header }}' ? window.config.header : "Status"
 })
 
 const link = computed(() => {

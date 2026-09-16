@@ -23,9 +23,8 @@ func TestEmbed(t *testing.T) {
 			expectedContainString: "", // not checking because it's an image
 		},
 		{
-			path:                  "img/logo.svg",
-			shouldExist:           true,
-			expectedContainString: "</svg>",
+			path:        "img/logo.svg",
+			shouldExist: false,
 		},
 		{
 			path:                  "css/app.css",
