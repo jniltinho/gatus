@@ -85,6 +85,14 @@ for _ in $(seq 1 60); do
 done
 curl -sf "$BASE/health" >/dev/null || { echo "Gatus did not start"; cat "$WORK/gatus.log"; exit 1; }
 
+# Fork: the theme is chosen by the theme cookie, like the theme button, because the operating system preference is not
+# followed (dark by default, see ui.dark-mode). It also applies the theme to the page that is already open.
+set_theme() {
+  local session=$1 theme=$2
+  "$session" cookies set theme "$theme" --url "$BASE" >/dev/null
+  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$theme' === 'dark')" >/dev/null 2>&1 || true
+}
+
 STEP=0
 step() {
   STEP=$((STEP + 1))
@@ -245,7 +253,7 @@ admin get text "$(testid recent-check-1)" | grep -q "Down" || fail "the failure 
 admin get text "$(testid recent-check-1)" | grep -q "Push" || fail "the origin is not shown as Push"
 admin scrollintoview "$(testid recent-checks-table)" >/dev/null
 admin screenshot "$PRINTS/06-recent-checks.png" >/dev/null
-admin set media dark >/dev/null
+set_theme admin dark
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
 admin wait "$(testid recent-check-2)" >/dev/null
 admin scrollintoview "$(testid recent-checks-table)" >/dev/null
@@ -253,7 +261,7 @@ admin screenshot "$PRINTS/07-recent-checks-dark.png" >/dev/null
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-keys-table)" >/dev/null
 admin screenshot --full "$PRINTS/08-push-keys-dark.png" >/dev/null
-admin set media light >/dev/null
+set_theme admin light
 
 step "Pending: status=pending in yellow, retries of the heartbeat and panel of numbers with Ping"
 push "$BASE/api/push/$KUMA_TOKEN?status=down&msg=Queda&ping=90" | grep -q '"ok":true' || fail "the down push was not accepted"
@@ -294,7 +302,7 @@ admin get text "$(testid recent-check-0)" | grep -q "Pending" || fail "the pendi
 [ "$(admin eval "document.querySelector('[data-testid=\"recent-check-0\"]').innerHTML.includes('yellow')" 2>/dev/null | tr -d '"')" = true ] || fail "the Pending badge is not yellow"
 admin wait 2000 >/dev/null
 admin screenshot --full "$PRINTS/09-pending-light.png" >/dev/null
-admin set media dark >/dev/null
+set_theme admin dark
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
 admin wait "$(testid details-summary)" >/dev/null
 admin wait 2000 >/dev/null
@@ -302,7 +310,7 @@ admin screenshot --full "$PRINTS/10-pending-dark.png" >/dev/null
 admin open "$BASE/" >/dev/null
 admin wait "$(testid dashboard-summary-pending)" >/dev/null || fail "the dashboard summary does not count the pending endpoint"
 admin screenshot "$PRINTS/11-dashboard-pending-dark.png" >/dev/null
-admin set media light >/dev/null
+set_theme admin light
 
 step "Real time: a pending push shows up on the details page without reloading it"
 admin open "$BASE/endpoints/_kuma-backup" >/dev/null
@@ -361,12 +369,12 @@ admin reload >/dev/null
 admin wait "[data-testid=\"response-time-chart\"][data-period=\"1w\"]" >/dev/null || fail "the period of the chart was not remembered after a reload"
 admin wait 2000 >/dev/null
 admin screenshot "$PRINTS/13-chart-1w.png" >/dev/null
-admin set media dark >/dev/null
+set_theme admin dark
 admin eval "(() => { const select = document.querySelector('[data-testid=\"response-time-chart-period\"]'); select.value = 'recent'; select.dispatchEvent(new Event('change')) })()" >/dev/null
 admin wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev/null
 admin wait 2000 >/dev/null
 admin screenshot "$PRINTS/14-chart-recent-dark.png" >/dev/null
-admin set media light >/dev/null
+set_theme admin light
 
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null

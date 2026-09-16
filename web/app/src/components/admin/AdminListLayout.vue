@@ -4,7 +4,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
         <h1 class="text-xl font-semibold tracking-tight text-foreground dark:text-gray-100">{{ title }}</h1>
-        <p class="mt-0.5 truncate text-sm text-muted-foreground dark:text-gray-400">{{ description }}</p>
+        <p class="mt-0.5 truncate text-sm text-muted-foreground dark:text-gray-400" :title="description">{{ description }}</p>
       </div>
       <div class="flex shrink-0 flex-wrap items-center gap-2">
         <slot name="actions" />
@@ -20,7 +20,11 @@
       <slot name="toolbar" />
     </div>
 
-    <div class="mt-3 flex flex-col border bg-card dark:border-gray-700 dark:bg-gray-900 md:min-h-0 md:flex-1" data-testid="admin-list-panel">
+    <!-- Without panel, the content fills the rest of the window and handles its own scroll (e.g. the Backup tab) -->
+    <div v-if="!panel" class="mt-3 md:flex md:min-h-0 md:flex-1 md:flex-col" data-testid="admin-list-content">
+      <slot />
+    </div>
+    <div v-else class="mt-3 flex flex-col border bg-card dark:border-gray-700 dark:bg-gray-900 md:min-h-0 md:flex-1" data-testid="admin-list-panel">
       <div class="overflow-x-auto md:min-h-0 md:flex-1 md:overflow-auto" data-testid="admin-list-scroll">
         <slot />
       </div>
@@ -39,7 +43,9 @@ import AdminTabs from '@/components/admin/AdminTabs.vue'
 defineProps({
   title: { type: String, required: true },
   description: { type: String, default: '' },
-  // Tab of AdminTabs: endpoints, status-pages or push-keys
-  active: { type: String, required: true }
+  // Tab of AdminTabs: endpoints, status-pages, push-keys or backup
+  active: { type: String, required: true },
+  // Whether the content is inside the bordered panel with its own scroll, as in the lists
+  panel: { type: Boolean, default: true }
 })
 </script>

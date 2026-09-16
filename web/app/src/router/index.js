@@ -87,7 +87,7 @@ const routes = [
         path: '/admin/backup',
         name: 'AdminBackup',
         component: AdminBackup,
-        meta: { admin: true }
+        meta: { admin: true, adminList: true }
     },
     // Public status pages (fork): no login screen and no call to /api/v1/config, see App.vue
     {

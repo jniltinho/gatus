@@ -159,6 +159,9 @@
 
     <!-- Tooltip -->
     <Tooltip v-if="routerReady && !isPublic && !isLogin" :result="tooltip.result" :event="tooltip.event" :isPersistent="tooltipIsPersistent" />
+
+    <!-- Fork: toast messages, only with the authenticated app visible (never on public pages or login screens) -->
+    <AdminToasts v-if="showsToasts" />
   </div>
 </template>
 
@@ -169,9 +172,11 @@ import { Menu, X, LogIn, LogOut } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import Tooltip from './components/Tooltip.vue'
+import AdminToasts from './components/admin/AdminToasts.vue'
 import Loading from './components/Loading.vue'
 import PublicLayout from './components/public/PublicLayout.vue'
 import { PROTECTED_API_HEADERS, UNAUTHORIZED_EVENT } from '@/utils/auth'
+import { clearToasts } from '@/utils/toast'
 import { safeRedirect } from '@/utils/redirect'
 
 const route = useRoute()
@@ -233,6 +238,10 @@ const pendingLoginRedirect = computed(() => {
   }
   return isLogin.value ? config.value.authenticated === true : config.value.authenticated !== true
 })
+
+// Fork: the toasts only exist with the main app container visible, see the v-else-if chain of the template
+const showsToasts = computed(() => routerReady.value && !isPublic.value && retrievedConfig.value && !pendingLoginRedirect.value
+  && !isLogin.value && (!config.value || !config.value.oidc || config.value.authenticated))
 
 const loginSubtitle = computed(() => {
   return window.config && window.config.loginSubtitle && window.config.loginSubtitle !== '{{ .UI.LoginSubtitle }}' ? window.config.loginSubtitle : "System Monitoring Dashboard"
@@ -345,6 +354,13 @@ watch([routerReady, retrievedConfig, config, () => route.fullPath], () => {
   router.replace({ path: '/login', query })
 })
 
+// Fork: the messages of a screen are discarded when another screen opens
+const removeAfterEach = router.afterEach((to, from, failure) => {
+  if (!failure && to.path !== from.path) {
+    clearToasts()
+  }
+})
+
 onMounted(() => {
   router.isReady().then(() => {
     routerReady.value = true
@@ -356,6 +372,7 @@ onMounted(() => {
 
 // Clean up interval on unmount
 onUnmounted(() => {
+  removeAfterEach()
   if (configInterval) {
     clearInterval(configInterval)
     configInterval = null

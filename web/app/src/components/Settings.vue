@@ -56,6 +56,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Sun, Moon, RefreshCw } from 'lucide-vue-next'
+// Fork: the theme rule (cookie, otherwise the default theme of the server) lives in utils/theme.js
+import { applyTheme as applyDocumentTheme, toggleTheme, wantsDarkMode } from '@/utils/theme'
 
 const emit = defineEmits(['refreshData'])
 
@@ -69,18 +71,11 @@ const REFRESH_INTERVALS = [
   { value: '600', label: '10m' }
 ]
 const DEFAULT_REFRESH_INTERVAL = '300'
-const THEME_COOKIE_NAME = 'theme'
-const THEME_COOKIE_MAX_AGE = 31536000 // 1 year
 const STORAGE_KEYS = {
   REFRESH_INTERVAL: 'gatus:refresh-interval'
 }
 
 // Helper functions
-function wantsDarkMode() {
-  const themeFromCookie = document.cookie.match(new RegExp(`${THEME_COOKIE_NAME}=(dark|light);?`))?.[1]
-  return themeFromCookie === 'dark' || (!themeFromCookie && (window.matchMedia('(prefers-color-scheme: dark)').matches || document.documentElement.classList.contains("dark")))
-}
-
 function getStoredRefreshInterval() {
   const stored = localStorage.getItem(STORAGE_KEYS.REFRESH_INTERVAL)
   const parsedValue = stored && parseInt(stored)
@@ -129,20 +124,14 @@ const handleClickOutside = (event) => {
   }
 }
 
-const setThemeCookie = (theme) => {
-  document.cookie = `${THEME_COOKIE_NAME}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=strict`
-}
-
 const toggleDarkMode = () => {
-  const newTheme = wantsDarkMode() ? 'light' : 'dark'
-  setThemeCookie(newTheme)
-  applyTheme()
+  darkMode.value = toggleTheme()
 }
 
 const applyTheme = () => {
   const isDark = wantsDarkMode()
   darkMode.value = isDark
-  document.documentElement.classList.toggle('dark', isDark)
+  applyDocumentTheme(isDark)
 }
 
 // Lifecycle

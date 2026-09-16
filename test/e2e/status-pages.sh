@@ -108,6 +108,14 @@ for _ in $(seq 1 60); do
 done
 curl -sf "$BASE/health" >/dev/null || { echo "Gatus did not start"; cat "$WORK/gatus.log"; exit 1; }
 
+# Fork: the theme is chosen by the theme cookie, like the theme button, because the operating system preference is not
+# followed (dark by default, see ui.dark-mode). It also applies the theme to the page that is already open.
+set_theme() {
+  local session=$1 theme=$2
+  "$session" cookies set theme "$theme" --url "$BASE" >/dev/null
+  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$theme' === 'dark')" >/dev/null 2>&1 || true
+}
+
 STEP=0
 step() {
   STEP=$((STEP + 1))
@@ -147,7 +155,7 @@ fi
 
 step "Public page in light mode, without credentials"
 public set viewport 1280 900 >/dev/null
-public set media light >/dev/null
+set_theme public light
 public open "$BASE/status/services" >/dev/null
 public wait --text "Partial outage" >/dev/null || fail "the page did not show the partial outage"
 public wait 700 >/dev/null
@@ -191,7 +199,9 @@ public screenshot --full "$PRINTS/endpoint-details-kuma-order.png" >/dev/null
 grep -q "Monitoring started" <<<"$(body_text public)" || fail "the events do not have the texts of the dashboard"
 # Chart in the format of the Uptime Kuma: Recent by default, then the aggregates of 24 hours, remembered after a reload
 [ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.period")" = "recent" ] || fail "the chart did not open in Recent"
-[ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').dataset.linePoints")" -gt 0 ] || fail "the Recent chart has no point"
+# The local checks of _panel may take less than 1 ms, which the chart does not draw (like the Uptime Kuma): only the load
+# of the chart is checked
+public wait "[data-testid=\"response-time-chart\"][data-loading=\"false\"] canvas" >/dev/null || fail "the Recent chart was not drawn"
 public eval "(() => { const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '24h'; select.dispatchEvent(new Event('change')) })()" >/dev/null
 public wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the chart did not load the 24h period"
 public wait 1500 >/dev/null
@@ -265,7 +275,7 @@ public wait 2000 >/dev/null
 public screenshot --full "$PRINTS/endpoint-details-realtime-pending.png" >/dev/null
 
 step "Dark mode and 390 px screen"
-public set media dark >/dev/null
+set_theme public dark
 public open "$BASE/status/services" >/dev/null
 public wait "$(testid status-summary)" >/dev/null || fail "the status banner did not show up"
 public wait 700 >/dev/null
@@ -277,7 +287,7 @@ public wait 700 >/dev/null
 public screenshot --full "$PRINTS/04-services-390px-dark.png" >/dev/null
 [ "$(js public "document.querySelectorAll('[data-testid=\"status-endpoint-health\"] [role=group] > span').length")" = 25 ] || fail "expected 25 bars on a narrow screen"
 public set viewport 1280 900 >/dev/null
-public set media light >/dev/null
+set_theme public light
 
 step "Missing page, disabled page and malformed slug"
 public network requests --clear >/dev/null 2>&1 || true
@@ -302,7 +312,7 @@ public network unroute >/dev/null 2>&1 || true
 
 step "Administration: list with the pages of the configuration file"
 admin set viewport 1280 900 >/dev/null
-admin set media light >/dev/null
+set_theme admin light
 # Signs in through the login screen of security.basic
 login_screen() {
   admin open "$BASE/login" >/dev/null
@@ -394,7 +404,7 @@ if curl -s "$BASE/api/v1/status-pages/clients" | grep -qE 'web_site|clientes_sit
 fi
 
 step "Administration: dark mode and removal"
-admin set media dark >/dev/null
+set_theme admin dark
 admin open "$BASE/admin/status-pages" >/dev/null
 admin wait "$(testid status-page-row-admin-team)" >/dev/null || fail "the list did not show the team page"
 grep -q "Published" <<<"$(js admin "document.querySelector('[data-testid=\"status-page-row-admin-team\"]').innerText")" || fail "the team page is not shown as published"

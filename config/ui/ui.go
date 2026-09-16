@@ -169,10 +169,12 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 		return err
 	}
 	var buffer bytes.Buffer
-	return t.Execute(&buffer, ViewData{UI: cfg, Theme: "dark"})
+	return t.Execute(&buffer, ViewData{UI: cfg, Theme: "dark", DefaultTheme: "dark"})
 }
 
 type ViewData struct {
 	UI    *Config
 	Theme string
+	// DefaultTheme is the theme of ui.dark-mode, used by the browser without a valid theme cookie (fork)
+	DefaultTheme string
 }

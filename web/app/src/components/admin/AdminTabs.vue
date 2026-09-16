@@ -23,7 +23,7 @@
 defineProps({
   // endpoints, status-pages, push-keys or backup (fork)
   active: { type: String, required: true },
-  // Without the bottom margin, for the layout of the lists of the administration (the Backup tab uses the normal one)
+  // Without the bottom margin, for the layout of the lists of the administration
   compact: { type: Boolean, default: false }
 })
 
