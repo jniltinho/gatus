@@ -108,24 +108,10 @@
           </CardContent>
         </Card>
 
+        <!-- Fork: the events are collapsed by default, like the Checks table -->
         <Card v-if="events.length > 0" data-testid="status-endpoint-events">
-          <CardHeader>
-            <CardTitle>Events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul class="space-y-4">
-              <li v-for="event in events" :key="`${event.type}-${event.timestamp}`" class="flex items-start gap-4 pb-4 border-b last:border-0 dark:border-gray-800">
-                <div class="mt-1" aria-hidden="true">
-                  <ArrowUpCircle v-if="event.type === 'HEALTHY'" class="h-5 w-5 text-green-500" />
-                  <ArrowDownCircle v-else-if="event.type === 'UNHEALTHY'" class="h-5 w-5 text-red-500" />
-                  <PlayCircle v-else class="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium">{{ event.text }}</p>
-                  <p class="text-sm text-muted-foreground">{{ formatDateTime(event.timestamp) }} • {{ event.timeAgo }}</p>
-                </div>
-              </li>
-            </ul>
+          <CardContent class="pt-6">
+            <EventsTimeline :items="eventItems" />
           </CardContent>
         </Card>
       </div>
@@ -136,13 +122,14 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ArrowDownCircle, ArrowLeft, ArrowUpCircle, PlayCircle } from 'lucide-vue-next'
+import { ArrowLeft } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Loading from '@/components/Loading.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
+import EventsTimeline from '@/components/EventsTimeline.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
 import { describeEvents, formatDateTime, relativeTimeLabel, SLUG_PATTERN } from '@/utils/statusPage'
 import { CHART_PERIOD_OPTIONS, readStoredPeriod, storePeriod } from '@/utils/responseTimeChart'
@@ -187,6 +174,8 @@ const validAddress = computed(() => SLUG_PATTERN.test(slug.value) && key.value.l
 const results = computed(() => (details.value && details.value.results) || [])
 const lastResult = computed(() => (results.value.length > 0 ? results.value[results.value.length - 1] : null))
 const events = computed(() => (details.value ? describeEvents(details.value.events || []) : []))
+// Fork: items of the collapsible events, see components/EventsTimeline.vue
+const eventItems = computed(() => events.value.map((event) => ({ key: `${event.type}-${event.timestamp}`, type: event.type, text: event.text, dateTime: formatDateTime(event.timestamp), timeAgo: event.timeAgo })))
 // Days until the TLS certificate expires, only published when the page shows it (fork)
 const certificateDays = computed(() => (details.value && Number.isInteger(details.value.certificateExpiresInDays) ? details.value.certificateExpiresInDays : null))
 // Like the dashboard, which shows the chart as soon as a result has a duration: results faster than 1 ms have a

@@ -183,7 +183,8 @@ The details page of an endpoint (`/endpoints/<key>`) follows the order of the mo
 - the **Response Time Trend** chart, shown as soon as there is a result, in the format of the chart of the Uptime
   Kuma: Recent (one point per push, Down in red and Pending in yellow columns), 3h, 6h, 24h and 1w, see
   [response time chart](status-pages.md#response-time-chart);
-- the table of checks, with the pagination.
+- the table of checks, with the pagination;
+- the **Events**, collapsed by default like the table of checks.
 
 The details page updates in real time: a push shows up on the bars, the panel, the chart and the table
 within about 2 seconds, without reloading the page, even with the table on another page of results. See
