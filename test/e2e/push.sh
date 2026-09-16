@@ -58,6 +58,14 @@ endpoints:
     interval: 5s
     conditions:
       - "[STATUS] == 200"
+# Fork: without pushes, the heartbeat records a pending result before each failure
+external-endpoints:
+  - name: late
+    group: jobs
+    token: late-job-token-000000000000000000
+    heartbeat:
+      interval: 10s
+      retries: 1
 CONFIG
 
 GATUS_CONFIG_PATH="$WORK/config.yaml" dist/gatus > "$WORK/gatus.log" 2>&1 &
@@ -245,6 +253,55 @@ admin screenshot "$PRINTS/07-recent-checks-dark.png" >/dev/null
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-keys-table)" >/dev/null
 admin screenshot --full "$PRINTS/08-push-keys-dark.png" >/dev/null
+admin set media light >/dev/null
+
+step "Pending: status=pending in yellow, retries of the heartbeat, panel of numbers with Ping and downtime band"
+push "$BASE/api/push/$KUMA_TOKEN?status=down&msg=Queda&ping=90" | grep -q '"ok":true' || fail "the down push was not accepted"
+sleep 1
+push "$BASE/api/push/$KUMA_TOKEN?status=up&msg=Voltou&ping=40" | grep -q '"ok":true' || fail "the up push was not accepted"
+push "$BASE/api/push/$KUMA_TOKEN?status=pending&msg=Backup%20em%20andamento" | grep -q '"ok":true' || fail "the pending push was not accepted"
+authenticated "$BASE/api/v1/endpoints/_kuma-backup/statuses" | python3 -c '
+import json, sys
+status = json.load(sys.stdin)
+last = status["results"][-1]
+sys.exit(0 if last.get("pending") and not last["success"] and last.get("message") == "Backup em andamento" and status.get("push") is True else 1)
+' || fail "the pending push is not a pending result of a push endpoint in the API"
+# The heartbeat of jobs_late ran without pushes since the start: Pending, then failures, and a single UNHEALTHY event
+for _ in $(seq 1 30); do
+  authenticated "$BASE/api/v1/endpoints/jobs_late/statuses" | python3 -c '
+import json, sys
+status = json.load(sys.stdin)
+results = status["results"]
+sys.exit(0 if len(results) >= 2 and results[0].get("pending") and not results[1].get("pending") and not results[1]["success"] else 1)
+' && break
+  sleep 1
+done
+authenticated "$BASE/api/v1/endpoints/jobs_late/statuses" | python3 -c '
+import json, sys
+status = json.load(sys.stdin)
+results, events = status["results"], [event["type"] for event in status["events"]]
+ok = len(results) >= 2 and results[0].get("pending") and results[0].get("message", "").startswith("heartbeat: no update received within") and not results[0].get("errors")
+ok = ok and not results[1].get("pending") and not results[1]["success"] and events == ["START", "UNHEALTHY"]
+sys.exit(0 if ok else 1)
+' || fail "expected Pending, then a failure with a single UNHEALTHY event for the heartbeat with retries"
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid details-summary)" >/dev/null || fail "the panel of numbers is not shown"
+admin get text "$(testid details-summary)" | grep -q "Ping (Current)" || fail "the panel of a push endpoint should show Ping"
+[ "$(top_of recent-checks-card)" -lt "$(top_of details-summary)" ] && [ "$(top_of details-summary)" -lt "$(top_of response-time-trend)" ] || fail "expected the panel of numbers between the bars and the chart"
+[ "$(selector_count recent-checks-table)" = 0 ] && admin click "$(testid recent-checks-toggle)" >/dev/null
+admin wait "$(testid recent-check-0)" >/dev/null
+admin get text "$(testid recent-check-0)" | grep -q "Pending" || fail "the pending push is not shown as Pending"
+[ "$(admin eval "document.querySelector('[data-testid=\"recent-check-0\"]').innerHTML.includes('yellow')" 2>/dev/null | tr -d '"')" = true ] || fail "the Pending badge is not yellow"
+admin wait 2000 >/dev/null
+admin screenshot --full "$PRINTS/09-pending-light.png" >/dev/null
+admin set media dark >/dev/null
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid details-summary)" >/dev/null
+admin wait 2000 >/dev/null
+admin screenshot --full "$PRINTS/10-pending-dark.png" >/dev/null
+admin open "$BASE/" >/dev/null
+admin wait "$(testid dashboard-summary-pending)" >/dev/null || fail "the dashboard summary does not count the pending endpoint"
+admin screenshot "$PRINTS/11-dashboard-pending-dark.png" >/dev/null
 admin set media light >/dev/null
 
 step "Revoking the created key"

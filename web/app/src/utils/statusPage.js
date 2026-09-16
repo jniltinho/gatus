@@ -1,6 +1,7 @@
 // Helpers of the public status pages (fork)
 
-import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
+// Relative import with the extension, so that the unit tests can load this module with Node
+import { generatePrettyTimeAgo, generatePrettyTimeDifference } from './time.js'
 
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 
@@ -15,6 +16,7 @@ export const STATUS_LABELS = {
   degraded: { page: 'Partial outage', group: 'Partial outage' },
   down: { page: 'Major outage', group: 'Major outage', endpoint: 'Down' },
   up: { endpoint: 'Up' },
+  pending: { endpoint: 'Pending' },
   unknown: { page: 'No data', group: 'No data', endpoint: 'No data' }
 }
 

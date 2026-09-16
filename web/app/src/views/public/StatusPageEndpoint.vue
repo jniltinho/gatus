@@ -54,30 +54,12 @@
           </CardContent>
         </Card>
 
-        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card v-for="card in summaryCards" :key="card.title">
-            <CardHeader class="pb-2">
-              <CardTitle class="text-sm font-medium text-muted-foreground">{{ card.title }}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="text-2xl font-bold">{{ card.value }}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Uptime Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div v-for="period in BADGE_PERIODS" :key="period.value" class="text-center">
-                <p class="text-sm text-muted-foreground mb-2">{{ period.label }}</p>
-                <img :src="badgeURL(`uptimes/${period.value}/badge.svg`)" :alt="`Uptime over the ${period.label.toLowerCase()}`" class="mx-auto" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <!-- Fork: same panel of numbers as the dashboard, with the uptimes and the averages of the payload -->
+        <DetailsSummary
+          :current-response-time="lastResult ? lastResult.durationMs : null"
+          :uptime="details.uptime"
+          :response-time="details.responseTime"
+        />
 
         <Card v-if="hasResponseTimes" data-testid="status-endpoint-chart">
           <CardHeader>
@@ -100,7 +82,7 @@
 
         <Card v-if="results.length > 0" data-testid="status-endpoint-checks-table">
           <div class="p-6">
-            <RecentChecksTable :results="results" :show-message="false" />
+            <RecentChecksTable :results="results" :show-message="showMessages" sanitized />
           </div>
         </Card>
 
@@ -161,7 +143,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import ResponseTimeChart from '@/components/ResponseTimeChart.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
 import RecentChecksTable from '@/components/RecentChecksTable.vue'
-import { generatePrettyTimeAgo } from '@/utils/time'
+import DetailsSummary from '@/components/DetailsSummary.vue'
 import { describeEvents, formatDateTime, relativeTimeLabel, RESPONSE_TIME_DURATIONS, SLUG_PATTERN } from '@/utils/statusPage'
 import { certificateClass, certificateText } from '@/utils/certificate'
 
@@ -206,21 +188,9 @@ const certificateDays = computed(() => (details.value && Number.isInteger(detail
 // durationMs of 0 in the public payload, but still have points in the chart
 const hasResponseTimes = computed(() => results.value.length > 0)
 
-const healthStatus = computed(() => ({ up: 'healthy', down: 'unhealthy' }[details.value?.status] || 'unknown'))
-
-const summaryCards = computed(() => {
-  const durations = results.value.map((result) => result.durationMs).filter((duration) => duration > 0)
-  const minimum = Math.min(...durations)
-  const maximum = Math.max(...durations)
-  // now is read so that the last check is described again every few seconds
-  const lastCheck = lastResult.value && now.value ? generatePrettyTimeAgo(lastResult.value.timestamp) : 'Never'
-  return [
-    { title: 'Current Status', value: { up: 'Operational', down: 'Issues Detected' }[details.value.status] || 'No data' },
-    { title: 'Avg Response Time', value: durations.length ? `${Math.round(durations.reduce((total, duration) => total + duration, 0) / durations.length)}ms` : 'N/A' },
-    { title: 'Response Time Range', value: durations.length ? (minimum === maximum ? `${minimum}ms` : `${minimum}-${maximum}ms`) : 'N/A' },
-    { title: 'Last Check', value: lastCheck }
-  ]
-})
+const healthStatus = computed(() => ({ up: 'healthy', pending: 'pending', down: 'unhealthy' }[details.value?.status] || 'unknown'))
+// With show-messages, the table of checks has the same columns as the dashboard, even without any message (fork)
+const showMessages = computed(() => details.value?.page?.showMessages === true)
 
 // badgeURL returns the address of a badge of the endpoint, public in the original Gatus
 const badgeURL = (path) => `/api/v1/endpoints/${encodeURIComponent(key.value)}/${path}`

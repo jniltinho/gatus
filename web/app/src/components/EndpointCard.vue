@@ -43,7 +43,9 @@
                 result ? (
                   result.success 
                     ? (selectedResultIndex === index ? 'bg-green-700' : 'bg-green-500 hover:bg-green-700')
-                    : (selectedResultIndex === index ? 'bg-red-700' : 'bg-red-500 hover:bg-red-700')
+                    : result.pending
+                      ? (selectedResultIndex === index ? 'bg-yellow-600' : 'bg-yellow-400 hover:bg-yellow-600')
+                      : (selectedResultIndex === index ? 'bg-red-700' : 'bg-red-500 hover:bg-red-700')
                 ) : 'bg-gray-200 dark:bg-gray-700'
               ]"
               @mouseenter="result && handleMouseEnter(result, $event)"
@@ -99,6 +101,8 @@ const latestResult = computed(() => {
 
 const currentStatus = computed(() => {
   if (!latestResult.value) return 'unknown'
+  // Fork: a Pending result is not a success, but is shown in yellow
+  if (latestResult.value.pending) return 'pending'
   return latestResult.value.success ? 'healthy' : 'unhealthy'
 })
 

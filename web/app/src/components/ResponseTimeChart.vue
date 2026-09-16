@@ -17,6 +17,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import annotationPlugin from 'chartjs-plugin-annotation'
 import 'chartjs-adapter-date-fns'
 import { generatePrettyTimeDifference } from '@/utils/time'
+import { downtimeIntervals } from '@/utils/downtime'
 import Loading from './Loading.vue'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, TimeScale, annotationPlugin)
@@ -48,63 +49,24 @@ const values = ref([])
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const hoveredEventIndex = ref(null)
 
-// Helper function to get color for unhealthy events
-const getEventColor = () => {
-  // Only UNHEALTHY events are displayed on the chart
-  return 'rgba(239, 68, 68, 0.8)' // Red
+const DURATIONS_MS = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000
 }
 
-// Filter events based on selected duration and calculate durations
-const filteredEvents = computed(() => {
-  if (!props.events || props.events.length === 0) {
-    return []
-  }
+// End of the period of the chart, updated with the data so that the period follows the refreshes (fork)
+const periodEnd = ref(Date.now())
+const periodStart = computed(() => periodEnd.value - DURATIONS_MS[props.duration])
 
-  const now = new Date()
-  let fromTime
-  switch (props.duration) {
-    case '24h':
-      fromTime = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      break
-    case '7d':
-      fromTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      fromTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    default:
-      return []
-  }
-
-  // Only include UNHEALTHY events and calculate their duration
-  const unhealthyEvents = []
-  for (let i = 0; i < props.events.length; i++) {
-    const event = props.events[i]
-    if (event.type !== 'UNHEALTHY') continue
-
-    const eventTime = new Date(event.timestamp)
-    if (eventTime < fromTime || eventTime > now) continue
-
-    // Find the next event to calculate duration
-    let duration = null
-    let isOngoing = false
-    if (i + 1 < props.events.length) {
-      const nextEvent = props.events[i + 1]
-      duration = generatePrettyTimeDifference(nextEvent.timestamp, event.timestamp)
-    } else {
-      // Still ongoing - calculate duration from event time to now
-      duration = generatePrettyTimeDifference(now, event.timestamp)
-      isOngoing = true
-    }
-
-    unhealthyEvents.push({
-      ...event,
-      duration,
-      isOngoing
-    })
-  }
-
-  return unhealthyEvents
+// Fork: periods out of service, from each UNHEALTHY event to the next HEALTHY event, clipped to the period of the chart
+const downtimes = computed(() => {
+  const firstPoint = timestamps.value.length > 0 ? new Date(timestamps.value[0]).getTime() : null
+  return downtimeIntervals(props.events, periodStart.value, periodEnd.value, firstPoint).map((interval) => ({
+    ...interval,
+    ongoing: interval.end === periodEnd.value,
+    duration: generatePrettyTimeDifference(interval.end, interval.start)
+  }))
 })
 
 const chartData = computed(() => {
@@ -135,10 +97,6 @@ const chartOptions = computed(() => {
   // Include hoveredEventIndex in dependency tracking
   // eslint-disable-next-line no-unused-vars
   const _ = hoveredEventIndex.value
-
-  // Calculate max Y value for positioning annotations
-  const maxY = values.value.length > 0 ? Math.max(...values.value) : 0
-  const midY = maxY / 2
 
   return {
     responsive: true,
@@ -175,31 +133,15 @@ const chartOptions = computed(() => {
         }
       },
       annotation: {
-        annotations: filteredEvents.value.reduce((acc, event, index) => {
-          // Find closest data point to determine annotation position
-          const eventTimestamp = new Date(event.timestamp).getTime()
-          let closestValue = 0
-
-          if (timestamps.value.length > 0 && values.value.length > 0) {
-            const closestIndex = timestamps.value.reduce((closest, ts, idx) => {
-              const tsTime = new Date(ts).getTime()
-              const currentDistance = Math.abs(tsTime - eventTimestamp)
-              const closestDistance = Math.abs(new Date(timestamps.value[closest]).getTime() - eventTimestamp)
-              return currentDistance < closestDistance ? idx : closest
-            }, 0)
-            closestValue = values.value[closestIndex]
-          }
-
-          // Position annotation at bottom if data point is in lower half, at top if in upper half
-          const position = closestValue <= midY ? 'end' : 'start'
-
-          acc[`event-${index}`] = {
-            type: 'line',
-            xMin: new Date(event.timestamp),
-            xMax: new Date(event.timestamp),
-            borderColor: getEventColor(),
+        // Fork: translucent red boxes over the periods out of service, in the place of the dashed lines of the events
+        annotations: downtimes.value.reduce((acc, downtime, index) => {
+          acc[`downtime-${index}`] = {
+            type: 'box',
+            xMin: downtime.start,
+            xMax: downtime.end,
+            backgroundColor: isDark.value ? 'rgba(248, 113, 113, 0.2)' : 'rgba(239, 68, 68, 0.15)',
+            borderColor: isDark.value ? 'rgba(248, 113, 113, 0.5)' : 'rgba(239, 68, 68, 0.4)',
             borderWidth: 1,
-            borderDash: [5, 5],
             enter() {
               hoveredEventIndex.value = index
             },
@@ -209,14 +151,14 @@ const chartOptions = computed(() => {
             label: {
               borderRadius: 0,
               display: () => hoveredEventIndex.value === index,
-              content: [event.isOngoing ? `Status: ONGOING` : `Status: RESOLVED`, `Unhealthy for ${event.duration}`, `Started at ${new Date(event.timestamp).toLocaleString()}`],
-              backgroundColor: getEventColor(),
+              content: [downtime.ongoing ? 'Status: ONGOING' : 'Status: RESOLVED', `Down for ${downtime.duration}`, `Started at ${new Date(downtime.start).toLocaleString()}`],
+              backgroundColor: 'rgba(239, 68, 68, 0.9)',
               color: '#ffffff',
               font: {
                 size: 11
               },
               padding: 6,
-              position
+              position: { x: 'center', y: 'start' }
             }
           }
           return acc
@@ -226,6 +168,9 @@ const chartOptions = computed(() => {
     scales: {
       x: {
         type: 'time',
+        // Fork: the axis is fixed to the period, so that the periods out of service do not stretch it
+        min: periodStart.value,
+        max: periodEnd.value,
         time: {
           unit: props.duration === '24h' ? 'hour' : props.duration === '7d' ? 'day' : 'day',
           displayFormats: {
@@ -261,6 +206,7 @@ const chartOptions = computed(() => {
 const fetchData = async () => {
   loading.value = true
   error.value = null
+  periodEnd.value = Date.now()
   try {
     const response = await fetch(`${props.serverUrl}/api/v1/endpoints/${props.endpointKey}/response-times/${props.duration}/history`, {
       credentials: 'include'
@@ -283,6 +229,11 @@ const fetchData = async () => {
 
 watch(() => props.duration, () => {
   fetchData()
+})
+
+// Fork: the events come with the refreshes of the page, so an ongoing period out of service follows the current time
+watch(() => props.events, () => {
+  periodEnd.value = Date.now()
 })
 
 onMounted(() => {

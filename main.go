@@ -142,8 +142,12 @@ func initializeStorage(cfg *config.Config) {
 	logr.Infof("[main.initializeStorage] Total endpoint keys to preserve: %d", len(keys))
 	if loadErr != nil {
 		logr.Errorf("[main.initializeStorage] Failed to load managed endpoints, so endpoint statuses are not cleaned up to preserve their history: %s", loadErr.Error())
-	} else if numberOfEndpointStatusesDeleted := store.Get().DeleteAllEndpointStatusesNotInKeys(keys); numberOfEndpointStatusesDeleted > 0 {
-		logr.Infof("[main.initializeStorage] Deleted %d endpoint statuses because their matching endpoints no longer existed", numberOfEndpointStatusesDeleted)
+	} else {
+		if numberOfEndpointStatusesDeleted := store.Get().DeleteAllEndpointStatusesNotInKeys(keys); numberOfEndpointStatusesDeleted > 0 {
+			logr.Infof("[main.initializeStorage] Deleted %d endpoint statuses because their matching endpoints no longer existed", numberOfEndpointStatusesDeleted)
+		}
+		// Fork: the push state (last push and retries used) of the keys that no longer exist is forgotten
+		watchdog.ForgetExternalEndpointsNotIn(keys)
 	}
 	// Public status pages, after the managed endpoints that they can select
 	statuspage.Load(cfg)

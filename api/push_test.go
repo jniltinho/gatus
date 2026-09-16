@@ -98,6 +98,21 @@ func latestResult(t *testing.T, key string) (*endpoint.Result, int) {
 	return status.Results[len(status.Results)-1], len(status.Results)
 }
 
+// latestPushResult returns the most recent pushed result of the endpoint, or nil
+func latestPushResult(t *testing.T, key string) *endpoint.Result {
+	t.Helper()
+	status, err := store.Get().GetEndpointStatusByKey(key, paging.NewEndpointStatusParams().WithResults(1, 100))
+	if err != nil {
+		return nil
+	}
+	for i := len(status.Results) - 1; i >= 0; i-- {
+		if status.Results[i].Origin == endpoint.ResultOriginPush {
+			return status.Results[i]
+		}
+	}
+	return nil
+}
+
 func TestPush_CompatibleWithUptimeKuma(t *testing.T) {
 	router := newPushTestRouter(t)
 	scenarios := []struct {

@@ -1,6 +1,8 @@
 package statuspage
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
 	"gatus/v5/config/endpoint"
@@ -20,6 +22,9 @@ const (
 
 	// StatusUp means that the last result of an endpoint succeeded
 	StatusUp = "up"
+
+	// StatusPending means that the last result of an endpoint is pending (fork)
+	StatusPending = "pending"
 
 	// StatusUnknown means that there is no result
 	StatusUnknown = "unknown"
@@ -85,6 +90,13 @@ type ResultPayload struct {
 	Timestamp  time.Time `json:"timestamp"`
 	Success    bool      `json:"success"`
 	DurationMs int64     `json:"durationMs"`
+
+	// Pending is whether the result is pending (fork)
+	Pending bool `json:"pending,omitempty"`
+
+	// Message and Origin are only set on the details page of an endpoint of a page that shows messages (fork)
+	Message string `json:"message,omitempty"`
+	Origin  string `json:"origin,omitempty"`
 }
 
 // EndpointDetailsPayload is the public representation of an endpoint of a status page on its details page. Like
@@ -102,6 +114,9 @@ type EndpointDetailsPayload struct {
 type PageReferencePayload struct {
 	Slug  string `json:"slug"`
 	Title string `json:"title"`
+
+	// ShowMessages is whether the details page shows the messages of the results (fork)
+	ShowMessages bool `json:"showMessages"`
 }
 
 // EventPayload is the public representation of an event: START, HEALTHY or UNHEALTHY
@@ -124,7 +139,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 	}
 	var pageStatuses []string
 	for _, ref := range selection.Featured {
-		endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now)
+		endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now, false)
 		payload.Featured = append(payload.Featured, FeaturedEndpointPayload{EndpointPayload: endpointPayload, Group: ref.Group})
 		pageStatuses = append(pageStatuses, endpointPayload.Status)
 	}
@@ -132,7 +147,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 		group := GroupPayload{Name: section.Group, Endpoints: make([]EndpointPayload, 0, len(section.Endpoints))}
 		groupStatuses := make([]string, 0, len(section.Endpoints))
 		for _, ref := range section.Endpoints {
-			endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now)
+			endpointPayload := buildEndpointPayload(page, ref, summaries[ref.Key], now, false)
 			group.Endpoints = append(group.Endpoints, endpointPayload)
 			groupStatuses = append(groupStatuses, endpointPayload.Status)
 		}
@@ -148,8 +163,8 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 // summary and its events, from the oldest to the most recent. Events of an unknown type are left out.
 func BuildEndpointDetailsPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, events []*endpoint.Event, now time.Time) *EndpointDetailsPayload {
 	payload := &EndpointDetailsPayload{
-		Page:            PageReferencePayload{Slug: page.Slug, Title: page.Title},
-		EndpointPayload: buildEndpointPayload(page, ref, summary, now),
+		Page:            PageReferencePayload{Slug: page.Slug, Title: page.Title, ShowMessages: page.ShowMessages},
+		EndpointPayload: buildEndpointPayload(page, ref, summary, now, page.ShowMessages),
 		Group:           ref.Group,
 		UpdatedAt:       now.UTC(),
 		Events:          make([]EventPayload, 0, len(events)),
@@ -163,55 +178,91 @@ func BuildEndpointDetailsPayload(page *pageconfig.Page, ref EndpointRef, summary
 	return payload
 }
 
-func buildEndpointPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, now time.Time) EndpointPayload {
+// buildEndpointPayload builds the public representation of an endpoint. The messages and the origins of its results are
+// only set with withMessages, which is only used by the details page of a page that shows messages.
+func buildEndpointPayload(page *pageconfig.Page, ref EndpointRef, summary *common.EndpointSummary, now time.Time, withMessages bool) EndpointPayload {
 	endpointPayload := EndpointPayload{Name: ref.Name, Status: StatusUnknown, Results: []ResultPayload{}}
 	if summary == nil {
 		return endpointPayload
 	}
 	for _, result := range summary.Results {
-		endpointPayload.Results = append(endpointPayload.Results, ResultPayload{
+		resultPayload := ResultPayload{
 			Timestamp:  result.Timestamp.UTC(),
 			Success:    result.Success,
 			DurationMs: result.Duration.Milliseconds(),
-		})
+			Pending:    result.Pending,
+		}
+		if withMessages {
+			resultPayload.Message, resultPayload.Origin = publicMessage(result), result.Origin
+		}
+		endpointPayload.Results = append(endpointPayload.Results, resultPayload)
 	}
 	if page.ShowCertificateExpiration {
 		endpointPayload.CertificateExpiresInDays = certificateExpiresInDays(summary.Results, now)
 	}
 	if numberOfResults := len(summary.Results); numberOfResults > 0 {
-		if summary.Results[numberOfResults-1].Success {
+		switch lastResult := summary.Results[numberOfResults-1]; {
+		case lastResult.Success:
 			endpointPayload.Status = StatusUp
-		} else {
+		case lastResult.Pending:
+			endpointPayload.Status = StatusPending
+		default:
 			endpointPayload.Status = StatusDown
 		}
 	}
-	uptimes := summary.Uptimes
-	endpointPayload.Uptime = UptimePayload{Last24Hours: uptimes.Last24Hours, Last7Days: uptimes.Last7Days, Last30Days: uptimes.Last30Days}
-	endpointPayload.ResponseTime = ResponseTimePayload{
-		Last24Hours: uptimes.AverageResponseTime24Hours,
-		Last7Days:   uptimes.AverageResponseTime7Days,
-		Last30Days:  uptimes.AverageResponseTime30Days,
-	}
+	endpointPayload.Uptime, endpointPayload.ResponseTime = UptimePayloads(summary.Uptimes)
 	return endpointPayload
 }
 
-// aggregateStatus returns the status of a group or a page from the statuses of its endpoints, ignoring unknown ones
+// UptimePayloads returns the uptimes and the average response times of an endpoint, with nil values for the periods
+// without execution
+func UptimePayloads(uptimes common.EndpointUptimes) (UptimePayload, ResponseTimePayload) {
+	return UptimePayload{Last24Hours: uptimes.Last24Hours, Last7Days: uptimes.Last7Days, Last30Days: uptimes.Last30Days},
+		ResponseTimePayload{
+			Last24Hours: uptimes.AverageResponseTime24Hours,
+			Last7Days:   uptimes.AverageResponseTime7Days,
+			Last30Days:  uptimes.AverageResponseTime30Days,
+		}
+}
+
+// publicMessage returns the message of a result that can be published by a page that shows messages (fork): the message
+// of a push or of the heartbeat; the message of the heartbeat found in the errors of a result stored before results had
+// a message; or the HTTP status of a check. The other errors are never published.
+func publicMessage(result common.ResultSummary) string {
+	if len(result.Message) > 0 {
+		return result.Message
+	}
+	for _, resultError := range result.Errors {
+		if strings.HasPrefix(resultError, endpoint.HeartbeatMessagePrefix) {
+			return resultError
+		}
+	}
+	if result.HTTPStatus > 0 {
+		return "HTTP " + strconv.Itoa(result.HTTPStatus)
+	}
+	return ""
+}
+
+// aggregateStatus returns the status of a group or a page from the statuses of its endpoints, ignoring unknown ones:
+// operational when all are up, down when all are down, and degraded otherwise, including when some are pending (fork)
 func aggregateStatus(endpointStatuses []string) string {
-	var up, down int
+	var up, down, pending int
 	for _, status := range endpointStatuses {
 		switch status {
 		case StatusUp:
 			up++
 		case StatusDown:
 			down++
+		case StatusPending:
+			pending++
 		}
 	}
 	switch {
-	case up == 0 && down == 0:
+	case up == 0 && down == 0 && pending == 0:
 		return StatusUnknown
-	case down == 0:
+	case down == 0 && pending == 0:
 		return StatusOperational
-	case up == 0:
+	case up == 0 && pending == 0:
 		return StatusDown
 	default:
 		return StatusDegraded

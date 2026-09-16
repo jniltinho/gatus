@@ -21,6 +21,12 @@
         </span>
       </div>
 
+      <!-- Fork: Pending status (for endpoint results) -->
+      <div v-if="!isSuiteResult && result.pending" class="flex items-center gap-2" data-testid="tooltip-pending">
+        <span class="inline-block w-2 h-2 rounded-full bg-yellow-400"></span>
+        <span class="text-xs font-semibold">Pending</span>
+      </div>
+
       <!-- Timestamp -->
       <div>
         <div class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timestamp</div>

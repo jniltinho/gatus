@@ -89,7 +89,13 @@
               <Input v-model="form.heartbeatInterval" placeholder="1m (default)" class="mt-1.5 dark:border-gray-700" data-testid="admin-field-heartbeat" />
               <span class="mt-1 block text-xs text-muted-foreground dark:text-gray-400">A failure is recorded for every interval without push.</span>
             </label>
-            <label :class="['flex items-center gap-2 text-sm text-foreground dark:text-gray-200', isPush ? 'self-start sm:mt-8' : 'sm:col-span-2']">
+            <!-- Fork: number of Pending results before down (heartbeat.retries) -->
+            <label v-if="isPush" class="block">
+              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Retries</span>
+              <Input v-model="form.heartbeatRetries" type="number" min="0" max="100" step="1" placeholder="0 (default)" class="mt-1.5 dark:border-gray-700" data-testid="admin-field-retries" />
+              <span class="mt-1 block text-xs text-muted-foreground dark:text-gray-400">Missed heartbeats or down pushes are recorded as pending this many times before down.</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm text-foreground dark:text-gray-200 sm:col-span-2">
               <input v-model="form.enabled" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="admin-field-enabled" />
               Enabled
             </label>
@@ -396,6 +402,7 @@ const emptyForm = () => ({
   acceptPush: false,
   token: '',
   heartbeatInterval: '',
+  heartbeatRetries: '',
 })
 
 const form = reactive(emptyForm())
@@ -563,6 +570,7 @@ const formFromDocument = (document) => {
     acceptPush: Boolean(document.push && document.push.enabled),
     token: String((isPushDocument ? document.token : document.push && document.push.token) || ''),
     heartbeatInterval: String((document.heartbeat && document.heartbeat.interval) || ''),
+    heartbeatRetries: document.heartbeat && document.heartbeat.retries ? String(document.heartbeat.retries) : '',
   })
   monitorType.value = monitorTypeOfDocument(document)
   newGroup.value = form.group !== '' && !groupNames.value.includes(form.group)
@@ -591,6 +599,9 @@ const documentFromForm = () => {
     setOrDelete(document, 'token', form.token.trim())
     const heartbeat = { ...(document.heartbeat || {}) }
     setOrDelete(heartbeat, 'interval', form.heartbeatInterval.trim())
+    // Omitted when 0 (the default); a value that is not a number is sent as it is, so that the API rejects it
+    const retries = String(form.heartbeatRetries).trim()
+    setOrDelete(heartbeat, 'retries', retries === '' || Number(retries) === 0 ? null : (Number.isInteger(Number(retries)) ? Number(retries) : retries))
     setOrDelete(document, 'heartbeat', Object.keys(heartbeat).length ? heartbeat : null)
   } else {
     delete document.type

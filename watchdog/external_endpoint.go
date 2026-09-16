@@ -47,10 +47,14 @@ func executeExternalEndpointHeartbeat(ctx context.Context, ee *endpoint.External
 		logr.Infof("[watchdog.executeExternalEndpointHeartbeat] Checked heartbeat for group=%s; endpoint=%s; key=%s; success=true; errors=0", ee.Group, ee.Name, ee.Key())
 		return
 	}
+	// Fork: the text is also the message of the result, so that it can be shown on the public status pages, which never
+	// publish errors
+	heartbeatMessage := endpoint.HeartbeatMessagePrefix + ee.Heartbeat.Interval.String()
 	result := &endpoint.Result{
 		Timestamp: time.Now(),
 		Success:   false,
-		Errors:    []string{"heartbeat: no update received within " + ee.Heartbeat.Interval.String()},
+		Errors:    []string{heartbeatMessage},
+		Message:   heartbeatMessage,
 	}
 	if ctx.Err() != nil {
 		return

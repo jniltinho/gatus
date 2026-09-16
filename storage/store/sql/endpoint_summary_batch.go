@@ -1,6 +1,8 @@
 package sql
 
 import (
+	"database/sql"
+	"strings"
 	"time"
 
 	"gatus/v5/storage/store/common"
@@ -51,16 +53,20 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 			ids = append(ids, id)
 		}
 		args, placeholders := appendPlaceholders([]any{maximumResults}, ids)
+		// Fork: the pending mark, the message and the origin are in endpoint_result_messages
 		rows, err := tx.Query(`
-			SELECT endpoint_id, success, duration, certificate_expiration, timestamp
+			SELECT recent_results.endpoint_id, recent_results.success, recent_results.duration,
+				recent_results.certificate_expiration, recent_results.timestamp, recent_results.status, recent_results.errors,
+				m.message, m.origin, m.pending
 			FROM (
-				SELECT endpoint_id, endpoint_result_id, success, duration, certificate_expiration, timestamp,
+				SELECT endpoint_id, endpoint_result_id, success, duration, certificate_expiration, timestamp, status, errors,
 					ROW_NUMBER() OVER (PARTITION BY endpoint_id ORDER BY endpoint_result_id DESC) AS rn
 				FROM endpoint_results
 				WHERE endpoint_id IN (`+placeholders+`)
 			) recent_results
-			WHERE rn <= $1
-			ORDER BY endpoint_id, endpoint_result_id
+			LEFT JOIN endpoint_result_messages m ON m.endpoint_result_id = recent_results.endpoint_result_id
+			WHERE recent_results.rn <= $1
+			ORDER BY recent_results.endpoint_id, recent_results.endpoint_result_id
 		`, args...)
 		if err != nil {
 			return nil, err
@@ -68,10 +74,17 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 		for rows.Next() {
 			var id int64
 			var result common.ResultSummary
-			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.CertificateExpiration, &result.Timestamp); err != nil {
+			var joinedErrors string
+			var message, origin sql.NullString
+			var pending sql.NullBool
+			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.CertificateExpiration, &result.Timestamp, &result.HTTPStatus, &joinedErrors, &message, &origin, &pending); err != nil {
 				_ = rows.Close()
 				return nil, err
 			}
+			if len(joinedErrors) > 0 {
+				result.Errors = strings.Split(joinedErrors, arraySeparator)
+			}
+			result.Message, result.Origin, result.Pending = message.String, origin.String, pending.Bool
 			summary := summaries[keysByID[id]]
 			summary.Results = append(summary.Results, result)
 		}

@@ -74,6 +74,10 @@ status-pages:
       title: "Draft"
       groups: [core]
       enabled: false
+    - slug: messages
+      title: "Messages"
+      groups: [core]
+      show-messages: true
 CONFIG
 
 GATUS_CONFIG_PATH="$WORK/config.yaml" dist/gatus > "$WORK/gatus.log" 2>&1 &
@@ -192,6 +196,22 @@ public wait "$(testid status-page-title)" >/dev/null || fail "the back link did 
 if curl -s "$BASE/api/v1/status-pages/services/endpoints/_panel" | grep -qE '127\.0\.0\.1|_panel'; then
   fail "the endpoint details exposed a URL or a key"
 fi
+
+step "Page with show-messages: same table of checks as the dashboard, without the errors of the checks"
+details=$(curl -s "$BASE/api/v1/status-pages/messages/endpoints/core_health")
+grep -q '"showMessages":true' <<<"$details" || fail "the details payload does not say that the page shows messages"
+grep -q '"message":"HTTP 200"' <<<"$details" || fail "the details payload does not have the HTTP status as message"
+offline=$(curl -s "$BASE/api/v1/status-pages/messages/endpoints/core_offline")
+grep -qE '127\.0\.0\.1|connection refused|dial tcp' <<<"$offline" && fail "the errors of the checks were published"
+grep -q '"showMessages":false' <<<"$(curl -s "$BASE/api/v1/status-pages/services/endpoints/_panel")" || fail "the page without the option should not show messages"
+public open "$BASE/status/messages/endpoints/core_health" >/dev/null
+public wait "$(testid details-summary)" >/dev/null || fail "the panel of numbers is not shown on the public details page"
+public wait "$(testid recent-checks-toggle)" >/dev/null
+[ "$(js public "document.querySelectorAll('[data-testid=\"recent-checks-table\"]').length")" = 0 ] && public click "$(testid recent-checks-toggle)" >/dev/null
+public wait "$(testid recent-check-message)" >/dev/null || fail "the public table of a page with show-messages has no message column"
+grep -q "HTTP 200" <<<"$(js public "document.querySelector('[data-testid=\"recent-checks-table\"]').innerText")" || fail "the public table does not show the HTTP status as message"
+public wait 1500 >/dev/null
+public screenshot --full "$PRINTS/endpoint-details-messages.png" >/dev/null
 
 step "Dark mode and 390 px screen"
 public set media dark >/dev/null

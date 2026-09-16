@@ -312,30 +312,29 @@ func (s *Store) insertEndpointResultWithoutRetry(ep *endpoint.Endpoint, result *
 			// Silently fail
 			logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", endpoint.EventStart, ep.Key(), err.Error())
 		}
-		event := endpoint.NewEventFromResult(result)
-		if err = s.insertEndpointEvent(tx, endpointID, event); err != nil {
-			// Silently fail
-			logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", event.Type, ep.Key(), err.Error())
-		}
-	} else {
-		// Get the success value of the previous result
-		var lastResultSuccess bool
-		if lastResultSuccess, err = s.getLastEndpointResultSuccessValue(tx, endpointID); err != nil {
-			// Silently fail
-			logr.Errorf("[sql.InsertEndpointResult] Failed to retrieve outcome of previous result for endpoint with key=%s: %s", ep.Key(), err.Error())
-		} else {
-			// If we managed to retrieve the outcome of the previous result, we'll compare it with the new result.
-			// If the final outcome (success or failure) of the previous and the new result aren't the same, it means
-			// that the endpoint either went from Healthy to Unhealthy or Unhealthy -> Healthy, therefore, we'll add
-			// an event to mark the change in state
-			if lastResultSuccess != result.Success {
-				event := endpoint.NewEventFromResult(result)
-				if err = s.insertEndpointEvent(tx, endpointID, event); err != nil {
-					// Silently fail
-					logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", event.Type, ep.Key(), err.Error())
-				}
+		// Fork: a pending result does not create events
+		if !result.Pending {
+			event := endpoint.NewEventFromResult(result)
+			if err = s.insertEndpointEvent(tx, endpointID, event); err != nil {
+				// Silently fail
+				logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", event.Type, ep.Key(), err.Error())
 			}
 		}
+	} else if !result.Pending {
+		// Fork: the new result is compared with the last healthy or unhealthy event instead of the last result, which
+		// can be pending. Without such an event (e.g. only START, after a first pending result), the event is created.
+		event := endpoint.NewEventFromResult(result)
+		if lastEventType, found, err := s.getLastEndpointHealthEventType(tx, endpointID); err != nil {
+			// Silently fail
+			logr.Errorf("[sql.InsertEndpointResult] Failed to retrieve the last event of endpoint with key=%s: %s", ep.Key(), err.Error())
+		} else if !found || lastEventType != event.Type {
+			if err = s.insertEndpointEvent(tx, endpointID, event); err != nil {
+				// Silently fail
+				logr.Errorf("[sql.InsertEndpointResult] Failed to insert event=%s for endpoint with key=%s: %s", event.Type, ep.Key(), err.Error())
+			}
+		}
+	}
+	if numberOfEvents > 0 {
 		// Clean up old events if we're above the threshold
 		// This lets us both keep the table clean without impacting performance too much
 		// (since we're only deleting MaximumNumberOfEvents at a time instead of 1)
@@ -1030,6 +1029,23 @@ func (s *Store) getAgeOfOldestEndpointUptimeEntry(tx *sql.Tx, endpointID int64) 
 		return 0, errNoRowsReturned
 	}
 	return time.Since(time.Unix(oldestEndpointUptimeUnixTimestamp, 0)), nil
+}
+
+// getLastEndpointHealthEventType returns the type of the last HEALTHY or UNHEALTHY event of an endpoint, and false
+// without such an event (fork)
+func (s *Store) getLastEndpointHealthEventType(tx *sql.Tx, endpointID int64) (endpoint.EventType, bool, error) {
+	var eventType string
+	err := tx.QueryRow(
+		"SELECT event_type FROM endpoint_events WHERE endpoint_id = $1 AND event_type IN ($2, $3) ORDER BY endpoint_event_id DESC LIMIT 1",
+		endpointID, endpoint.EventHealthy, endpoint.EventUnhealthy,
+	).Scan(&eventType)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return endpoint.EventType(eventType), true, nil
 }
 
 func (s *Store) getLastEndpointResultSuccessValue(tx *sql.Tx, endpointID int64) (bool, error) {

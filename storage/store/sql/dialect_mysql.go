@@ -14,6 +14,7 @@ import (
 // Numbers of the MySQL errors handled by the store
 const (
 	mysqlErrorDuplicateEntry  = 1062
+	mysqlErrorDuplicateColumn = 1060
 	mysqlErrorLockWaitTimeout = 1205
 	mysqlErrorDeadlock        = 1213
 )

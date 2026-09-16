@@ -187,6 +187,11 @@ type Page struct {
 	// because the definitions managed through the administration are decoded as YAML.
 	ShowCertificateExpiration bool `yaml:"show-certificate-expiration,omitempty" json:"show-certificate-expiration,omitempty"`
 
+	// ShowMessages publishes, on the details page of each endpoint, the table of checks of the dashboard with the message
+	// and the origin of each result (fork). Only the messages of pushes and heartbeats and the HTTP status of the checks
+	// are published, never their errors.
+	ShowMessages bool `yaml:"show-messages,omitempty" json:"show-messages,omitempty"`
+
 	// Enabled is whether the page is published. Pages of the configuration file default to true.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }

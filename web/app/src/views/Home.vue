@@ -16,6 +16,9 @@
               <span v-if="endpointSummary.down" class="inline-flex items-center gap-1.5 border border-red-300 bg-red-50 px-2 py-1 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200" data-testid="dashboard-summary-down">
                 <span class="h-2 w-2 rounded-full bg-red-500" aria-hidden="true"></span>{{ endpointSummary.down }} down
               </span>
+              <span v-if="endpointSummary.pending" class="inline-flex items-center gap-1.5 border border-yellow-300 bg-yellow-50 px-2 py-1 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200" data-testid="dashboard-summary-pending">
+                <span class="h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>{{ endpointSummary.pending }} pending
+              </span>
               <span v-if="endpointSummary.unknown" class="inline-flex items-center gap-1.5 border px-2 py-1 text-muted-foreground dark:border-gray-700" data-testid="dashboard-summary-unknown">
                 <span class="h-2 w-2 rounded-full bg-gray-400" aria-hidden="true"></span>{{ endpointSummary.unknown }} no data
               </span>
@@ -238,15 +241,18 @@ const sortBy = ref(localStorage.getItem('gatus:sort-by') || 'name')
 const uncollapsedGroups = ref(new Set())
 const resultPageSize = 50
 
-// Endpoints up, down and without results, for the summary next to the heading (fork)
+// Endpoints up, down, pending and without results, for the summary next to the heading (fork). A Pending endpoint only
+// counts as pending; the failure counters of the groups and the filters still count it as a failure
 const endpointSummary = computed(() => {
-  const summary = { up: 0, down: 0, unknown: 0 }
+  const summary = { up: 0, down: 0, pending: 0, unknown: 0 }
   for (const endpoint of endpointStatuses.value) {
     const results = endpoint.results || []
     if (results.length === 0) {
       summary.unknown++
     } else if (results[results.length - 1].success) {
       summary.up++
+    } else if (results[results.length - 1].pending) {
+      summary.pending++
     } else {
       summary.down++
     }

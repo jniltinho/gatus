@@ -8,6 +8,13 @@ const (
 
 	// MaximumResultMessageLength is the maximum length, in bytes, of the message of a result
 	MaximumResultMessageLength = 1024
+
+	// MaximumHeartbeatRetries is the maximum number of heartbeat retries of an external endpoint
+	MaximumHeartbeatRetries = 100
+
+	// HeartbeatMessagePrefix is the beginning of the message and of the error of a result recorded by the heartbeat of an
+	// external endpoint, followed by its interval. Results stored before the message existed only have it in their errors.
+	HeartbeatMessagePrefix = "heartbeat: no update received within "
 )
 
 // TruncateResultMessage returns message cut to at most MaximumResultMessageLength bytes, without splitting a UTF-8
