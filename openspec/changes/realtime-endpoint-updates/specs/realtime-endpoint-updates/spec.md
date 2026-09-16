@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Canal SSE de resultados novos
-O sistema MUST oferecer um canal Server-Sent Events por endpoint que avise, em até 1 segundo, cada resultado gravado pelo monitoramento para ele: verificação, push, heartbeat ou resultado da API upstream de external endpoints. Resultados de endpoints de suites ficam fora.
+O sistema MUST oferecer um canal Server-Sent Events por endpoint que envie o aviso pela conexão em até 1 segundo depois de cada resultado gravado pelo monitoramento para ele: verificação, push, heartbeat ou resultado da API upstream de external endpoints. Resultados de endpoints de suites ficam fora.
 
 **Rotas:**
 - `GET /api/v1/endpoints/{key}/events` MUST exigir a mesma autenticação das rotas de status e MUST responder 404 para uma chave que não seja de um endpoint do arquivo de configuração, de um external endpoint ou de um endpoint gerenciado. A verificação MUST NOT ler o storage, e um endpoint ainda sem resultados MUST poder ser observado.
@@ -15,10 +15,13 @@ O sistema MUST oferecer um canal Server-Sent Events por endpoint que avise, em a
 - avisos acumulados para o mesmo cliente MAY ser juntados num só.
 
 **Conexão:**
-- quando o `Last-Event-ID` recebido, pelo cabeçalho ou pelo parâmetro `lastEventId`, for menor que a sequência atual, a conexão MUST começar com um evento;
+- quando o `Last-Event-ID` recebido, pelo cabeçalho ou pelo parâmetro `lastEventId`, for menor que a sequência atual, a conexão MUST começar com um evento; `Last-Event-ID` ausente ou inválido MUST valer 0;
+- a sequência MUST NOT reiniciar enquanto o processo estiver no ar, inclusive depois de recargas da configuração;
+- `HEAD` MUST responder só os cabeçalhos, sem stream e sem ocupar vaga;
+- a verificação de existência MUST acontecer antes dos limites, para a rota pública manter o 404 idêntico;
 - MUST enviar um comentário a cada 15 segundos;
 - MUST durar no máximo 5 minutos, sem ser cortada pelo prazo de escrita padrão de 15 segundos do servidor;
-- somente essas duas rotas MUST receber o prazo de escrita maior.
+- somente as requisições cujo caminho, sem query, tenha exatamente a forma `/api/v1/endpoints/{key}/events` ou `/api/v1/status-pages/{slug}/endpoints/{key}/events`, com segmentos não vazios, MUST receber o prazo de escrita maior.
 
 #### Scenario: Push aparece na hora
 - **WHEN** um navegador está conectado a `/api/v1/endpoints/jobs_backup/events` e o endpoint recebe `status=pending`
@@ -36,6 +39,14 @@ O sistema MUST oferecer um canal Server-Sent Events por endpoint que avise, em a
 #### Scenario: Conexão longa
 - **WHEN** um cliente fica conectado por 3 minutos sem resultados novos
 - **THEN** a conexão continua aberta, com comentários a cada 15 segundos
+
+#### Scenario: HEAD não ocupa vaga
+- **WHEN** um health check faz 20 requisições `HEAD /api/v1/status-pages/infra/endpoints/core_api/events` do mesmo IP
+- **THEN** todas respondem os cabeçalhos, e o IP ainda consegue abrir 10 conexões de eventos
+
+#### Scenario: Caminho real recebe o prazo maior
+- **WHEN** o cliente abre `/api/v1/endpoints/jobs_backup/events?lastEventId=3` e fica conectado mais de 15 segundos
+- **THEN** a conexão continua aberta
 
 #### Scenario: Outra rota não ganha prazo maior
 - **WHEN** uma resposta de `/api/v1/endpoints/statuses/events-export` demora mais de 15 segundos para ser escrita
@@ -76,12 +87,12 @@ O sistema MUST limitar as conexões de eventos abertas a 500 no total e a 10 por
 - **AND** a documentação indica configurar `trusted-proxies`
 
 ### Requirement: Detalhes do endpoint em tempo real
-A página de detalhes do endpoint no dashboard e a página pública de detalhes MUST abrir o canal de eventos do endpoint e, a cada aviso, atualizar sem indicador de carregamento as barras, o painel de números, as faixas vermelhas e amarelas do gráfico **Response Time Trend** e a tabela de checks, inclusive quando a tabela do dashboard está em outra página de resultados.
+A página de detalhes do endpoint no dashboard e a página pública de detalhes MUST abrir o canal de eventos do endpoint e, a cada aviso, atualizar sem indicador de carregamento as barras, o painel de números, as faixas vermelhas e amarelas do gráfico **Response Time Trend** e a tabela de checks. No dashboard, barras, painel e gráfico MUST mostrar sempre os resultados mais recentes, mesmo com a tabela em outra página de resultados.
 
 - **Ordem das respostas:** uma resposta mais antiga que chegue depois de uma mais nova MUST ser descartada.
 - **Aba oculta:** a página MUST fechar o canal quando a aba ficar oculta e, ao voltar, MUST reabri-lo e atualizar uma vez.
 - **Troca de endpoint:** a troca de endpoint na mesma tela MUST reabrir o canal para o endpoint novo.
-- **Canal fechado por erro:** se o canal fechar por erro (502 do proxy numa recarga, 503, 429, 404 ou 401), a página MUST continuar com a atualização periódica e MUST reabrir o canal com espera crescente de 30 segundos até 5 minutos, ou logo depois de uma atualização periódica bem-sucedida.
+- **Canal fechado por erro:** se o canal ficar fechado por erro (502 do proxy numa recarga, 503, 429, 404 ou 401), a página MUST continuar com a atualização periódica e MUST reabrir o canal com espera crescente de 30 segundos até 5 minutos, ou logo depois de uma atualização periódica bem-sucedida, informando o último `id` recebido. Numa queda depois de uma resposta 200, a página MUST deixar a reconexão automática do navegador agir, sem abrir uma segunda conexão.
 - **Linha do gráfico:** a linha MUST recarregar a cada atualização dos dados da página, no máximo uma vez a cada 60 segundos, sem apagar o gráfico durante a busca.
 
 #### Scenario: Pending no gráfico na hora
@@ -95,6 +106,10 @@ A página de detalhes do endpoint no dashboard e a página pública de detalhes 
 #### Scenario: Recarga do Gatus atrás do nginx
 - **WHEN** o visitante está nos detalhes, a configuração do Gatus é recarregada e o canal recebe 502 do nginx
 - **THEN** a página continua mostrando os dados e volta a receber avisos em no máximo 5 minutos, sem ação do visitante
+
+#### Scenario: Pending com a tabela na página 2
+- **WHEN** o administrador está nos detalhes de `jobs_backup` com a tabela na página 2 e chega `status=pending`
+- **THEN** as barras, o painel e a faixa amarela do gráfico mostram o Pending em até 2 segundos
 
 #### Scenario: Canal indisponível
 - **WHEN** a abertura do canal responde 429
