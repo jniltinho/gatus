@@ -12,6 +12,7 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	"gatus/v5/lifecycle"
+	"gatus/v5/liveupdates"
 	"gatus/v5/metrics"
 	"gatus/v5/pushkey"
 	"gatus/v5/storage/store"
@@ -418,6 +419,7 @@ func (s *Service) update(key string, raw []byte, expectedVersion int64, author, 
 	if renaming && newKey != key {
 		// Fork: the time of the last push and the retries used of the old key are not carried to the new key
 		watchdog.ForgetExternalEndpoint(key)
+		liveupdates.Forget(key)
 	}
 	if renaming {
 		logr.Infof("[managedendpoint.Update] Managed endpoint with key=%s renamed to key=%s by %s", key, newKey, auditAuthor(author))
@@ -481,6 +483,7 @@ func (s *Service) Delete(key string, expectedVersion int64, author string) (int,
 	}
 	removeState(key)
 	watchdog.ForgetExternalEndpoint(key)
+	liveupdates.Forget(key)
 	logr.Infof("[managedendpoint.Delete] Managed endpoint with key=%s deleted by %s (triggered alerts: %d)", key, auditAuthor(author), triggeredAlerts)
 	return triggeredAlerts, nil
 }

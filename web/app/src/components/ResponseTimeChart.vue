@@ -44,8 +44,17 @@ const props = defineProps({
   results: {
     type: Array,
     default: () => []
+  },
+  // Fork: changes with the data of the page (for example, the timestamp of the latest result), so that the line is
+  // fetched again in the background, at most once every LINE_REFRESH_INTERVAL_MS
+  refreshKey: {
+    type: [String, Number],
+    default: null
   }
 })
+
+// Fork: the line is the hourly average and its route has no cache, so it is not fetched again more often than this
+const LINE_REFRESH_INTERVAL_MS = 60000
 
 const loading = ref(true)
 const error = ref(null)
@@ -246,37 +255,107 @@ const chartOptions = computed(() => {
   }
 })
 
-const fetchData = async () => {
-  loading.value = true
-  error.value = null
-  periodEnd.value = Date.now()
+// Fork: generation of the requests, so that a response of an older request does not replace a newer one
+let requestGeneration = 0
+// Fork: when the line was last fetched, and the fetch scheduled for the end of the interval of LINE_REFRESH_INTERVAL_MS
+let lastFetchAt = 0
+let backgroundRefreshTimer = null
+
+const cancelBackgroundRefresh = () => {
+  clearTimeout(backgroundRefreshTimer)
+  backgroundRefreshTimer = null
+}
+
+// fetchData fetches the line of the chart. With silent, used by the refreshes of the page, the spinner is not shown
+// and the chart is kept as it is while fetching, and also when the fetch fails
+const fetchData = async ({ silent = false } = {}) => {
+  const generation = ++requestGeneration
+  cancelBackgroundRefresh()
+  lastFetchAt = Date.now()
+  if (!silent) {
+    loading.value = true
+    error.value = null
+  }
   try {
     const response = await fetch(`${props.serverUrl}/api/v1/endpoints/${props.endpointKey}/response-times/${props.duration}/history`, {
       credentials: 'include'
     })
+    if (generation !== requestGeneration) {
+      return
+    }
     if (response.status === 200) {
       const data = await response.json()
+      if (generation !== requestGeneration) {
+        return
+      }
+      periodEnd.value = Date.now()
       timestamps.value = data.timestamps || []
       values.value = data.values || []
+      error.value = null
     } else {
-      error.value = 'Failed to load chart data'
+      if (!silent) {
+        error.value = 'Failed to load chart data'
+      }
       console.error('[ResponseTimeChart] Error:', await response.text())
     }
   } catch (err) {
-    error.value = 'Failed to load chart data'
+    if (generation !== requestGeneration) {
+      return
+    }
+    if (!silent) {
+      error.value = 'Failed to load chart data'
+    }
     console.error('[ResponseTimeChart] Error:', err)
   } finally {
-    loading.value = false
+    if (generation === requestGeneration) {
+      loading.value = false
+    }
   }
+}
+
+// refreshInBackground fetches the line again without the spinner, right away when the last fetch is older than
+// LINE_REFRESH_INTERVAL_MS, or else once at the end of that interval, however many changes arrive in the meantime
+const refreshInBackground = () => {
+  if (backgroundRefreshTimer !== null) {
+    return
+  }
+  const waitMs = lastFetchAt + LINE_REFRESH_INTERVAL_MS - Date.now()
+  if (waitMs <= 0) {
+    fetchData({ silent: true })
+    return
+  }
+  backgroundRefreshTimer = setTimeout(() => {
+    backgroundRefreshTimer = null
+    fetchData({ silent: true })
+  }, waitMs)
 }
 
 watch(() => props.duration, () => {
   fetchData()
 })
 
+// Fork: the timer of the interval starts over with another endpoint
+watch(() => props.endpointKey, () => {
+  timestamps.value = []
+  values.value = []
+  fetchData()
+})
+
+watch(() => props.refreshKey, (value, previous) => {
+  if (value === previous || loading.value) {
+    return
+  }
+  refreshInBackground()
+})
+
 // Fork: the events come with the refreshes of the page, so an ongoing period out of service follows the current time
 watch(() => props.events, () => {
   periodEnd.value = Date.now()
+})
+
+onUnmounted(() => {
+  cancelBackgroundRefresh()
+  requestGeneration++
 })
 
 onMounted(() => {

@@ -256,6 +256,10 @@ func TestBasicAuthentication_Unauthorized(t *testing.T) {
 	if response.status != http.StatusUnauthorized || response.header.Get("WWW-Authenticate") != "Basic" || response.header.Get("Cache-Control") != "no-store" || response.body != `{"error":"authentication required"}` {
 		t.Errorf("expected 401 with the Basic challenge without a browser, got %d %v %q", response.status, response.header, response.body)
 	}
+	// Fork: an EventSource on an HTTP page outside of localhost only sends Accept: text/event-stream
+	if response := doBasicAuthTestRequest(t, app, http.MethodGet, "/api/admin", basicAuthTestHeader("Accept", "text/event-stream")); response.status != http.StatusUnauthorized || response.header.Get("WWW-Authenticate") != "" {
+		t.Errorf("expected 401 without the Basic challenge for an event stream, got %d %v", response.status, response.header)
+	}
 	for _, header := range []string{"Sec-Fetch-Site", "Sec-Fetch-Mode", "X-Requested-With"} {
 		response := doBasicAuthTestRequest(t, app, http.MethodGet, "/api/admin", basicAuthTestHeader(header, "value"))
 		if response.status != http.StatusUnauthorized || response.header.Get("WWW-Authenticate") != "" || response.header.Get("Cache-Control") != "no-store" {

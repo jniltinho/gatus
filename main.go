@@ -10,6 +10,7 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/controller"
 	"gatus/v5/lifecycle"
+	"gatus/v5/liveupdates"
 	"gatus/v5/managedendpoint"
 	"gatus/v5/metrics"
 	"gatus/v5/pushkey"
@@ -56,6 +57,8 @@ func main() {
 
 // start must be called with a lifecycle cycle in progress, which it ends once monitoring has started
 func start(cfg *config.Config) {
+	// Fork: the new server accepts the event streams as soon as it listens
+	liveupdates.Open()
 	go controller.Handle(cfg)
 	metrics.InitializePrometheusMetrics(cfg, nil)
 	watchdog.Monitor(cfg)
@@ -66,6 +69,8 @@ func start(cfg *config.Config) {
 
 func stop(cfg *config.Config) {
 	watchdog.Shutdown(cfg)
+	// Fork: the event streams end before the server stops, which would otherwise wait for them
+	liveupdates.Close()
 	controller.Shutdown()
 	metrics.UnregisterPrometheusMetrics()
 	closeTunnels(cfg)
@@ -148,6 +153,7 @@ func initializeStorage(cfg *config.Config) {
 		}
 		// Fork: the push state (last push and retries used) of the keys that no longer exist is forgotten
 		watchdog.ForgetExternalEndpointsNotIn(keys)
+		liveupdates.ForgetExcept(keys)
 	}
 	// Public status pages, after the managed endpoints that they can select
 	statuspage.Load(cfg)

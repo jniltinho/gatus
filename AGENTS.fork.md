@@ -87,6 +87,19 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (doc
 - Tests: `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL` (a user allowed to create databases: each test uses a database of its own). Local containers: `gatus-test-mysql` (mysql:8.4.11, port 53306) and `gatus-test-mariadb` (mariadb:10.11.19, port 53307). `conformance_test.go` compares every database with SQLite.
 - Do not run two `go test` processes of `storage/store/sql` at the same time with `GATUS_TEST_POSTGRES_URL`: the PostgreSQL database is shared and `Clear` removes the data of the other process.
 
+## Real-time endpoint updates
+
+Change: `openspec/changes/realtime-endpoint-updates/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md#real-time-updates`); spec in `openspec/specs/realtime-endpoint-updates`.
+
+- `liveupdates` keeps a sequence per key that never resets (not even on reload) and notifies subscribers through channels of capacity 1. `Publish` is only called after a result is stored: `watchdog.UpdateEndpointStatus`, `processExternalEndpointResult` and `SubmitEndpointResult`. `Forget` on rename and delete, `ForgetExcept` on a successful reload.
+- The events never carry data of the result: the frontend refetches through the usual routes. The public route checks `statuspage.IsEndpointShown` before anything else, to keep the identical 404.
+- `api/live_updates.go` limits 500 streams and 10 per IP; the slot is reserved before `SetBodyStreamWriter` and released by the writer, which recovers panics. Never use the `fiber.Ctx` inside the writer.
+- The server write timeout covers the whole streamed body: `controller` sets `HeaderReceived` so that only paths matched by `liveupdates.IsEventsPath` get `StreamWriteTimeout`. `compress` skips the same paths (it would buffer the stream).
+- `main.go` calls `liveupdates.Close()` before `controller.Shutdown()` (which uses `ShutdownWithTimeout`), and `Open()` before `controller.Handle`.
+- The details cache key of the public pages includes `liveupdates.Sequence(key)`.
+- `security/basic_auth.go` treats `Accept: text/event-stream` as a browser request (no `WWW-Authenticate`), because an `EventSource` cannot send custom headers.
+- Frontend: `utils/liveUpdates.js` (`npm run test:unit`); on errors, only a CLOSED `EventSource` is reopened with backoff, never a CONNECTING one.
+
 ## Login screen of security.basic
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`); specs in `openspec/specs/basic-login-page` and `admin-access-control`.

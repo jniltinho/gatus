@@ -9,6 +9,7 @@ import (
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
+	"gatus/v5/liveupdates"
 	"gatus/v5/metrics"
 	"gatus/v5/storage/store"
 	"github.com/TwiN/logr"
@@ -148,6 +149,7 @@ func processExternalEndpointResult(ee *endpoint.ExternalEndpoint, result *endpoi
 	if err := store.Get().InsertEndpointResult(convertedEndpoint, result); err != nil {
 		return err
 	}
+	liveupdates.Publish(key)
 	if pushed {
 		lastPush(key).Store(time.Now().UnixNano())
 	}
@@ -195,6 +197,7 @@ func SubmitEndpointResult(key string, result *endpoint.Result) error {
 	if err := store.Get().InsertEndpointResult(ep, result); err != nil {
 		return err
 	}
+	liveupdates.Publish(key)
 	if cfg.Metrics {
 		metrics.PublishMetricsForEndpoint(ep, result, metrics.RegisteredExtraLabels())
 	}
