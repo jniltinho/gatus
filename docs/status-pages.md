@@ -106,7 +106,7 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
 - the panel of numbers of the dashboard: response time of the last check, average response time over 24 hours and uptime
   over 24 hours, 7 days and 30 days;
 - **Response Time Trend**: the same chart as the dashboard, with the 24 hours / 7 days / 30 days selector and the
-  periods when the endpoint was down as red bands;
+  periods when the endpoint was down as red bands and the pending periods as yellow bands;
 - **Checks table**, collapsed by default: status (Up, Down or Pending), date and time and response time of the latest
   checks, or, with `show-messages: true`, the same columns as the dashboard (status, date and time, message and origin),
   never with the errors of the checks;
@@ -211,7 +211,7 @@ not from `127.0.0.1`. Pin the subnet of the compose network so that the gateway 
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.14
+    image: jniltinho/gatus:v5.36.0-fork.15
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

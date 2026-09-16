@@ -17,7 +17,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import annotationPlugin from 'chartjs-plugin-annotation'
 import 'chartjs-adapter-date-fns'
 import { generatePrettyTimeDifference } from '@/utils/time'
-import { downtimeIntervals } from '@/utils/downtime'
+import { downtimeIntervals, pendingIntervals } from '@/utils/downtime'
 import Loading from './Loading.vue'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, TimeScale, annotationPlugin)
@@ -39,6 +39,11 @@ const props = defineProps({
   events: {
     type: Array,
     default: () => []
+  },
+  // Fork: the latest results, whose pending periods are shown in yellow
+  results: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -47,7 +52,7 @@ const error = ref(null)
 const timestamps = ref([])
 const values = ref([])
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const hoveredEventIndex = ref(null)
+const hoveredAnnotation = ref(null)
 
 const DURATIONS_MS = {
   '24h': 24 * 60 * 60 * 1000,
@@ -58,6 +63,13 @@ const DURATIONS_MS = {
 // End of the period of the chart, updated with the data so that the period follows the refreshes (fork)
 const periodEnd = ref(Date.now())
 const periodStart = computed(() => periodEnd.value - DURATIONS_MS[props.duration])
+
+// Fork: pending periods, from the first pending result to the next result that is not pending, clipped to the period
+const pendings = computed(() => pendingIntervals(props.results, periodStart.value, periodEnd.value).map((interval) => ({
+  ...interval,
+  ongoing: interval.end === periodEnd.value,
+  duration: generatePrettyTimeDifference(interval.end, interval.start)
+})))
 
 // Fork: periods out of service, from each UNHEALTHY event to the next HEALTHY event, clipped to the period of the chart
 const downtimes = computed(() => {
@@ -94,9 +106,9 @@ const chartData = computed(() => {
 })
 
 const chartOptions = computed(() => {
-  // Include hoveredEventIndex in dependency tracking
+  // Include hoveredAnnotation in dependency tracking
   // eslint-disable-next-line no-unused-vars
-  const _ = hoveredEventIndex.value
+  const _ = hoveredAnnotation.value
 
   return {
     responsive: true,
@@ -133,9 +145,40 @@ const chartOptions = computed(() => {
         }
       },
       annotation: {
-        // Fork: translucent red boxes over the periods out of service, in the place of the dashed lines of the events
-        annotations: downtimes.value.reduce((acc, downtime, index) => {
-          acc[`downtime-${index}`] = {
+        // Fork: translucent red boxes over the periods out of service, in the place of the dashed lines of the events, and
+        // yellow boxes over the pending periods
+        annotations: pendings.value.reduce((acc, pending, index) => {
+          const name = `pending-${index}`
+          acc[name] = {
+            type: 'box',
+            xMin: pending.start,
+            xMax: pending.end,
+            backgroundColor: isDark.value ? 'rgba(250, 204, 21, 0.2)' : 'rgba(234, 179, 8, 0.18)',
+            borderColor: isDark.value ? 'rgba(250, 204, 21, 0.7)' : 'rgba(202, 138, 4, 0.7)',
+            borderWidth: 1,
+            enter() {
+              hoveredAnnotation.value = name
+            },
+            leave() {
+              hoveredAnnotation.value = null
+            },
+            label: {
+              borderRadius: 0,
+              display: () => hoveredAnnotation.value === name,
+              content: [pending.ongoing ? 'Status: PENDING' : 'Status: RESOLVED', `Pending for ${pending.duration}`, `Started at ${new Date(pending.start).toLocaleString()}`],
+              backgroundColor: 'rgba(202, 138, 4, 0.95)',
+              color: '#ffffff',
+              font: {
+                size: 11
+              },
+              padding: 6,
+              position: { x: 'center', y: 'start' }
+            }
+          }
+          return acc
+        }, downtimes.value.reduce((acc, downtime, index) => {
+          const name = `downtime-${index}`
+          acc[name] = {
             type: 'box',
             xMin: downtime.start,
             xMax: downtime.end,
@@ -143,14 +186,14 @@ const chartOptions = computed(() => {
             borderColor: isDark.value ? 'rgba(248, 113, 113, 0.5)' : 'rgba(239, 68, 68, 0.4)',
             borderWidth: 1,
             enter() {
-              hoveredEventIndex.value = index
+              hoveredAnnotation.value = name
             },
             leave() {
-              hoveredEventIndex.value = null
+              hoveredAnnotation.value = null
             },
             label: {
               borderRadius: 0,
-              display: () => hoveredEventIndex.value === index,
+              display: () => hoveredAnnotation.value === name,
               content: [downtime.ongoing ? 'Status: ONGOING' : 'Status: RESOLVED', `Down for ${downtime.duration}`, `Started at ${new Date(downtime.start).toLocaleString()}`],
               backgroundColor: 'rgba(239, 68, 68, 0.9)',
               color: '#ffffff',
@@ -162,7 +205,7 @@ const chartOptions = computed(() => {
             }
           }
           return acc
-        }, {})
+        }, {}))
       }
     },
     scales: {

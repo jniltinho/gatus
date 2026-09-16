@@ -181,7 +181,8 @@ The details page of an endpoint (`/endpoints/<key>`) follows the order of the mo
   **Uptime** over 24 hours, 7 days and 30 days, with "—" without data. The average includes the pushes without `ping`
   as 0 ms;
 - the **Response Time Trend** chart, shown as soon as there is a result, with the periods when the endpoint was down
-  as red bands;
+  as red bands and the pending periods (from a Pending result to the next result that is not pending) as yellow
+  bands;
 - the table of checks, with the pagination.
 
 **Checks table** expands the table of the results of the page, from the most recent to the oldest, with the status (Up,

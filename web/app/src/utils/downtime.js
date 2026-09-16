@@ -44,3 +44,34 @@ export const downtimeIntervals = (events, periodStart, periodEnd, firstPointTime
     .map((interval) => ({ start: Math.max(interval.start, from), end: Math.min(interval.end, to) }))
     .filter((interval) => interval.end > interval.start)
 }
+
+// pendingIntervals returns the periods of consecutive pending results ({start, end}, in milliseconds) that overlap the
+// period between periodStart and periodEnd, clipped to it (fork). A period goes from the first pending result to the
+// next result that is not pending, or to the end of the period when the last result is pending. Pending results do
+// not create events, so the periods only cover the results received by the chart.
+export const pendingIntervals = (results, periodStart, periodEnd) => {
+  const from = toMilliseconds(periodStart)
+  const to = toMilliseconds(periodEnd)
+  const sorted = (results || [])
+    .map((result) => ({ pending: result.pending === true, time: toMilliseconds(result.timestamp) }))
+    .filter((result) => Number.isFinite(result.time))
+    .sort((a, b) => a.time - b.time)
+  const intervals = []
+  let openedAt = null
+  for (const result of sorted) {
+    if (result.pending) {
+      if (openedAt === null) {
+        openedAt = result.time
+      }
+    } else if (openedAt !== null) {
+      intervals.push({ start: openedAt, end: result.time })
+      openedAt = null
+    }
+  }
+  if (openedAt !== null) {
+    intervals.push({ start: openedAt, end: to })
+  }
+  return intervals
+    .map((interval) => ({ start: Math.max(interval.start, from), end: Math.min(interval.end, to) }))
+    .filter((interval) => interval.end > interval.start)
+}

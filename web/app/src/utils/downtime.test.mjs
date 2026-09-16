@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { downtimeIntervals } from './downtime.js'
+import { downtimeIntervals, pendingIntervals } from './downtime.js'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -90,4 +90,25 @@ test('unordered events and repeated UNHEALTHY events give a single period', () =
   assert.deepEqual(downtimeIntervals(events, NOW - DAY, NOW), [{ start: NOW - 2 * HOUR, end: NOW - HOUR }])
   assert.deepEqual(downtimeIntervals([], NOW - DAY, NOW), [])
   assert.deepEqual(downtimeIntervals(undefined, NOW - DAY, NOW), [])
+})
+
+test('pending results make yellow periods until the next result that is not pending', () => {
+  const at = (minutes) => new Date(Date.UTC(2026, 8, 16, 10, minutes)).toISOString()
+  const start = Date.UTC(2026, 8, 16, 9, 0)
+  const end = Date.UTC(2026, 8, 16, 11, 0)
+  const results = [
+    { timestamp: at(0), success: true },
+    { timestamp: at(5), pending: true },
+    { timestamp: at(6), pending: true },
+    { timestamp: at(7), success: false },
+    { timestamp: at(30), pending: true },
+  ]
+  assert.deepEqual(pendingIntervals(results, start, end), [
+    { start: Date.UTC(2026, 8, 16, 10, 5), end: Date.UTC(2026, 8, 16, 10, 7) },
+    { start: Date.UTC(2026, 8, 16, 10, 30), end },
+  ])
+  assert.deepEqual(pendingIntervals([{ timestamp: at(0), success: true }], start, end), [])
+  assert.deepEqual(pendingIntervals(results, Date.UTC(2026, 8, 16, 10, 6), Date.UTC(2026, 8, 16, 10, 20)), [
+    { start: Date.UTC(2026, 8, 16, 10, 6), end: Date.UTC(2026, 8, 16, 10, 7) },
+  ])
 })
