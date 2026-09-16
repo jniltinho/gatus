@@ -205,6 +205,65 @@ curl -u admin:your-password -H 'Content-Type: application/yaml' \
   http://127.0.0.1:8080/api/v1/admin/endpoints
 ```
 
+## Backup and restore
+
+The **Backup** tab (`/admin/backup`) downloads and restores what was registered through the web: the managed endpoints
+(with their groups, which are part of their definitions), the managed status pages and the push keys created through
+the web. It never includes the history (results, events, uptimes), the items of the configuration file, the login
+sessions nor the global configuration.
+
+### Download
+
+- The file is JSON (`gatus-backup-<date>.json`) with the complete definitions, **including tokens, passwords, headers and
+  webhooks of alerts in plain text**. Keep it safe.
+- **Encrypt with a password** (12 to 1024 bytes) writes `gatus-backup-<date>.enc.json` instead, encrypted with AES-256-GCM
+  and a key derived from the password with Argon2id. Without the password the file cannot be read, and a wrong
+  password and a changed file give the same error.
+- Push keys are backed up with the hash and the hint of their token only: after a restore, the scripts keep pushing with
+  the original key, whose token is never shown.
+- A backup holds at most 2 MiB, 1,000 endpoints, 200 status pages and 500 push keys; above that, the download answers 422.
+
+### Restore
+
+1. Choose the file (and type the password of an encrypted file) and click **Preview**. Nothing is changed: the preview
+   shows, for each item, whether it will be created, updated, left unchanged or skipped, and why. It simulates the items
+   in order (push keys, endpoints, status pages), so it predicts what the restore will do, and tells how many enabled
+   endpoints will start being monitored and how many have alerts.
+2. Items are skipped when:
+   - their key or slug is used by the configuration file;
+   - their definition is refused by the same validations as the forms (for example an alert provider that is not
+     configured, or a push token already used, including by another endpoint of the backup);
+   - they exist with a different definition and **Overwrite existing items** is not checked;
+   - they have a secret masked by the API (`********`, for example copied from the YAML editor), a push endpoint has no
+     token, or an endpoint would change its type;
+   - a push key has a name in use, or the hash of another key or of the token of any endpoint.
+3. **Restore endpoints as disabled** restores the endpoints with `enabled: false`, useful to restore into a test
+   installation without checking the production services nor sending alerts.
+4. Click **Restore** and confirm. Each item is applied like a change made through the forms, and the result of each one is
+   shown. Nothing is deleted, keys and slugs never change, and restoring the same file again leaves the applied items
+   unchanged. If anything changed since the preview, the restore answers 409 and nothing is applied: preview again.
+5. If a configuration reload starts during the restore, the remaining items are skipped: restore again afterwards.
+
+After 10 wrong passwords in 15 minutes, a client must wait before trying again; this limit does not affect the login.
+
+### API
+
+```bash
+# Backup, optionally encrypted
+curl -u admin:password -H 'Content-Type: application/json' -d '{"password":"a long password"}' \
+  -o gatus-backup.enc.json https://status.example.com/api/v1/admin/backup
+
+# Preview, then restore with the fingerprint of the preview
+jq -n --slurpfile file gatus-backup.enc.json '{file: $file[0], password: "a long password", overwrite: false}' > restore.json
+curl -u admin:password -H 'Content-Type: application/json' -d @restore.json https://status.example.com/api/v1/admin/restore/preview
+jq --arg fingerprint "<fingerprint>" '. + {fingerprint: $fingerprint}' restore.json > apply.json
+curl -u admin:password -H 'Content-Type: application/json' -d @apply.json https://status.example.com/api/v1/admin/restore
+```
+
+The three routes only accept `application/json`. Errors: 400 (invalid file or password), 409 (changed since the
+preview), 413 (body above 3.5 MiB), 415, 422 (backup above the limits), 429 (too many wrong passwords or encryptions
+in progress, with `Retry-After`) and 503 (reload in progress or registered items unavailable).
+
 ## Behind a reverse proxy
 
 The origin expected for changes is derived from the `Host` header and the scheme (`X-Forwarded-Proto`). With nginx,
@@ -227,9 +286,18 @@ status-pages:
   trusted-proxies: ["127.0.0.1"]
 ```
 
+A restore sends the backup file in the body of the request: raise the body limit of nginx, whose default is 1 MiB, and
+keep the read timeout above the time of a large restore:
+
+```nginx
+client_max_body_size 4m;
+proxy_read_timeout 120s;
+```
+
 ## Multiple instances with the same PostgreSQL, MySQL or MariaDB
 
-A change made on one instance only takes effect on the others after they restart or reload their configuration. In the
+A change made on one instance only takes effect on the others after they restart or reload their configuration. The
+same applies to the items of a restore. In the
 meantime, an instance that still monitors a removed or renamed endpoint may recreate the history of the old key, which
 is deleted when that instance restarts or reloads.
 

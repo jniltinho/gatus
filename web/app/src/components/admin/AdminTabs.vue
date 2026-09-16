@@ -21,15 +21,17 @@
 
 <script setup>
 defineProps({
-  // endpoints, status-pages or push-keys
+  // endpoints, status-pages, push-keys or backup (fork)
   active: { type: String, required: true },
-  // Without the bottom margin, for the layout of the lists of the administration
+  // Without the bottom margin, for the layout of the lists of the administration (the Backup tab uses the normal one)
   compact: { type: Boolean, default: false }
 })
 
 const tabs = [
   { id: 'endpoints', label: 'Endpoints', route: 'AdminEndpoints' },
   { id: 'status-pages', label: 'Status pages', route: 'AdminStatusPages' },
-  { id: 'push-keys', label: 'Push keys', route: 'AdminPushKeys' }
+  { id: 'push-keys', label: 'Push keys', route: 'AdminPushKeys' },
+  // Fork: backup and restore of the items managed through the web
+  { id: 'backup', label: 'Backup', route: 'AdminBackup' }
 ]
 </script>

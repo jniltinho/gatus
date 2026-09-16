@@ -217,52 +217,7 @@ func (s *Service) ParseDefinition(raw []byte) (map[string]any, error) {
 
 // Create creates a managed endpoint and starts monitoring it. A push endpoint without token gets a generated one.
 func (s *Service) Create(raw []byte, author string) (*Detail, error) {
-	end, ok := lifecycle.TryBeginChange()
-	if !ok {
-		return nil, ErrCycleInProgress
-	}
-	defer end()
-	statesMutex.Lock()
-	defer statesMutex.Unlock()
-	managedEndpointStore, ok := store.GetManagedEndpointStore()
-	if !ok {
-		return nil, ErrStorageNotSupported
-	}
-	raw, err := withGeneratedPushToken(raw)
-	if err != nil {
-		return nil, err
-	}
-	prepared, err := s.prepare(raw, "")
-	if err != nil {
-		return nil, err
-	}
-	key := prepared.Key()
-	// Generated before the endpoint starts being monitored (see State.Effective)
-	effective, err := effectiveDefinition(&prepared.Parsed)
-	if err != nil {
-		return nil, err
-	}
-	// Uses the storage outside of the transaction, so it must run before it
-	restoreTriggeredAlerts(&prepared.Parsed)
-	stored := &common.ManagedEndpoint{Key: key, Definition: string(prepared.Definition), UpdatedBy: author}
-	started := false
-	err = managedEndpointStore.CreateManagedEndpoint(stored, func() error {
-		if err := startMonitoring(&prepared.Parsed); err != nil {
-			return err
-		}
-		started = prepared.IsEnabled()
-		return nil
-	})
-	if err != nil {
-		if started {
-			_ = watchdog.StopEndpoint(key, watchdog.SourceAdmin)
-		}
-		return nil, err
-	}
-	state := newStateFromPrepared(stored, prepared, effective)
-	putState(state)
-	logr.Infof("[managedendpoint.Create] Managed endpoint with key=%s created by %s", key, auditAuthor(author))
-	return adminDetail(state)
+	return s.create(raw, author, true)
 }
 
 // Update replaces the definition of a managed endpoint whose current version is expectedVersion

@@ -67,3 +67,23 @@ func TestFailureLimiter_Keys(t *testing.T) {
 		t.Error("expected the client with the oldest failure to be forgotten")
 	}
 }
+
+func TestNewFailureLimiter_OwnWindow(t *testing.T) {
+	restore := NewFailureLimiter(15*time.Minute, 2, 100)
+	login := newFailureLimiter(2, 100)
+	clientIP := netip.MustParseAddr("203.0.113.9")
+	now := time.Now()
+	restore.Failure(clientIP, now)
+	restore.Failure(clientIP, now)
+	if blocked, retryAfter := restore.Blocked(clientIP, now.Add(10*time.Minute)); !blocked || retryAfter != 5*time.Minute {
+		t.Errorf("expected the restore limiter to block for the rest of its 15 minutes, got %v %s", blocked, retryAfter)
+	}
+	if blocked, _ := login.Blocked(clientIP, now); blocked {
+		t.Error("the failures of the restore limiter must not block the login")
+	}
+	login.Failure(clientIP, now)
+	login.Failure(clientIP, now)
+	if blocked, _ := login.Blocked(clientIP, now.Add(2*time.Minute)); blocked {
+		t.Error("expected the login limiter to keep its window of one minute")
+	}
+}

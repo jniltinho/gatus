@@ -41,7 +41,8 @@ func adminRequestProtection(adminConfig *admin.Config) fiber.Handler {
 			return adminError(c, fiber.StatusForbidden, "origin is not allowed: "+origin)
 		}
 		body := c.Body()
-		if len(body) > adminMaximumBodySize {
+		// Fork: the restore routes accept a backup file, checked by their handler (see api/admin_backup.go)
+		if len(body) > adminMaximumBodySize && !isAdminRestorePath(c.Path()) {
 			return adminError(c, fiber.StatusRequestEntityTooLarge, "request body is too large")
 		}
 		if len(body) > 0 && !isAdminMediaType(c.Get(fiber.HeaderContentType)) {

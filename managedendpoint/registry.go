@@ -86,10 +86,13 @@ func Load(cfg *config.Config) ([]string, error) {
 	configDefinitions.Store(&definitions)
 	managedEndpointStore, ok := store.GetManagedEndpointStore()
 	if !ok {
+		managedUnavailable.Store(false)
 		publish(map[string]*State{})
 		return nil, nil
 	}
 	storedEndpoints, err := managedEndpointStore.ListManagedEndpoints()
+	// Fork: the restore of a backup must not mistake an unavailable list for an empty one
+	managedUnavailable.Store(err != nil)
 	if err != nil {
 		publish(map[string]*State{})
 		return nil, err

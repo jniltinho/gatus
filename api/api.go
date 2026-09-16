@@ -59,6 +59,8 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 		app.Use(cors.New(cors.Config{
 			AllowOrigins:     "http://localhost:8081",
 			AllowCredentials: true,
+			// Fork: the name of a downloaded backup
+			ExposeHeaders: fiber.HeaderContentDisposition,
 		}))
 	}
 	// Middlewares
@@ -114,6 +116,7 @@ func (a *API) createRouter(cfg *config.Config) *fiber.App {
 		app.Get("/admin/status-pages/new", SinglePageApplication(cfg.UI))
 		app.Get("/admin/status-pages/:slug/edit", SinglePageApplication(cfg.UI))
 		app.Get("/admin/push-keys", SinglePageApplication(cfg.UI))
+		app.Get("/admin/backup", SinglePageApplication(cfg.UI))
 	}
 	// Health endpoint
 	healthHandler := health.Handler().WithJSON(true)

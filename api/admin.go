@@ -45,6 +45,8 @@ func registerAdminRoutes(router fiber.Router, cfg *config.Config) {
 	registerAdminStatusPageRoutes(router, cfg.Security)
 	// Global push keys (see api/admin_push_keys.go)
 	registerAdminPushKeyRoutes(router, cfg.Security)
+	// Backup and restore (fork, see api/admin_backup.go)
+	registerAdminBackupRoutes(router, cfg)
 }
 
 func (h *adminHandler) metadata(c *fiber.Ctx) error {
