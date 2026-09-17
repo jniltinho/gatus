@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -126,6 +127,32 @@ func TestNew(t *testing.T) {
 			}
 			if response.StatusCode != scenario.ExpectedCode {
 				t.Errorf("%s %s should have returned %d, but returned %d instead", request.Method, request.URL, scenario.ExpectedCode, response.StatusCode)
+			}
+		})
+	}
+}
+
+// Fork: the Inter of the interface is served by Gatus itself, from the embedded static files
+func TestFontsAreServed(t *testing.T) {
+	for _, path := range []string{"/fonts/inter-4-1-latin.woff2", "/fonts/inter-4-1-latin-ext.woff2"} {
+		t.Run(path, func(t *testing.T) {
+			api := New(&config.Config{UI: &ui.Config{}})
+			response, err := api.Router().Test(httptest.NewRequest("GET", path, http.NoBody))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != fiber.StatusOK {
+				t.Fatalf("GET %s should have returned %d, but returned %d instead", path, fiber.StatusOK, response.StatusCode)
+			}
+			if contentType := response.Header.Get("Content-Type"); contentType != "font/woff2" {
+				t.Errorf("GET %s should have returned the type font/woff2, but returned %s", path, contentType)
+			}
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(body) < 4 || string(body[:4]) != "wOF2" {
+				t.Errorf("GET %s should have returned a woff2 file", path)
 			}
 		})
 	}
