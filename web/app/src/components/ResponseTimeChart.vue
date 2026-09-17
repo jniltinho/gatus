@@ -59,6 +59,15 @@ import Loading from './Loading.vue'
 
 ChartJS.register(LineController, BarController, LineElement, BarElement, PointElement, LinearScale, TimeScale, Tooltip, Filler)
 
+// Fork: the chart draws its labels on a canvas with the default stack of Chart.js, which would be the only block of the
+// interface outside of the font of the theme
+if (typeof document !== 'undefined') {
+  const bodyFont = getComputedStyle(document.body).fontFamily
+  if (bodyFont) {
+    ChartJS.defaults.font.family = bodyFont
+  }
+}
+
 const props = defineProps({
   // Base of the route of the chart, protected or public, without the query
   chartUrl: {

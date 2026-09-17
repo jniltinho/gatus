@@ -7,6 +7,8 @@ module.exports = {
   theme: {
     fontFamily: {
       'mono': ['Consolas', 'Monaco', '"Courier New"', 'monospace'],
+      // Fork: the Inter is served by Gatus itself (see the @font-face of src/index.css); the system stack stays as the
+      // fallback, so the interface keeps working if the file does not load
       'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
     },
     // Visual quadrado do fork: todas as variantes de rounded-* valem 0, exceto rounded-full (indicadores circulares)

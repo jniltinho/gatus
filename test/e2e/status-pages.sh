@@ -195,6 +195,17 @@ grep -q "Other services" <<<"$(body_text public)" || fail "the endpoint without 
 requests=$(public network requests 2>/dev/null)
 grep -q "/api/v1/config" <<<"$requests" && fail "the public page called /api/v1/config"
 grep -qE '\b401\b' <<<"$requests" && fail "a request of the public page received 401"
+# Fork: the Inter comes from Gatus itself. The FontFace has to be loaded: document.fonts.check() answers true even
+# without any @font-face, because the family then resolves to a font of the system
+font_loaded=$(public eval "(async () => { await document.fonts.ready; return Array.from(document.fonts).some((face) => face.family === 'Inter' && face.status === 'loaded') })()" 2>/dev/null | tr -d '"')
+[ "$font_loaded" = "true" ] || fail "the Inter of the interface was not loaded: $font_loaded"
+font_request=$(public eval "(() => { const entries = performance.getEntriesByType('resource'); const inter = entries.find((entry) => entry.name.includes('/fonts/inter-4-1-latin.woff2')); const external = entries.some((entry) => entry.name.includes('fonts.googleapis.com') || entry.name.includes('fonts.gstatic.com')); return JSON.stringify({ downloaded: Boolean(inter && inter.decodedBodySize > 0), external }) })()" 2>/dev/null | tr -d '\\"')
+grep -q 'downloaded:true' <<<"$font_request" || fail "the font was not downloaded from Gatus: $font_request"
+grep -q 'external:false' <<<"$font_request" || fail "the page asked a font service for a font: $font_request"
+# Tabular figures: the pair of control shows that the feature applies, and not only that the font has fixed digits
+tabular=$(public eval "(async () => { await document.fonts.ready; const make = (variant, digits) => { const span = document.createElement('span'); span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-variant-numeric:' + variant; span.textContent = digits; document.body.appendChild(span); return span }; const normalOne = make('normal', '1111111111'); const normalNine = make('normal', '9999999999'); const tabularOne = make('tabular-nums', '1111111111'); const tabularNine = make('tabular-nums', '9999999999'); const result = { tabularEqual: tabularOne.offsetWidth === tabularNine.offsetWidth, proportionalDiffers: normalOne.offsetWidth !== normalNine.offsetWidth }; [normalOne, normalNine, tabularOne, tabularNine].forEach((span) => span.remove()); return JSON.stringify(result) })()" 2>/dev/null | tr -d '\\"')
+grep -q 'tabularEqual:true' <<<"$tabular" || fail "the figures are not tabular: $tabular"
+grep -q 'proportionalDiffers:true' <<<"$tabular" || fail "the font does not distinguish proportional from tabular figures: $tabular"
 
 step "Detail of a check with the keyboard"
 public eval "document.querySelector('[data-testid=\"status-endpoint-health\"] [role=group]').focus()" >/dev/null

@@ -42,6 +42,23 @@ func TestEmbed(t *testing.T) {
 			expectedContainString: "function",
 		},
 		{
+			// Fork: the Inter served by Gatus itself, see AGENTS.fork.md
+			path:                  "fonts/inter-4-1-latin.woff2",
+			shouldExist:           true,
+			expectedContainString: "wOF2",
+		},
+		{
+			path:                  "fonts/inter-4-1-latin-ext.woff2",
+			shouldExist:           true,
+			expectedContainString: "wOF2",
+		},
+		{
+			// The SIL Open Font License has to be distributed with the font
+			path:                  "fonts/OFL.txt",
+			shouldExist:           true,
+			expectedContainString: "SIL Open Font License",
+		},
+		{
 			path:        "file-that-does-not-exist.html",
 			shouldExist: false,
 		},
