@@ -123,7 +123,7 @@ Change (archived): `openspec/changes/archive/2026-09-16-kuma-response-time-chart
 
 ## Thin scrollbar of the theme
 
-Change (archived): `openspec/changes/archive/<date>-style-thin-scrollbars/`; specs in `openspec/specs/ui-square-style` and `openspec/specs/ui-theme`.
+Change (archived): `openspec/changes/archive/2026-09-17-style-thin-scrollbars/`; specs in `openspec/specs/ui-square-style` and `openspec/specs/ui-theme`.
 
 - The rules are in `web/app/src/index.css`, **outside of `@layer base`** and next to `html { height: 100% }`: the `custom.css` of `ui.custom-css` is an unlayered `<link>` and would win over anything inside a layer, whatever the order. Keeping the rules unlayered means `ui.custom-css` needs `!important` to override them, which is what `docs/README.md` says.
 - `--scrollbar-size` (10 px) lives in `:root`; `--scrollbar-thumb` and `--scrollbar-thumb-hover` are defined for both themes with the HSL triple convention, from `--muted-foreground` (contrast of at least 3:1 over the background of every scrollable area).
