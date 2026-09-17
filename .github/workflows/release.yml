@@ -41,10 +41,28 @@ jobs:
           if [ -z "$previous" ] && git rev-parse -q --verify "refs/tags/${GITHUB_REF_NAME%-fork.*}" >/dev/null; then
             previous="${GITHUB_REF_NAME%-fork.*}"
           fi
-          args=(--title "$GITHUB_REF_NAME" --generate-notes --latest --verify-tag)
-          if [ -n "$previous" ]; then
-            args+=(--notes-start-tag "$previous")
+          packages=(dist/gatus_*_linux_amd64.tar.gz dist/gatus_*_linux_arm64.tar.gz)
+          # A release pode já existir quando as notas foram escritas à mão logo depois da tag: nesse caso só faltam
+          # os pacotes, e criar de novo falharia deixando a release sem binário nenhum
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${packages[@]}" --clobber
+          else
+            args=(--title "$GITHUB_REF_NAME" --generate-notes --latest --verify-tag)
+            if [ -n "$previous" ]; then
+              args+=(--notes-start-tag "$previous")
+            fi
+            gh release create "$GITHUB_REF_NAME" "${args[@]}" "${packages[@]}"
           fi
-          gh release create "$GITHUB_REF_NAME" "${args[@]}" \
-            dist/gatus_*_linux_amd64.tar.gz \
-            dist/gatus_*_linux_arm64.tar.gz
+
+      - name: Check that the release has the packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '[.assets[].name] | join(" ")')
+          for arch in amd64 arm64; do
+            case "$assets" in
+              *"_linux_$arch.tar.gz"*) ;;
+              *) echo "a release $GITHUB_REF_NAME ficou sem o pacote linux_$arch: $assets"; exit 1 ;;
+            esac
+          done
+          echo "pacotes na release: $assets"
