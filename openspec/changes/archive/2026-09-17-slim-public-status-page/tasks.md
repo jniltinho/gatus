@@ -12,4 +12,4 @@
 - [x] 2.2 Rodar `test/e2e/status-pages.sh` e `test/e2e/push.sh` e conferir os prints (página pública e página de detalhes, que usa o mesmo componente).
 - [x] 2.3 Conferência manual em 1280×900, 800×600, 390×844 e 360×800, nos temas claro e escuro, incluindo um endpoint com aviso de certificado, um nome longo e a página pública de detalhes (tooltip abaixo das barras, título do cartão sem cobertura).
 - [x] 2.4 `make frontend-build` com o `web/static` no commit, `make lint` e `openspec validate slim-public-status-page --strict`.
-- [ ] 2.5 Entrega: PR em `jniltinho/gatus` com CI verde, release da próxima versão da série com notas em pt-BR, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos, e PR de arquivamento.
+- [x] 2.5 Entrega: PR em `jniltinho/gatus` com CI verde, release da próxima versão da série com notas em pt-BR, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos, e PR de arquivamento.

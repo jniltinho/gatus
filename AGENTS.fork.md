@@ -134,7 +134,7 @@ Change (archived): `openspec/changes/archive/2026-09-17-style-thin-scrollbars/`;
 
 ## Font of the interface
 
-Change (archived): `openspec/changes/archive/<date>-self-host-inter-font/`; spec in `openspec/specs/ui-theme`.
+Change (archived): `openspec/changes/archive/2026-09-17-self-host-inter-font/`; spec in `openspec/specs/ui-theme`.
 
 - The interface uses **Inter, served by Gatus itself**: `web/app/src/assets/fonts/inter-4-1-latin.woff2` and `inter-4-1-latin-ext.woff2` (variable, weights 100–900), emitted by the build to `web/static/fonts/` and embedded in the binary. Nothing is fetched from a font service, on any screen. The licence is served next to them, at `/fonts/OFL.txt` (`web/app/public/fonts/OFL.txt`).
 - The `@font-face` in `web/app/src/index.css` references the files with a **relative** path (`./assets/fonts/…`). An absolute `/fonts/…` breaks the build: the css-loader treats a path starting with `/` as a module request and resolves it from `web/app`.
