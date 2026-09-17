@@ -5,25 +5,26 @@
 Health dashboard that monitors HTTP, ICMP, TCP, DNS and other services, evaluates conditions on the status, response
 time, body and certificates, sends alerts and shows the history of every check.
 
-This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus) that adds:
+![Dashboard](docs/screenshots/dashboard.png)
 
-- **Endpoint administration through the web**: create, edit, disable and remove endpoints at `/admin`, without
-  restarting Gatus. [docs/admin-endpoints.md](docs/admin-endpoints.md)
-- **Public status pages**: pages open without login at `/status/<slug>`, with featured endpoints and a details page for
-  every endpoint, while the dashboard stays protected. [docs/status-pages.md](docs/status-pages.md)
-- **MySQL and MariaDB storage**: `storage.type: mysql` for MySQL 8.4+ and MariaDB 10.11+, besides SQLite and
-  PostgreSQL. [docs/storage-mysql.md](docs/storage-mysql.md)
-- **Push monitoring compatible with the Uptime Kuma**: scripts and services report their status at
-  `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys, push on active endpoints and a
-  Pending status (yellow) with retries.
-  [docs/push-monitoring.md](docs/push-monitoring.md)
-- **TLS certificate expiration**: days until the certificate expires, discreetly below the name of the endpoint on the
-  dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md)
-- **Login screen for `security.basic`**: a login page with logout instead of the browser dialog, with sessions stored
-  in the database and a limit of failed logins, while `curl -u` keeps working.
-  [docs/admin-endpoints.md](docs/admin-endpoints.md#login-screen)
+## What this fork adds
 
-![Gatus dashboard](.github/assets/dashboard-dark.jpg)
+This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus). Everything from the original keeps working the same
+way; on top of it:
+
+| | |
+|---|---|
+| **Endpoint administration through the web** | Create, edit, disable and remove endpoints at `/admin`, without restarting Gatus. [docs/admin-endpoints.md](docs/admin-endpoints.md) |
+| **Public status pages** | Pages open without login at `/status/<slug>`, with featured endpoints and a details page for every endpoint, while the dashboard stays protected. [docs/status-pages.md](docs/status-pages.md) |
+| **MySQL and MariaDB storage** | `storage.type: mysql` for MySQL 8.4+ and MariaDB 10.11+, besides SQLite and PostgreSQL. [docs/storage-mysql.md](docs/storage-mysql.md) |
+| **Push monitoring compatible with the Uptime Kuma** | Scripts and services report their status at `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys, push on active endpoints and a Pending status with retries. [docs/push-monitoring.md](docs/push-monitoring.md) |
+| **Response time chart of the Uptime Kuma** | Periods Recent, 3h, 6h, 24h and 1w, with the average, the minimum and the maximum, and columns for the failures. [docs/status-pages.md](docs/status-pages.md#response-time-chart) |
+| **TLS certificate expiration** | Days until the certificate expires, below the name of the endpoint on the dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md) |
+| **Login screen for `security.basic`** | A login page with logout instead of the browser dialog, with sessions stored in the database and a limit of failed logins, while `curl -u` keeps working. [docs/admin-endpoints.md](docs/admin-endpoints.md#login-screen) |
+| **Backup and restore of the administration** | A JSON file with the endpoints, status pages and push keys, optionally encrypted, restored with a preview of what changes. [docs/admin-endpoints.md](docs/admin-endpoints.md#backup-and-restore) |
+| **Interface of its own** | Dark mode by default, square style, thin scrollbar in the colours of the theme and the Inter font served by Gatus itself, without calling any external service. |
+
+**[See every screen →](docs/screenshots/README.md)**
 
 ## Quick start
 
@@ -56,16 +57,34 @@ endpoints:
       - "[RESPONSE_TIME] < 500"
 ```
 
-To keep the history across restarts, configure `storage` (`sqlite`, `postgres` or `mysql`). The administration also
-requires `security` and `admin.enabled: true`.
+To keep the history across restarts, configure `storage` (`sqlite`, `postgres` or `mysql`):
+
+```yaml
+storage:
+  type: sqlite
+  path: /data/data.db
+```
+
+The administration and the login screen need `security` and `admin.enabled: true`. The password is a bcrypt hash in
+base64, which [docs/generate-admin-password.py](docs/generate-admin-password.py) generates:
+
+```yaml
+security:
+  basic:
+    username: admin
+    password-bcrypt-base64: "JDJhJDEwJD..."
+admin:
+  enabled: true
+```
 
 ## Documentation
 
 | Topic | Where |
 |-------|-------|
+| Screens of the fork | [docs/screenshots/README.md](docs/screenshots/README.md) |
 | Full configuration: endpoints, conditions, alerting, storage, security, UI, suites, deployment and FAQ | [docs/README.md](docs/README.md) |
-| Endpoint administration through the web | [docs/admin-endpoints.md](docs/admin-endpoints.md) |
-| Public status pages | [docs/status-pages.md](docs/status-pages.md) |
+| Endpoint administration through the web, login screen, backup and restore | [docs/admin-endpoints.md](docs/admin-endpoints.md) |
+| Public status pages and response time chart | [docs/status-pages.md](docs/status-pages.md) |
 | MySQL and MariaDB storage | [docs/storage-mysql.md](docs/storage-mysql.md) |
 | Push monitoring compatible with the Uptime Kuma | [docs/push-monitoring.md](docs/push-monitoring.md) |
 | Docker Compose examples | [.examples](.examples) |
@@ -84,7 +103,7 @@ The Go module is named `gatus/v5` and does not depend on the original repository
 
 Fork releases use `v<upstream-version>-fork.<N>` tags, with `linux/amd64` and `linux/arm64` tarballs on
 [GitHub](https://github.com/jniltinho/gatus/releases) and the `jniltinho/gatus:<tag>` image on
-[Docker Hub](https://hub.docker.com/r/jniltinho/gatus).
+[Docker Hub](https://hub.docker.com/r/jniltinho/gatus). There is no `latest` tag on purpose: pin the version you run.
 
 ## License
 
