@@ -331,16 +331,20 @@ func TestStore_Persistence(t *testing.T) {
 	store, _ := NewStore("sqlite", path, false, storage.DefaultMaximumNumberOfResults, storage.DefaultMaximumNumberOfEvents)
 	store.InsertEndpointResult(&testEndpoint, &testSuccessfulResult)
 	store.InsertEndpointResult(&testEndpoint, &testUnsuccessfulResult)
-	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), time.Now().Add(-time.Hour), time.Now()); uptime != 0.5 {
+	// Fork: the ranges end at the timestamp of the results, not at time.Now(). Uptime is stored by hour, truncated to
+	// the start of the hour, so a package that starts at 19:59 and reaches this test at 20:00 would ask for the range
+	// [19:00:20, 20:00:20] and miss the row of the hour 19:00:00, which made the CI fail at the turn of the hour.
+	resultsTime := testSuccessfulResult.Timestamp
+	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), resultsTime.Add(-time.Hour), resultsTime); uptime != 0.5 {
 		t.Errorf("the uptime over the past 1h should've been 0.5, got %f", uptime)
 	}
-	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), time.Now().Add(-time.Hour*24), time.Now()); uptime != 0.5 {
+	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), resultsTime.Add(-time.Hour*24), resultsTime); uptime != 0.5 {
 		t.Errorf("the uptime over the past 24h should've been 0.5, got %f", uptime)
 	}
-	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), time.Now().Add(-time.Hour*24*7), time.Now()); uptime != 0.5 {
+	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), resultsTime.Add(-time.Hour*24*7), resultsTime); uptime != 0.5 {
 		t.Errorf("the uptime over the past 7d should've been 0.5, got %f", uptime)
 	}
-	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), time.Now().Add(-time.Hour*24*30), time.Now()); uptime != 0.5 {
+	if uptime, _ := store.GetUptimeByKey(testEndpoint.Key(), resultsTime.Add(-time.Hour*24*30), resultsTime); uptime != 0.5 {
 		t.Errorf("the uptime over the past 30d should've been 0.5, got %f", uptime)
 	}
 	ssFromOldStore, _ := store.GetEndpointStatus(testEndpoint.Group, testEndpoint.Name, paging.NewEndpointStatusParams().WithResults(1, storage.DefaultMaximumNumberOfResults).WithEvents(1, storage.DefaultMaximumNumberOfEvents))
