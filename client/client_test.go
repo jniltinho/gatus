@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -585,11 +586,51 @@ func TestQueryDNS(t *testing.T) {
 	}
 }
 
+// startSSHBannerServer starts a listener on the loopback that writes a banner and closes the connection, like an SSH
+// server does before the handshake, and returns its address in the host:port format taken by CheckSSHBanner.
+//
+// Fork: the test used to dial a public SSH server (tty.sdf.org), so an outage of that server failed the build.
+func startSSHBannerServer(t *testing.T, banner string) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on the loopback: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = listener.Close()
+	})
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			_, _ = conn.Write([]byte(banner))
+			_ = conn.Close()
+		}
+	}()
+	return listener.Addr().String()
+}
+
+// closedLoopbackAddress returns an address on the loopback where nothing is listening
+func closedLoopbackAddress(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on the loopback: %v", err)
+	}
+	address := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("failed to close the listener: %v", err)
+	}
+	return address
+}
+
 func TestCheckSSHBanner(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{Timeout: 3}
 	t.Run("no-auth-ssh", func(t *testing.T) {
-		connected, status, err := CheckSSHBanner("tty.sdf.org", cfg)
+		connected, status, err := CheckSSHBanner(startSSHBannerServer(t, "SSH-2.0-Gatus_Test\r\n"), cfg)
 		if err != nil {
 			t.Errorf("Expected: error != nil, got: %v ", err)
 		}
@@ -601,7 +642,7 @@ func TestCheckSSHBanner(t *testing.T) {
 		}
 	})
 	t.Run("invalid-address", func(t *testing.T) {
-		connected, status, err := CheckSSHBanner("idontplaytheodds.com", cfg)
+		connected, status, err := CheckSSHBanner(closedLoopbackAddress(t), cfg)
 		if err == nil {
 			t.Errorf("Expected: error, got: %v ", err)
 		}
