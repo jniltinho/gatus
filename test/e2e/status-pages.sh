@@ -207,6 +207,46 @@ tabular=$(public eval "(async () => { await document.fonts.ready; const make = (
 grep -q 'tabularEqual:true' <<<"$tabular" || fail "the figures are not tabular: $tabular"
 grep -q 'proportionalDiffers:true' <<<"$tabular" || fail "the font does not distinguish proportional from tabular figures: $tabular"
 
+step "Slim layout: line height, aligned uptime columns and floating tooltip"
+# Fork: measured on /status/messages, which selects the group core without featured, so two endpoints share one list
+public open "$BASE/status/messages" >/dev/null
+public wait "$(testid status-endpoint-offline)" >/dev/null || fail "the messages page did not open"
+slim=$(public eval "(() => { const row = document.querySelector('[data-testid=\"status-endpoint-offline\"]'); const columns = (name) => Array.from(document.querySelectorAll('[data-testid=\"status-endpoint-' + name + '\"] dl > div')).map((cell) => ({ left: Math.round(cell.getBoundingClientRect().left), width: Math.round(cell.getBoundingClientRect().width), text: cell.textContent.trim() })); const offline = columns('offline'); const health = columns('health'); const labels = Array.from(document.querySelectorAll('[data-testid=\"status-group-core\"] > div dt')); const rowLabels = Array.from(document.querySelectorAll('[data-testid=\"status-group-core\"] li dt')); return JSON.stringify({ height: Math.round(row.getBoundingClientRect().height), columns: offline.length === 3 && health.length === 3, filled: [...offline, ...health].every((cell) => cell.width > 0 && /[0-9]|—/.test(cell.text)), aligned: offline.every((cell, index) => Math.abs(cell.left - health[index].left) <= 1), groupLabels: labels.length === 3 && labels.every((label) => getComputedStyle(label).display !== 'none'), rowLabelsHidden: rowLabels.length > 0 && rowLabels.every((label) => getComputedStyle(label).display === 'none'), liveRegions: document.querySelectorAll('[data-testid=\"status-endpoint-offline\"] [aria-live]').length, liveEmpty: document.querySelector('[data-testid=\"status-endpoint-offline\"] [aria-live]').textContent.trim() === '', tooltip: document.querySelectorAll('[data-testid=\"status-endpoint-detail\"]').length }) })()" 2>/dev/null | tr -d '\\"')
+case "$(sed -n 's/.*height:\([0-9]*\).*/\1/p' <<<"$slim")" in
+  5[6-9] | 6[0-9] | 7[0-2]) ;;
+  *) fail "the line of the endpoint is outside of 56 to 72 px: $slim" ;;
+esac
+grep -q "columns:true" <<<"$slim" || fail "the uptime columns are missing: $slim"
+grep -q "filled:true" <<<"$slim" || fail "the uptime columns have no visible value: $slim"
+grep -q "aligned:true" <<<"$slim" || fail "the uptime columns of the two endpoints are not aligned: $slim"
+grep -q "groupLabels:true" <<<"$slim" || fail "the group header does not show the labels of the periods: $slim"
+grep -q "rowLabelsHidden:true" <<<"$slim" || fail "the labels of the periods are repeated in the rows: $slim"
+grep -q "liveRegions:1" <<<"$slim" || fail "the live region of the detail is missing: $slim"
+grep -q "liveEmpty:true" <<<"$slim" || fail "the live region should be empty without an active check: $slim"
+grep -q "tooltip:0" <<<"$slim" || fail "the tooltip should not exist before any check is active: $slim"
+# The last bar is the one that would leak out of the row
+public hover "$(testid status-endpoint-offline) [role=group] > span:last-child" >/dev/null
+tooltip=$(public eval "(() => { const row = document.querySelector('[data-testid=\"status-endpoint-offline\"]'); const next = document.querySelector('[data-testid=\"status-endpoint-health\"]'); const tip = document.querySelector('[data-testid=\"status-endpoint-detail\"]'); if (!tip) { return JSON.stringify({ shown: false }) } const rowRect = row.getBoundingClientRect(); const tipRect = tip.getBoundingClientRect(); return JSON.stringify({ shown: / ms$/.test(tip.textContent.trim()), height: Math.round(rowRect.height), nextTop: Math.round(next.getBoundingClientRect().top), inside: tipRect.left >= rowRect.left - 1 && tipRect.right <= rowRect.right + 1, pointerEvents: getComputedStyle(tip).pointerEvents, noScroll: document.documentElement.scrollWidth <= innerWidth + 1 }) })()" 2>/dev/null | tr -d '\\"')
+grep -q "shown:true" <<<"$tooltip" || fail "the tooltip of the check did not show up: $tooltip"
+grep -q "inside:true" <<<"$tooltip" || fail "the tooltip leaked out of the line: $tooltip"
+grep -q "pointerEvents:none" <<<"$tooltip" || fail "the tooltip captures the pointer: $tooltip"
+grep -q "noScroll:true" <<<"$tooltip" || fail "the tooltip added horizontal scroll: $tooltip"
+[ "$(sed -n 's/.*height:\([0-9]*\).*/\1/p' <<<"$tooltip")" = "$(sed -n 's/.*height:\([0-9]*\).*/\1/p' <<<"$slim")" ] || fail "the tooltip changed the height of the line"
+# Takes the pointer off the bars, so that the screenshots that follow do not carry the tooltip
+public hover "$(testid status-page-title)" >/dev/null
+public screenshot --full "$PRINTS/01b-messages-slim.png" >/dev/null
+# Narrow screens keep the label next to the value and no horizontal scroll
+public set viewport 360 800 >/dev/null
+public reload >/dev/null
+public wait "$(testid status-endpoint-offline)" >/dev/null
+narrow=$(public eval "(() => { const labels = Array.from(document.querySelectorAll('[data-testid=\"status-group-core\"] li dt')); return JSON.stringify({ noScroll: document.documentElement.scrollWidth <= innerWidth + 1, labelsVisible: labels.length > 0 && labels.every((label) => getComputedStyle(label).display !== 'none'), bars: document.querySelectorAll('[data-testid=\"status-endpoint-offline\"] [role=group] > span').length }) })()" 2>/dev/null | tr -d '\\"')
+grep -q "noScroll:true" <<<"$narrow" || fail "the page scrolls horizontally at 360 px: $narrow"
+grep -q "labelsVisible:true" <<<"$narrow" || fail "the labels of the periods disappeared on a narrow screen: $narrow"
+grep -q "bars:25" <<<"$narrow" || fail "a narrow screen should show 25 bars: $narrow"
+public set viewport 1280 900 >/dev/null
+public open "$BASE/status/services" >/dev/null
+public wait --text "Partial outage" >/dev/null
+
 step "Detail of a check with the keyboard"
 public eval "document.querySelector('[data-testid=\"status-endpoint-health\"] [role=group]').focus()" >/dev/null
 public press ArrowLeft >/dev/null

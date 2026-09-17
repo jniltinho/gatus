@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto px-4 py-8 max-w-5xl">
+  <div class="container mx-auto px-4 py-6 max-w-5xl">
     <div v-if="state === 'loading'" class="py-16 flex justify-center"><Loading /></div>
 
     <section v-else-if="state === 'not-found'" class="py-16 text-center" data-testid="status-page-not-found">
@@ -18,19 +18,19 @@
       </div>
 
       <template v-if="page">
-        <header class="mb-6">
-          <h1 class="text-3xl font-bold tracking-tight" data-testid="status-page-title">{{ page.title }}</h1>
-          <p v-if="page.description" class="mt-2 text-muted-foreground whitespace-pre-line" data-testid="status-page-description">{{ page.description }}</p>
+        <header class="mb-4">
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl" data-testid="status-page-title">{{ page.title }}</h1>
+          <p v-if="page.description" class="mt-1 text-muted-foreground whitespace-pre-line" data-testid="status-page-description">{{ page.description }}</p>
         </header>
 
         <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" />
 
-        <p v-if="page.truncated" class="mt-3 text-sm text-muted-foreground">Showing the first 200 services.</p>
-        <p v-if="page.groups.length === 0 && featuredEndpoints.length === 0" class="mt-8 text-center text-muted-foreground">No services on this page.</p>
+        <p v-if="page.truncated" class="mt-2 text-sm text-muted-foreground">Showing the first 200 services.</p>
+        <p v-if="page.groups.length === 0 && featuredEndpoints.length === 0" class="mt-6 text-center text-muted-foreground">No services on this page.</p>
 
-        <section v-if="featuredEndpoints.length" class="mt-8" aria-labelledby="status-featured-title" data-testid="status-featured">
-          <h2 id="status-featured-title" class="mb-3 text-lg font-semibold">Featured</h2>
-          <ul :class="['grid gap-4', featuredEndpoints.length > 1 ? 'md:grid-cols-2' : '']">
+        <section v-if="featuredEndpoints.length" class="mt-6" aria-labelledby="status-featured-title" data-testid="status-featured">
+          <h2 id="status-featured-title" class="mb-2 text-lg font-semibold">Featured</h2>
+          <ul :class="['grid gap-3', featuredEndpoints.length > 1 ? 'md:grid-cols-2' : '']">
             <EndpointRow
               v-for="endpoint in featuredEndpoints"
               :key="`${endpoint.group}-${endpoint.name}`"
@@ -46,13 +46,19 @@
         <section
           v-for="(group, groupIndex) in page.groups"
           :key="group.name || '__without-group__'"
-          class="mt-8"
+          class="mt-6"
           :aria-labelledby="`status-group-${groupIndex}`"
           :data-testid="`status-group-${group.name || 'outros'}`"
         >
-          <div class="flex items-center justify-between gap-4 border-b pb-2 dark:border-gray-800">
-            <h2 :id="`status-group-${groupIndex}`" class="text-lg font-semibold">{{ group.name || 'Other services' }}</h2>
-            <span :class="['text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
+          <div class="flex items-baseline justify-between gap-4 border-b pb-1.5 dark:border-gray-800">
+            <div class="flex min-w-0 items-baseline gap-3">
+              <h2 :id="`status-group-${groupIndex}`" class="truncate text-lg font-semibold">{{ group.name || 'Other services' }}</h2>
+              <span :class="['shrink-0 text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
+            </div>
+            <!-- Fork: the labels of the periods appear once per group, aligned with the columns of each row -->
+            <dl class="hidden shrink-0 grid-cols-3 text-xs text-muted-foreground sm:grid" aria-hidden="true">
+              <dt v-for="period in UPTIME_PERIODS" :key="period" class="w-16 text-right">{{ period }}</dt>
+            </dl>
           </div>
           <ul class="divide-y dark:divide-gray-800">
             <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" :slug="slug" />
@@ -70,6 +76,8 @@ import Loading from '@/components/Loading.vue'
 import StatusSummary from '@/components/public/StatusSummary.vue'
 import EndpointRow from '@/components/public/EndpointRow.vue'
 import { SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
+
+const UPTIME_PERIODS = ['24h', '7d', '30d']
 
 const REFRESH_INTERVAL_MS = 60000
 const CLOCK_INTERVAL_MS = 10000
