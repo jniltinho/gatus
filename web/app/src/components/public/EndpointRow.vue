@@ -1,5 +1,5 @@
 <template>
-  <li :class="featured ? 'border bg-card p-4 dark:border-gray-800' : 'py-3'" :data-testid="`status-endpoint-${endpoint.name}`">
+  <li :class="featured ? 'border bg-card p-3 dark:border-gray-800' : 'py-2'" :data-testid="`status-endpoint-${endpoint.name}`">
     <div v-if="showHeader" class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-2 min-w-0">
         <span :class="['inline-block h-2.5 w-2.5 rounded-full flex-shrink-0', dotClass]" aria-hidden="true"></span>
@@ -13,9 +13,10 @@
         <span :class="['text-xs', statusTextClass]" aria-hidden="true">{{ statusLabel }}</span>
         <span v-if="featured && group" class="truncate text-xs text-muted-foreground" :title="group">{{ group }}</span>
       </div>
-      <dl v-if="!featured" class="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
-        <div v-for="period in periods" :key="period.key" class="flex gap-1">
-          <dt>{{ period.label }}</dt>
+      <!-- Fork: from sm on, the uptimes become fixed columns aligned with the ones of the group header -->
+      <dl v-if="!featured" class="flex shrink-0 gap-4 text-xs text-muted-foreground sm:grid sm:grid-cols-3 sm:gap-0" aria-hidden="true">
+        <div v-for="period in periods" :key="period.key" class="flex gap-1 sm:w-16 sm:justify-end">
+          <dt class="sm:hidden">{{ period.label }}</dt>
           <dd class="font-medium text-foreground">{{ formatUptime(endpoint.uptime[period.key]) }}</dd>
         </div>
       </dl>
@@ -24,21 +25,21 @@
     <p v-if="showHeader && certificateDays !== null" :class="['mt-0.5 text-xs', certificateClass(certificateDays)]" :data-testid="`status-endpoint-certificate-${endpoint.name}`">
       {{ certificateText(certificateDays) }}
     </p>
-    <table v-if="featured" class="mt-3 w-full text-sm" data-testid="status-featured-stats">
+    <table v-if="featured" class="mt-2 w-full text-sm" data-testid="status-featured-stats">
       <thead>
         <tr class="text-xs text-muted-foreground">
-          <th scope="col" class="py-1 pr-2 text-left font-normal"><span class="sr-only">Metric</span></th>
-          <th v-for="period in periods" :key="`period-${period.key}`" scope="col" class="py-1 pl-2 text-right font-normal">{{ period.label }}</th>
+          <th scope="col" class="py-0.5 pr-2 text-left font-normal"><span class="sr-only">Metric</span></th>
+          <th v-for="period in periods" :key="`period-${period.key}`" scope="col" class="py-0.5 pl-2 text-right font-normal">{{ period.label }}</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <th scope="row" class="py-1 pr-2 text-left text-xs font-normal text-muted-foreground">Uptime</th>
-          <td v-for="period in periods" :key="`uptime-${period.key}`" class="py-1 pl-2 text-right font-medium">{{ formatUptime(endpoint.uptime[period.key]) }}</td>
+          <th scope="row" class="py-0.5 pr-2 text-left text-xs font-normal text-muted-foreground">Uptime</th>
+          <td v-for="period in periods" :key="`uptime-${period.key}`" class="py-0.5 pl-2 text-right font-medium">{{ formatUptime(endpoint.uptime[period.key]) }}</td>
         </tr>
         <tr>
-          <th scope="row" class="py-1 pr-2 text-left text-xs font-normal text-muted-foreground">Avg response</th>
-          <td v-for="period in periods" :key="`response-time-${period.key}`" class="py-1 pl-2 text-right font-medium">{{ formatMilliseconds(responseTime[period.key]) }}</td>
+          <th scope="row" class="py-0.5 pr-2 text-left text-xs font-normal text-muted-foreground">Avg response</th>
+          <td v-for="period in periods" :key="`response-time-${period.key}`" class="py-0.5 pl-2 text-right font-medium">{{ formatMilliseconds(responseTime[period.key]) }}</td>
         </tr>
       </tbody>
     </table>
@@ -53,7 +54,7 @@
     </div>
     <p class="sr-only">{{ accessibleSummary }}</p>
     <div
-      class="mt-2 flex gap-px outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      :class="['relative flex gap-px outline-none focus-visible:ring-2 focus-visible:ring-ring', showHeader && !featured ? 'mt-1.5' : 'mt-2']"
       role="group"
       tabindex="0"
       :aria-label="`Check history of ${endpoint.name}. Use the arrow keys to browse it.`"
@@ -65,16 +66,24 @@
         v-for="(result, index) in displayedResults"
         :key="index"
         aria-hidden="true"
-        :class="['h-6 flex-1', barClass(result, index)]"
+        :class="['h-5 flex-1', barClass(result, index)]"
         @mouseenter="result && (hoveredIndex = index)"
         @click="result && selectBar(index)"
       ></span>
+      <!-- Fork: the detail floats over the bars instead of taking a line of its own. It is anchored by the edge that is
+           closer to the active bar, with the max-width closing the other end, so that it can never leave the row -->
+      <span
+        v-if="activeResult"
+        aria-hidden="true"
+        :class="['pointer-events-none absolute z-10 w-max border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm dark:border-gray-700', tooltipAbove ? 'bottom-full mb-1' : 'top-full mt-1']"
+        :style="tooltipStyle"
+        data-testid="status-endpoint-detail"
+      >
+        {{ activeResultText }}
+      </span>
     </div>
-    <p class="mt-1 min-h-[1rem] text-xs text-muted-foreground" aria-live="polite" data-testid="status-endpoint-detail">
-      <template v-if="activeResult">
-        {{ formatDateTime(activeResult.timestamp) }} · {{ activeResult.success ? 'Success' : (activeResult.pending ? 'Pending' : 'Failure') }} · {{ activeResult.durationMs }} ms
-      </template>
-    </p>
+    <!-- The live region stays on the page even without an active result: one that only appears with the text announces nothing -->
+    <span class="sr-only" aria-live="polite" aria-atomic="true">{{ activeResultText }}</span>
   </li>
 </template>
 
@@ -127,6 +136,35 @@ const certificateDays = computed(() => (Number.isInteger(props.endpoint.certific
 
 const activeIndex = computed(() => (hoveredIndex.value !== null ? hoveredIndex.value : selectedIndex.value))
 const activeResult = computed(() => (activeIndex.value !== null ? displayedResults.value[activeIndex.value] : null))
+
+const activeResultText = computed(() => {
+  const result = activeResult.value
+  if (!result) {
+    return ''
+  }
+  const state = result.success ? 'Success' : (result.pending ? 'Pending' : 'Failure')
+  return `${formatDateTime(result.timestamp)} · ${state} · ${result.durationMs} ms`
+})
+
+// In a row of a group the only thing above the bars is the space between rows; in the featured card and on the details
+// page there is content there, so the tooltip goes below
+const tooltipAbove = computed(() => props.showHeader && !props.featured)
+
+// The tooltip is anchored by the edge closer to the active bar, and the max-width closes the other end: no measuring,
+// and it can never leave the row
+const tooltipStyle = computed(() => {
+  const total = displayedResults.value.length
+  if (activeIndex.value === null || total === 0) {
+    return {}
+  }
+  const barWidth = 100 / total
+  const start = activeIndex.value * barWidth
+  if (start + barWidth / 2 <= 50) {
+    return { left: `${start}%`, maxWidth: `calc(100% - ${start}%)` }
+  }
+  const end = 100 - (start + barWidth)
+  return { right: `${end}%`, maxWidth: `calc(100% - ${end}%)` }
+})
 
 const statusLabel = computed(() => STATUS_LABELS[props.endpoint.status]?.endpoint || STATUS_LABELS.unknown.endpoint)
 
