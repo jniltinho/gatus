@@ -30,6 +30,11 @@ STORAGE_PATH=${E2E_STORAGE_PATH:-$WORK/gatus.db}
 echo "==> Building"
 make -s build
 
+# Fork: endpoints that only exist to make the list of the form overflow its column, so that the layout can be measured
+FILLER_ENDPOINTS=$(for i in $(seq 1 25); do
+  printf '  - name: filler-%02d\n    group: filler\n    url: %s/health\n    interval: 1h\n    conditions:\n      - "[STATUS] == 200"\n' "$i" "$BASE"
+done)
+
 cat > "$WORK/config.yaml" <<CONFIG
 web:
   address: 127.0.0.1
@@ -61,6 +66,7 @@ endpoints:
     interval: 5s
     conditions:
       - "[STATUS] == 200"
+$FILLER_ENDPOINTS
 # Fork: push endpoint of the real-time test of the public details page
 external-endpoints:
   - name: backup
@@ -142,6 +148,29 @@ js() {
   shift
   "$session" eval "$*" 2>/dev/null | tr -d '"'
 }
+# Fork: layout_ok checks that the page does not scroll and that the given elements are inside the window, so that
+# content cut by the fixed height of the layout is detected (document.scrollHeight alone is useless with overflow-hidden)
+layout_ok() {
+  local label=$1
+  shift
+  local checks="document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1"
+  for id in "$@"; do
+    checks="$checks && (() => { const element = document.querySelector('[data-testid=\"$id\"]'); if (!element) return false; const rect = element.getBoundingClientRect(); return rect.top >= 0 && rect.bottom <= innerHeight + 1 })()"
+  done
+  [ "$(js admin "$checks")" = true ] || fail "the status page form scrolls or cuts its content: $label"
+}
+# not_covered checks that a click at the center of the element reaches it, for example with a toast visible
+not_covered() {
+  admin scrollintoview "$(testid "$1")" >/dev/null 2>&1 || true
+  [ "$(js admin "(() => { const element = document.querySelector('[data-testid=\"$1\"]'); const rect = element.getBoundingClientRect(); const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2); return element === hit || element.contains(hit) })()")" = true ] || fail "$1 is covered at $2"
+}
+toast_text() {
+  js admin "Array.from(document.querySelectorAll('[data-testid=\"toast\"][data-type=\"$1\"]')).map((toast) => toast.innerText).join(' | ')"
+}
+legend_series() {
+  local session=$1
+  js "$session" "Array.from(document.querySelectorAll('[data-testid=\"response-time-chart-legend\"] [data-series]')).map((item) => item.dataset.series).join(',')"
+}
 
 step "Public API without credentials and protected routes"
 [ "$(api_status "$BASE/api/v1/status-pages/services")" = 200 ] || fail "expected 200 from the public API"
@@ -217,6 +246,9 @@ public wait "[data-testid=\"response-time-chart\"][data-loading=\"false\"] canva
 public eval "(() => { const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = '24h'; select.dispatchEvent(new Event('change')) })()" >/dev/null
 public wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the chart did not load the 24h period"
 public wait 1500 >/dev/null
+# Fork: legend of the series, in the order they are drawn
+[ "$(legend_series public)" = "average,minimum,maximum" ] || fail "the legend of the aggregates is not average, minimum and maximum: $(legend_series public)"
+[ "$(js public "document.querySelector('[data-testid=\"response-time-chart\"]').contains(document.querySelector('[data-testid=\"response-time-chart-legend\"]'))")" = false ] || fail "the legend should be outside of the element with the height of the chart"
 public screenshot --full "$PRINTS/02b-endpoint-details.png" >/dev/null
 requests=$(public network requests 2>/dev/null)
 grep -q "/api/v1/status-pages/services/endpoints/_panel/response-time-chart?period=24h" <<<"$requests" || fail "changing the period did not load the public chart of 24h"
@@ -226,6 +258,7 @@ public reload >/dev/null
 public wait "[data-testid=\"response-time-chart\"][data-period=\"24h\"]" >/dev/null || fail "the period of the chart was not remembered after a reload"
 public eval "(() => { const select = document.querySelector('[data-testid=\"status-endpoint-chart-duration\"]'); select.value = 'recent'; select.dispatchEvent(new Event('change')) })()" >/dev/null
 public wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev/null
+[ "$(legend_series public)" = "response-time" ] || fail "the legend of Recent is not the response time: $(legend_series public)"
 grep -q "/api/v1/config" <<<"$requests" && fail "the details page called /api/v1/config"
 grep -qE '\b401\b' <<<"$requests" && fail "a request of the details page received 401"
 public click "$(testid status-endpoint-back)" >/dev/null
@@ -340,14 +373,24 @@ admin wait "$(testid status-page-row-config-services)" >/dev/null || fail "the l
 admin wait "$(testid status-page-row-config-draft)" >/dev/null || fail "the list did not show the draft page"
 admin screenshot --full "$PRINTS/07-admin-list.png" >/dev/null
 
+# Fork: page of the configuration file, read-only: the YAML scrolls inside its own area and the warning stays visible
+admin click "$(testid status-page-edit-services)" >/dev/null
+admin wait "$(testid status-page-yaml)" >/dev/null || fail "the YAML of the page of the configuration file did not open"
+layout_ok "page of the configuration file" status-page-preview-button admin-back
+admin screenshot "$PRINTS/07b-admin-yaml.png" >/dev/null
+admin click "$(testid admin-back)" >/dev/null
+admin wait "$(testid admin-new-status-page)" >/dev/null || fail "Back did not return to the list of status pages"
+
 step "Administration: create with the form and validate"
 admin click "$(testid admin-new-status-page)" >/dev/null
 admin wait "$(testid status-page-field-slug)" >/dev/null || fail "the form did not open"
 admin fill "$(testid status-page-field-slug)" "team" >/dev/null
 admin fill "$(testid status-page-field-title)" "Team" >/dev/null
 admin fill "$(testid status-page-field-description)" "Services used by the team" >/dev/null
+admin scrollintoview "$(testid status-page-group-core)" >/dev/null
 admin click "$(testid status-page-group-core)" >/dev/null
 admin fill "$(testid status-page-endpoint-search)" "panel" >/dev/null
+admin scrollintoview "$(testid status-page-endpoint-_panel)" >/dev/null
 admin click "$(testid status-page-endpoint-_panel)" >/dev/null
 admin click "$(testid status-page-featured-_panel)" >/dev/null
 [ "$(js admin "Math.abs(document.querySelector('[data-testid=\"status-page-copy-link\"]').getBoundingClientRect().height - document.querySelector('[data-testid=\"status-page-field-slug\"]').getBoundingClientRect().height)")" = 0 ] || fail "the Copy link button does not have the height of the slug field"
@@ -356,20 +399,32 @@ admin click "$(testid status-page-only-selected)" >/dev/null
 [ "$(js admin "document.querySelectorAll('[data-testid^=\"status-page-endpoint-_\"], [data-testid^=\"status-page-endpoint-core_\"]').length")" = 1 ] || fail "Only selected should list only the selected endpoint"
 admin click "$(testid status-page-only-selected)" >/dev/null
 admin click "$(testid status-page-validate)" >/dev/null
-admin wait --text "The page will show 3 endpoints" >/dev/null || fail "the validation did not count the 3 endpoints"
-admin screenshot --full "$PRINTS/08-admin-validation.png" >/dev/null
+admin wait "[data-testid=\"toast\"][data-type=\"info\"]" >/dev/null || fail "the validation did not show a toast"
+grep -q "The page will show 3 endpoints" <<<"$(toast_text info)" || fail "the validation did not count the 3 endpoints"
+[ "$(js admin "document.querySelectorAll('[data-testid=\"status-page-validation\"]').length")" = 0 ] || fail "a validation without warnings should not show the band"
+admin screenshot "$PRINTS/08-admin-validation.png" >/dev/null
 
 step "Administration: save (created disabled) and preview"
 admin click "$(testid status-page-save)" >/dev/null
 admin wait --text "Status page created" >/dev/null || fail "the creation was not confirmed"
 [ "$(js admin 'location.pathname')" = "/admin/status-pages/team/edit" ] || fail "the creation did not lead to the edition"
 [ "$(api_status "$BASE/api/v1/status-pages/team")" = 404 ] || fail "the page that was just created should not be public"
+# Fork: the form fills the window, scrolls inside its columns and keeps the actions visible
+layout_ok "edition of the created page" status-page-save status-page-validate status-page-preview-button admin-back
+[ "$(js admin "(() => { const list = document.querySelector('[data-testid=\"status-page-endpoint-list\"]'); return list.scrollHeight > list.clientHeight && list.clientHeight > 320 })()")" = true ] || fail "the list of endpoints does not fill the column and scroll inside it"
+[ "$(js admin "(() => { const column = document.querySelector('[data-testid=\"status-page-column-general\"]'); return column.scrollHeight > column.clientHeight })()")" = true ] || fail "the left column does not scroll inside itself"
+not_covered admin-back "the toast of the creation"
+not_covered status-page-save "the toast of the creation"
 admin click "$(testid status-page-preview-button)" >/dev/null
 admin wait "$(testid status-page-preview)" >/dev/null || fail "the preview did not show up"
 admin wait "$(testid status-page-preview-featured)" >/dev/null || fail "the preview did not show the featured endpoint"
-admin screenshot --full "$PRINTS/09-admin-preview.png" >/dev/null
+admin screenshot "$PRINTS/09-admin-preview.png" >/dev/null
+admin press Escape >/dev/null
+[ "$(js admin "document.querySelectorAll('[data-testid=\"status-page-preview\"]').length")" = 0 ] || fail "Escape did not close the preview"
+[ "$(js admin "document.querySelector('[data-testid=\"status-page-field-title\"]').value")" = "Team" ] || fail "closing the preview lost what was typed"
 
 step "Administration: publish and open without credentials"
+admin scrollintoview "$(testid status-page-field-enabled)" >/dev/null
 admin click "$(testid status-page-field-enabled)" >/dev/null
 admin click "$(testid status-page-save)" >/dev/null
 admin wait --text "saved and published" >/dev/null || fail "the publication was not confirmed"

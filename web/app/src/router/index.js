@@ -66,14 +66,15 @@ const routes = [
         path: '/admin/status-pages/new',
         name: 'AdminStatusPageNew',
         component: AdminStatusPageForm,
-        meta: { admin: true }
+        // Fork: the form fills the window and scrolls inside its columns, like the lists and the Backup tab
+        meta: { admin: true, adminList: true }
     },
     {
         path: '/admin/status-pages/:slug/edit',
         name: 'AdminStatusPageEdit',
         component: AdminStatusPageForm,
         props: true,
-        meta: { admin: true }
+        meta: { admin: true, adminList: true }
     },
     // Global push keys (fork)
     {

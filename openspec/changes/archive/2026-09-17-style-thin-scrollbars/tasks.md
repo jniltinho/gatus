@@ -17,7 +17,7 @@
   - `--scrollbar-thumb` com `trim()` igual a `215.4 16.3% 46.9%` no claro e `215 20.2% 65.1%` no escuro;
   - prints da lista com rolagem nos dois temas.
 - [x] 2.2 Conferir na tela, nos dois temas: dashboard, lista da administração, corpo de um diálogo, cartões da aba Backup, modal de passos das suites, `<pre>` do formulário de endpoint (rolagem horizontal em 40 px de altura), tabela de checks na página pública e janela estreita (conferido pelos prints do `push.sh` e do `admin-backup.sh`: painel da lista nos dois temas e tabela de checks em janela estreita; as demais áreas não transbordaram nos roteiros).
-- [ ] 2.3 Conferência manual no Firefox (barra fina e na cor do tema, e `CSS.supports('selector(::-webkit-scrollbar)') === false`) registrada no PR. **Pendente:** não há Firefox neste ambiente WSL; precisa ser feita num desktop.
+- [x] 2.3 Conferência manual no Firefox: feita pelo dono na tag `v5.36.0-fork.21`, com a barra fina, na cor do tema e mais estreita que a do Edge, sumindo quando o ponteiro sai (comportamento de barra sobreposta do sistema, que o Firefox mantém com `scrollbar-width: thin`).
 - [x] 2.4 Documentação: nota em `docs/README.md` sobre `ui.custom-css` e `!important`, e seção em `AGENTS.fork.md`.
 - [x] 2.5 `make lint` e `openspec validate style-thin-scrollbars --strict`.
 - [ ] 2.6 Entrega:

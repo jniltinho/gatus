@@ -380,6 +380,15 @@ admin reload >/dev/null
 admin wait "[data-testid=\"response-time-chart\"][data-period=\"1w\"]" >/dev/null || fail "the period of the chart was not remembered after a reload"
 admin wait 2000 >/dev/null
 admin screenshot "$PRINTS/13-chart-1w.png" >/dev/null
+# Fork: legend of the series of the dashboard, with the Pending column of this endpoint
+LEGEND=$(admin eval "Array.from(document.querySelectorAll('[data-testid=\"response-time-chart-legend\"] [data-series]')).map((item) => item.dataset.series).join(',')" 2>/dev/null | tr -d '"')
+case "$LEGEND" in
+  average,minimum,maximum*pending) ;;
+  *) fail "unexpected legend of the 1w chart: $LEGEND" ;;
+esac
+# The legend does not change the height of the chart and is not inside the element that carries it
+[ "$(admin eval "document.querySelector('[data-testid=\"response-time-chart\"]').offsetHeight" 2>/dev/null | tr -d '"')" = 250 ] || fail "the chart lost the height of the Uptime Kuma"
+[ "$(admin eval "document.querySelector('[data-testid=\"response-time-chart\"]').contains(document.querySelector('[data-testid=\"response-time-chart-legend\"]'))" 2>/dev/null | tr -d '"')" = "false" ] || fail "the legend should be outside of the element with the height of the chart"
 set_theme admin dark
 admin eval "(() => { const select = document.querySelector('[data-testid=\"response-time-chart-period\"]'); select.value = 'recent'; select.dispatchEvent(new Event('change')) })()" >/dev/null
 admin wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev/null

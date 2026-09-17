@@ -1,22 +1,50 @@
 <template>
   <!-- Fork: chart in the format of the monitor page of Uptime Kuma, see utils/responseTimeChart.js -->
-  <div
-    class="relative w-full"
-    :style="{ height: `${height}px` }"
-    data-testid="response-time-chart"
-    :data-period="loadedPeriod"
-    :data-loading="loading ? 'true' : 'false'"
-    :data-line-points="summary.linePoints"
-    :data-down-columns="summary.downColumns"
-    :data-pending-columns="summary.pendingColumns"
-  >
-    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-background/50">
-      <Loading />
+  <div class="w-full">
+    <!-- The height of the Kuma belongs to this element, which also carries the attributes read by the tests: the
+         legend is a sibling of it, never a child -->
+    <div
+      class="relative w-full"
+      :style="{ height: `${height}px` }"
+      data-testid="response-time-chart"
+      :data-period="loadedPeriod"
+      :data-loading="loading ? 'true' : 'false'"
+      :data-line-points="summary.linePoints"
+      :data-down-columns="summary.downColumns"
+      :data-pending-columns="summary.pendingColumns"
+    >
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-background/50">
+        <Loading />
+      </div>
+      <div v-else-if="error" class="absolute inset-0 flex items-center justify-center text-muted-foreground">
+        {{ error }}
+      </div>
+      <Line v-else-if="series" :data="chartData" :options="chartOptions" />
     </div>
-    <div v-else-if="error" class="absolute inset-0 flex items-center justify-center text-muted-foreground">
-      {{ error }}
-    </div>
-    <Line v-else-if="series" :data="chartData" :options="chartOptions" />
+    <!-- Fork: the Kuma has no legend, but three lines of almost the same green need a name and a stroke of their own -->
+    <ul
+      v-if="legend.length"
+      role="list"
+      aria-label="Chart series"
+      class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+      data-testid="response-time-chart-legend"
+    >
+      <li v-for="item in legend" :key="item.id" class="flex items-center gap-1.5" :data-series="item.id">
+        <span
+          v-if="item.column"
+          aria-hidden="true"
+          class="inline-block h-2.5 w-2.5 border border-muted-foreground"
+          :style="{ backgroundColor: item.color }"
+        ></span>
+        <span
+          v-else
+          aria-hidden="true"
+          class="inline-block w-3.5"
+          :style="{ borderTopWidth: '2px', borderTopStyle: item.dash, borderTopColor: item.color }"
+        ></span>
+        {{ item.label }}
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -26,7 +54,7 @@ import { Line } from 'vue-chartjs'
 import { Chart as ChartJS, BarController, BarElement, Filler, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from 'chart.js'
 import 'chartjs-adapter-date-fns'
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
-import { CHART_COLORS, RECENT_PERIOD, bucketDatasets, chartSummary, isChartPeriod, recentDatasets } from '@/utils/responseTimeChart'
+import { CHART_COLORS, CHART_LINE_DASHES, RECENT_PERIOD, bucketDatasets, chartLegend, chartSummary, isChartPeriod, recentDatasets } from '@/utils/responseTimeChart'
 import Loading from './Loading.vue'
 
 ChartJS.register(LineController, BarController, LineElement, BarElement, PointElement, LinearScale, TimeScale, Tooltip, Filler)
@@ -92,6 +120,14 @@ const series = computed(() => {
 
 const summary = computed(() => chartSummary(series.value))
 
+// The legend is hidden while the chart is loading or in error, so that it never describes what is not drawn
+const legend = computed(() => {
+  if (loading.value || error.value || !payload.value || !series.value) {
+    return []
+  }
+  return chartLegend(payload.value.period, summary.value)
+})
+
 const barDataset = (data) => ({
   type: 'bar',
   data: data.bars,
@@ -105,12 +141,13 @@ const barDataset = (data) => ({
   label: 'status'
 })
 
-const lineDataset = (data, label, borderColor, backgroundColor) => ({
+const lineDataset = (data, label, borderColor, backgroundColor, borderDash = []) => ({
   data,
   fill: 'origin',
   tension: 0.2,
   borderColor,
   backgroundColor,
+  borderDash,
   yAxisID: 'y',
   label
 })
@@ -130,9 +167,9 @@ const chartData = computed(() => {
   }
   return {
     datasets: [
-      lineDataset(data.line, 'avg-ping', CHART_COLORS.line, CHART_COLORS.bucketFill),
-      lineDataset(data.min, 'min-ping', CHART_COLORS.minLine, CHART_COLORS.bucketFill),
-      lineDataset(data.max, 'max-ping', CHART_COLORS.maxLine, CHART_COLORS.bucketFill),
+      lineDataset(data.line, 'avg-ping', CHART_COLORS.line, CHART_COLORS.bucketFill, CHART_LINE_DASHES.average),
+      lineDataset(data.min, 'min-ping', CHART_COLORS.minLine, CHART_COLORS.bucketFill, CHART_LINE_DASHES.minimum),
+      lineDataset(data.max, 'max-ping', CHART_COLORS.maxLine, CHART_COLORS.bucketFill, CHART_LINE_DASHES.maximum),
       barDataset(data)
     ]
   }

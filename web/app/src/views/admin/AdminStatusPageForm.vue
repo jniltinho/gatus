@@ -1,152 +1,167 @@
 <template>
-  <div class="container mx-auto px-4 py-8 max-w-5xl">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground dark:text-gray-100">{{ title }}</h1>
-        <p v-if="isEdit" class="mt-1 font-mono text-sm text-muted-foreground dark:text-gray-400">
+  <!-- Fork: the form fills the window on larger screens and each column scrolls on its own, like the lists -->
+  <div class="container mx-auto flex max-w-7xl flex-col px-4 py-4 md:min-h-0 md:flex-1">
+    <div class="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <h1 class="text-xl font-semibold tracking-tight text-foreground dark:text-gray-100">{{ title }}</h1>
+        <p v-if="isEdit" class="mt-0.5 font-mono text-sm text-muted-foreground dark:text-gray-400">
           <a :href="`/status/${slug}`" target="_blank" rel="noopener" class="underline-offset-4 hover:underline" data-testid="status-page-public-link">/status/{{ slug }}</a><span v-if="version"> · version {{ version }}</span>
         </p>
       </div>
       <Button variant="outline" data-testid="admin-back" @click="goBack">Back</Button>
     </div>
 
-    <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
-    <template v-else>
-      <div v-if="error" role="alert" data-testid="admin-error" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
-        <p class="whitespace-pre-line">{{ error }}</p>
-        <Button v-if="versionConflict" variant="outline" size="sm" class="mt-2" data-testid="admin-reload" @click="reloadCurrentVersion">Reload current version</Button>
-      </div>
-      <div v-if="success" role="status" data-testid="admin-success" class="mb-4 border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">{{ success }}</div>
-      <div v-if="readOnly" class="mb-4 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-        This status page is defined in the configuration file and can only be viewed.
-      </div>
-      <div v-if="savedError" role="alert" class="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
-        The saved definition is invalid and the page is not published: {{ savedError }}
-      </div>
+    <!-- Warnings that stay while the screen is open: they are outside of the area that scrolls -->
+    <div v-if="conflictError" role="alert" data-testid="admin-error" class="mt-3 shrink-0 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+      <p class="whitespace-pre-line">{{ conflictError }}</p>
+      <Button variant="outline" size="sm" class="mt-2" data-testid="admin-reload" @click="reloadCurrentVersion">Reload current version</Button>
+    </div>
+    <div v-if="loadError" role="alert" data-testid="admin-load-error" class="mt-3 shrink-0 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+      <p class="whitespace-pre-line">{{ loadError }}</p>
+    </div>
+    <div v-if="readOnly" class="mt-3 shrink-0 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+      This status page is defined in the configuration file and can only be viewed.
+    </div>
+    <div v-if="savedError" role="alert" class="mt-3 shrink-0 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+      The saved definition is invalid and the page is not published: {{ savedError }}
+    </div>
 
-      <div v-if="readOnly" class="border bg-card p-6 dark:border-gray-700 dark:bg-gray-900">
+    <div v-if="loading" class="flex justify-center py-12 md:min-h-0 md:flex-1 md:items-center md:py-0"><Loading /></div>
+    <template v-else>
+      <!-- Page of the configuration file: the YAML scrolls inside its own area -->
+      <div v-if="readOnly" class="mt-3 border bg-card p-6 dark:border-gray-700 dark:bg-gray-900 md:min-h-0 md:flex-1 md:overflow-auto md:overscroll-contain" data-testid="status-page-yaml-panel">
         <pre class="whitespace-pre-wrap font-mono text-sm text-foreground dark:text-gray-100" data-testid="status-page-yaml">{{ yamlText }}</pre>
       </div>
 
-      <div v-else class="space-y-4">
-        <!-- General -->
-        <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="status-page-section-general">
-          <header class="mb-4">
-            <h2 class="text-base font-semibold text-foreground dark:text-gray-100">General</h2>
-            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Address, title and publication of the page.</p>
-          </header>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div class="sm:col-span-2">
-              <label for="status-page-slug" class="block text-sm font-medium text-foreground dark:text-gray-200">Slug</label>
-              <div class="mt-1.5 flex gap-2">
-                <div class="flex min-w-0 flex-1">
-                  <span class="inline-flex h-10 shrink-0 items-center border border-r-0 border-input bg-muted/40 px-3 font-mono text-sm text-muted-foreground dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">/status/</span>
-                  <Input id="status-page-slug" v-model="form.slug" :disabled="isEdit" placeholder="infrastructure" class="min-w-0 font-mono dark:border-gray-700" data-testid="status-page-field-slug" />
+      <div v-else class="mt-3 grid gap-4 md:min-h-0 md:flex-1 md:grid-cols-2 md:grid-rows-1">
+        <!-- Left column: general, groups and the warnings of the validation -->
+        <div class="flex flex-col gap-4 md:min-h-0 md:overflow-auto md:overscroll-contain" data-testid="status-page-column-general">
+          <div v-if="validationWarnings.length" ref="validationBand" data-testid="status-page-validation" class="border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+            <p class="font-medium">The page will show {{ validation.endpoints === 1 ? '1 endpoint' : `${validation.endpoints} endpoints` }}.</p>
+            <ul class="mt-1 list-disc pl-5">
+              <li v-for="warning in validationWarnings" :key="`${warning.type}-${warning.value}`">{{ warningMessage(warning) }}</li>
+            </ul>
+          </div>
+
+          <!-- General -->
+          <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="status-page-section-general">
+            <header class="mb-4">
+              <h2 class="text-base font-semibold text-foreground dark:text-gray-100">General</h2>
+              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Address, title and publication of the page.</p>
+            </header>
+            <div class="grid gap-4">
+              <div>
+                <label for="status-page-slug" class="block text-sm font-medium text-foreground dark:text-gray-200">Slug</label>
+                <div class="mt-1.5 flex flex-wrap gap-2 lg:flex-nowrap">
+                  <div class="flex w-full min-w-0 lg:flex-1">
+                    <span class="inline-flex h-10 shrink-0 items-center border border-r-0 border-input bg-muted/40 px-3 font-mono text-sm text-muted-foreground dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">/status/</span>
+                    <Input id="status-page-slug" v-model="form.slug" :disabled="isEdit" placeholder="infrastructure" class="min-w-0 font-mono dark:border-gray-700" data-testid="status-page-field-slug" />
+                  </div>
+                  <Button variant="outline" class="w-28 shrink-0" :disabled="!slugValid" data-testid="status-page-copy-link" @click="copyPublicUrl">{{ copied ? 'Copied' : 'Copy link' }}</Button>
+                  <a
+                    v-if="isEdit"
+                    :href="publicPath"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex h-10 shrink-0 items-center border border-input bg-background px-4 text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800"
+                    data-testid="status-page-open"
+                  >Open</a>
                 </div>
-                <Button variant="outline" class="w-28 shrink-0" :disabled="!slugValid" data-testid="status-page-copy-link" @click="copyPublicUrl">{{ copied ? 'Copied' : 'Copy link' }}</Button>
-                <a
-                  v-if="isEdit"
-                  :href="publicPath"
-                  target="_blank"
-                  rel="noopener"
-                  class="inline-flex h-10 shrink-0 items-center border border-input bg-background px-4 text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800"
-                  data-testid="status-page-open"
-                >Open</a>
+                <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">Lowercase letters, digits and hyphens, up to 64 characters. It cannot be changed later.</p>
               </div>
-              <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">Lowercase letters, digits and hyphens, up to 64 characters. It cannot be changed later.</p>
-            </div>
-            <label class="block sm:col-span-2">
-              <span class="block text-sm font-medium text-foreground dark:text-gray-200">Title</span>
-              <Input v-model="form.title" placeholder="Infrastructure" class="mt-1.5 dark:border-gray-700" data-testid="status-page-field-title" />
-            </label>
-            <label class="block sm:col-span-2">
-              <span class="flex items-baseline justify-between text-sm font-medium text-foreground dark:text-gray-200">
-                Description
-                <span class="text-xs font-normal text-muted-foreground dark:text-gray-400">{{ form.description.length }}/1000</span>
-              </span>
-              <textarea
-                v-model="form.description"
-                rows="3"
-                maxlength="1000"
-                placeholder="Shown below the title of the page"
-                class="mt-1.5 w-full border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:text-gray-100"
-                data-testid="status-page-field-description"
-              ></textarea>
-            </label>
-            <label :class="['flex items-start gap-3 border px-3 py-2.5 text-sm sm:col-span-2 dark:border-gray-700', form.enabled ? 'border-green-300 bg-green-50/60 dark:border-green-800 dark:bg-green-900/20' : '']">
-              <input v-model="form.enabled" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-enabled" />
-              <span>
-                <span class="block font-medium text-foreground dark:text-gray-200">Published</span>
-                <span class="block text-xs text-muted-foreground dark:text-gray-400">
-                  Visible without login at <span class="font-mono">{{ publicPath }}</span>. An unpublished page can still be validated and previewed here.
+              <label class="block">
+                <span class="block text-sm font-medium text-foreground dark:text-gray-200">Title</span>
+                <Input v-model="form.title" placeholder="Infrastructure" class="mt-1.5 dark:border-gray-700" data-testid="status-page-field-title" />
+              </label>
+              <label class="block">
+                <span class="flex items-baseline justify-between text-sm font-medium text-foreground dark:text-gray-200">
+                  Description
+                  <span class="text-xs font-normal text-muted-foreground dark:text-gray-400">{{ form.description.length }}/1000</span>
                 </span>
-              </span>
-            </label>
-            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
-              <input v-model="form.showCertificateExpiration" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-certificate-expiration" />
-              <span>
-                <span class="block font-medium text-foreground dark:text-gray-200">Show certificate expiration</span>
-                <span class="block text-xs text-muted-foreground dark:text-gray-400">Shows below the name of each endpoint how many days are left until its TLS certificate expires.</span>
-              </span>
-            </label>
-            <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
-              <input v-model="form.showMessages" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-messages" />
-              <span>
-                <span class="block font-medium text-foreground dark:text-gray-200">Show messages</span>
-                <span class="block text-xs text-muted-foreground dark:text-gray-400">Messages of pushes and HTTP status are public; errors of checks are never published.</span>
-              </span>
-            </label>
-          </div>
-        </section>
-
-        <!-- Groups -->
-        <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="status-page-section-groups">
-          <header class="mb-3 flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Groups</h2>
-              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Every enabled endpoint of the group is shown on the page, including the ones created later.</p>
+                <textarea
+                  v-model="form.description"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="Shown below the title of the page"
+                  class="mt-1.5 w-full border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:text-gray-100"
+                  data-testid="status-page-field-description"
+                ></textarea>
+              </label>
+              <label :class="['flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700', form.enabled ? 'border-green-300 bg-green-50/60 dark:border-green-800 dark:bg-green-900/20' : '']">
+                <input v-model="form.enabled" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-enabled" />
+                <span>
+                  <span class="block font-medium text-foreground dark:text-gray-200">Published</span>
+                  <span class="block text-xs text-muted-foreground dark:text-gray-400">
+                    Visible without login at <span class="font-mono">{{ publicPath }}</span>. An unpublished page can still be validated and previewed here.
+                  </span>
+                </span>
+              </label>
+              <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
+                <input v-model="form.showCertificateExpiration" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-certificate-expiration" />
+                <span>
+                  <span class="block font-medium text-foreground dark:text-gray-200">Show certificate expiration</span>
+                  <span class="block text-xs text-muted-foreground dark:text-gray-400">Shows below the name of each endpoint how many days are left until its TLS certificate expires.</span>
+                </span>
+              </label>
+              <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
+                <input v-model="form.showMessages" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-messages" />
+                <span>
+                  <span class="block font-medium text-foreground dark:text-gray-200">Show messages</span>
+                  <span class="block text-xs text-muted-foreground dark:text-gray-400">Messages of pushes and HTTP status are public; errors of checks are never published.</span>
+                </span>
+              </label>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <span class="text-xs text-muted-foreground dark:text-gray-400" data-testid="status-page-groups-count">{{ form.groups.length }} selected</span>
-              <Button v-if="form.groups.length" variant="ghost" size="sm" data-testid="status-page-groups-clear" @click="form.groups = []">Clear</Button>
-            </div>
-          </header>
-          <p v-if="groupOptions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No groups with endpoints.</p>
-          <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <label
-              v-for="group in groupOptions"
-              :key="group.name"
-              :class="['flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm hover:bg-accent/50 dark:border-gray-700 dark:hover:bg-gray-800/60', form.groups.includes(group.name) ? 'border-gray-900 dark:border-gray-300' : '']"
-            >
-              <input v-model="form.groups" type="checkbox" :value="group.name" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" :data-testid="`status-page-group-${group.name}`" />
-              <span class="min-w-0 flex-1 truncate font-medium text-foreground dark:text-gray-100">{{ group.name }}</span>
-              <span class="shrink-0 text-xs text-muted-foreground dark:text-gray-400">{{ group.endpoints === 1 ? '1 endpoint' : `${group.endpoints} endpoints` }}</span>
-            </label>
-          </div>
-        </section>
+          </section>
 
-        <!-- Endpoints -->
-        <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="status-page-section-endpoints">
-          <header class="mb-3 flex items-start justify-between gap-4">
-            <div>
+          <!-- Groups -->
+          <section class="border bg-card p-5 dark:border-gray-700 dark:bg-gray-900" data-testid="status-page-section-groups">
+            <header class="mb-3 flex items-start justify-between gap-4">
+              <div>
+                <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Groups</h2>
+                <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">Every enabled endpoint of the group is shown on the page, including the ones created later.</p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <span class="text-xs text-muted-foreground dark:text-gray-400" data-testid="status-page-groups-count">{{ form.groups.length }} selected</span>
+                <Button v-if="form.groups.length" variant="ghost" size="sm" data-testid="status-page-groups-clear" @click="form.groups = []">Clear</Button>
+              </div>
+            </header>
+            <p v-if="groupOptions.length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No groups with endpoints.</p>
+            <div class="grid gap-2 lg:grid-cols-2">
+              <label
+                v-for="group in groupOptions"
+                :key="group.name"
+                :class="['flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm hover:bg-accent/50 dark:border-gray-700 dark:hover:bg-gray-800/60', form.groups.includes(group.name) ? 'border-gray-900 dark:border-gray-300' : '']"
+              >
+                <input v-model="form.groups" type="checkbox" :value="group.name" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" :data-testid="`status-page-group-${group.name}`" />
+                <span class="min-w-0 flex-1 truncate font-medium text-foreground dark:text-gray-100">{{ group.name }}</span>
+                <span class="shrink-0 text-xs text-muted-foreground dark:text-gray-400">{{ group.endpoints === 1 ? '1 endpoint' : `${group.endpoints} endpoints` }}</span>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right column: endpoints, with the list filling the column -->
+        <section class="flex flex-col border bg-card dark:border-gray-700 dark:bg-gray-900 md:min-h-0" data-testid="status-page-section-endpoints">
+          <header class="shrink-0 border-b px-5 py-4 dark:border-gray-700">
+            <div class="flex items-start justify-between gap-4">
               <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Endpoints</h2>
-              <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">
-                Picked one by one, in addition to the groups. <strong>Featured</strong> endpoints are shown at the top of the page with more details.
-                Every endpoint of the page links to a public details page with its response time chart.
-              </p>
+              <span class="shrink-0 text-xs text-muted-foreground dark:text-gray-400" data-testid="status-page-endpoints-count">
+                {{ form.endpoints.length }} selected · {{ form.featured.length }}/{{ MAXIMUM_FEATURED }} featured
+              </span>
             </div>
-            <span class="shrink-0 text-xs text-muted-foreground dark:text-gray-400" data-testid="status-page-endpoints-count">
-              {{ form.endpoints.length }} selected · {{ form.featured.length }}/{{ MAXIMUM_FEATURED }} featured
-            </span>
+            <p class="mt-0.5 text-xs text-muted-foreground dark:text-gray-400">
+              Picked one by one, in addition to the groups. <strong>Featured</strong> endpoints are shown at the top of the page with more details.
+              Every endpoint of the page links to a public details page with its response time chart.
+            </p>
           </header>
-          <div class="mb-2 flex flex-wrap items-center gap-2">
+          <div class="flex shrink-0 flex-wrap items-center gap-2 px-5 py-3">
             <Input v-model="endpointSearch" placeholder="Search by name, group or key" class="min-w-0 flex-1 dark:border-gray-700" data-testid="status-page-endpoint-search" />
             <label class="flex h-10 shrink-0 items-center gap-2 border px-3 text-sm text-foreground dark:border-gray-700 dark:text-gray-200">
               <input v-model="onlySelected" type="checkbox" class="h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-only-selected" />
               Only selected
             </label>
           </div>
-          <div class="max-h-80 overflow-y-auto border dark:border-gray-700" data-testid="status-page-endpoint-list">
+          <div class="mx-5 mb-5 max-h-80 overflow-y-auto border dark:border-gray-700 md:max-h-[none] md:min-h-0 md:flex-1" data-testid="status-page-endpoint-list">
             <div class="sticky top-0 z-10 grid grid-cols-[1fr_auto] gap-4 bg-gray-50 px-3 py-2 text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] sm:grid-cols-[1fr_auto_auto] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
               <span>Endpoint</span>
               <span class="hidden sm:block">Key</span>
@@ -180,72 +195,61 @@
         </section>
       </div>
 
-      <div class="mt-6 flex flex-wrap items-center gap-2 border-t pt-4 dark:border-gray-700">
+      <div class="mt-3 flex shrink-0 flex-wrap items-center gap-2 border-t pt-3 dark:border-gray-700">
         <Button v-if="!readOnly" variant="outline" :disabled="busy" data-testid="status-page-validate" @click="validate">Validate</Button>
-        <Button variant="secondary" :disabled="busy" data-testid="status-page-preview-button" @click="showPreview">Preview</Button>
+        <Button ref="previewButton" variant="secondary" :disabled="busy" data-testid="status-page-preview-button" @click="showPreview">Preview</Button>
         <Button v-if="!readOnly" :disabled="busy" class="sm:ml-auto" data-testid="status-page-save" @click="save">Save</Button>
       </div>
-
-      <div v-if="validation" data-testid="status-page-validation" class="mt-6 border bg-card p-5 text-sm dark:border-gray-700 dark:bg-gray-900">
-        <h2 class="text-base font-semibold text-foreground dark:text-gray-100">Validation</h2>
-        <p class="mt-1 text-foreground dark:text-gray-100">The page will show {{ validation.endpoints === 1 ? '1 endpoint' : `${validation.endpoints} endpoints` }}.</p>
-        <ul v-if="validation.warnings.length" class="mt-2 list-disc pl-5 text-amber-800 dark:text-amber-300">
-          <li v-for="warning in validation.warnings" :key="`${warning.type}-${warning.value}`">
-            {{ warningMessage(warning) }}
-          </li>
-        </ul>
-      </div>
-
-      <section v-if="preview" data-testid="status-page-preview" class="mt-6 border bg-card dark:border-gray-700 dark:bg-gray-900">
-        <button
-          type="button"
-          :aria-expanded="previewExpanded"
-          data-testid="status-page-preview-toggle"
-          class="flex w-full items-center gap-3 p-5 text-left hover:bg-accent/50 dark:hover:bg-gray-800/60"
-          @click="previewExpanded = !previewExpanded"
-        >
-          <ChevronDown v-if="previewExpanded" class="h-4 w-4 shrink-0 text-muted-foreground dark:text-gray-400" />
-          <ChevronRight v-else class="h-4 w-4 shrink-0 text-muted-foreground dark:text-gray-400" />
-          <span class="min-w-0 flex-1">
-            <span class="block text-base font-semibold text-foreground dark:text-gray-100">Preview of the saved version</span>
-            <span class="mt-0.5 block text-xs text-muted-foreground dark:text-gray-400">{{ preview.title }} · {{ pageStatusLabel(preview.status) }}<template v-if="savedShowMessages"> · <span data-testid="status-page-preview-show-messages">Messages shown on the details pages</span></template></span>
-          </span>
-        </button>
-        <div v-if="previewExpanded" class="border-t px-5 pb-5 pt-4 dark:border-gray-700">
-          <p v-if="preview.groups.length === 0 && (preview.featured || []).length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No endpoints selected.</p>
-          <div v-if="(preview.featured || []).length" class="mb-4" data-testid="status-page-preview-featured">
-            <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">Featured</h3>
-            <ul class="mt-1 space-y-1 text-sm">
-              <li v-for="endpoint in preview.featured" :key="`${endpoint.group}-${endpoint.name}`" class="flex justify-between gap-4">
-                <span class="text-foreground dark:text-gray-200">{{ endpoint.name }} <span class="text-muted-foreground dark:text-gray-400">{{ endpoint.group }}</span></span>
-                <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
-              </li>
-            </ul>
-          </div>
-          <div v-for="group in preview.groups" :key="group.name || '__without-group__'" class="mb-4 last:mb-0">
-            <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">{{ group.name || 'Other services' }}</h3>
-            <ul class="mt-1 space-y-1 text-sm">
-              <li v-for="endpoint in group.endpoints" :key="endpoint.name" class="flex justify-between gap-4">
-                <span class="text-foreground dark:text-gray-200">{{ endpoint.name }}</span>
-                <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
     </template>
+
+    <!-- Preview of the saved version, in the dialog of the administration -->
+    <AdminDialog
+      :open="preview !== null"
+      size="xl"
+      testid="status-page-preview"
+      title="Preview of the saved version"
+      :description="preview ? previewSummary : ''"
+      :return-focus="previewElement"
+      @close="preview = null"
+    >
+      <div v-if="preview">
+        <p v-if="preview.groups.length === 0 && (preview.featured || []).length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No endpoints selected.</p>
+        <div v-if="(preview.featured || []).length" class="mb-4" data-testid="status-page-preview-featured">
+          <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">Featured</h3>
+          <ul class="mt-1 space-y-1 text-sm">
+            <li v-for="endpoint in preview.featured" :key="`${endpoint.group}-${endpoint.name}`" class="flex justify-between gap-4">
+              <span class="text-foreground dark:text-gray-200">{{ endpoint.name }} <span class="text-muted-foreground dark:text-gray-400">{{ endpoint.group }}</span></span>
+              <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
+            </li>
+          </ul>
+        </div>
+        <div v-for="group in preview.groups" :key="group.name || '__without-group__'" class="mb-4 last:mb-0">
+          <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">{{ group.name || 'Other services' }}</h3>
+          <ul class="mt-1 space-y-1 text-sm">
+            <li v-for="endpoint in group.endpoints" :key="endpoint.name" class="flex justify-between gap-4">
+              <span class="text-foreground dark:text-gray-200">{{ endpoint.name }}</span>
+              <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <template #footer>
+        <Button variant="outline" data-testid="status-page-preview-close" @click="preview = null">Close</Button>
+      </template>
+    </AdminDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronDown, ChevronRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import AdminDialog from '@/components/admin/AdminDialog.vue'
 import Loading from '@/components/Loading.vue'
 import { describeStatusPageError, statusPagesApi } from '@/utils/adminApi'
 import { formatUptime, SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
+import { toast } from '@/utils/toast'
 
 const props = defineProps({
   slug: { type: String, default: '' }
@@ -255,9 +259,9 @@ const router = useRouter()
 
 const loading = ref(true)
 const busy = ref(false)
-const error = ref('')
-const success = ref('')
-const versionConflict = ref(false)
+// Warnings that stay on the screen instead of a toast: they are needed while the administrator works on the page
+const conflictError = ref('')
+const loadError = ref('')
 const origin = ref('admin')
 const version = ref(0)
 const yamlText = ref('')
@@ -270,7 +274,8 @@ const validation = ref(null)
 const preview = ref(null)
 // show-messages of the saved version, which the payload of the preview does not have (fork)
 const savedShowMessages = ref(false)
-const previewExpanded = ref(true)
+const validationBand = ref(null)
+const previewButton = ref(null)
 const copied = ref(false)
 let copiedTimer = null
 
@@ -324,14 +329,22 @@ const warningMessage = (warning) => ({
 const pageStatusLabel = (status) => STATUS_LABELS[status]?.page || STATUS_LABELS.unknown.page
 const endpointStatusLabel = (status) => STATUS_LABELS[status]?.endpoint || STATUS_LABELS.unknown.endpoint
 
-const clearMessages = () => {
-  error.value = ''
-  success.value = ''
-  versionConflict.value = false
-}
+const validationWarnings = computed(() => (validation.value ? validation.value.warnings || [] : []))
+
+const endpointsCount = (count) => (count === 1 ? '1 endpoint' : `${count} endpoints`)
+
+const previewSummary = computed(() => {
+  if (!preview.value) {
+    return ''
+  }
+  const label = `${preview.value.title} · ${pageStatusLabel(preview.value.status)}`
+  return savedShowMessages.value ? `${label} · Messages shown on the details pages` : label
+})
+
+// Element focused again when the preview dialog closes
+const previewElement = () => (previewButton.value && previewButton.value.$el) || null
 
 const copyPublicUrl = async () => {
-  clearMessages()
   const url = `${window.location.origin}/status/${form.slug.trim()}`
   try {
     await navigator.clipboard.writeText(url)
@@ -339,7 +352,7 @@ const copyPublicUrl = async () => {
     clearTimeout(copiedTimer)
     copiedTimer = setTimeout(() => { copied.value = false }, 2000)
   } catch (e) {
-    success.value = `The browser did not allow copying: the address of the page is ${url}`
+    toast.warning(`The browser did not allow copying: the address of the page is ${url}`)
   }
 }
 
@@ -381,7 +394,8 @@ const loadDetail = async () => {
 
 const load = async () => {
   loading.value = true
-  clearMessages()
+  conflictError.value = ''
+  loadError.value = ''
   validation.value = null
   preview.value = null
   try {
@@ -396,33 +410,38 @@ const load = async () => {
       Object.assign(form, emptyForm())
     }
   } catch (e) {
-    error.value = describeStatusPageError(e)
+    loadError.value = describeStatusPageError(e)
   } finally {
     loading.value = false
   }
 }
 
+// One message per action: the summary goes to a toast and only the warnings stay on the screen
 const validate = async () => {
-  clearMessages()
   busy.value = true
   try {
     const { data } = await statusPagesApi.validate(currentDocument(), isEdit.value ? props.slug : '')
     validation.value = data
-    success.value = 'Valid definition.'
+    toast.info(`The page will show ${endpointsCount(data.endpoints)}.`)
+    if ((data.warnings || []).length) {
+      await nextTick()
+      validationBand.value?.scrollIntoView({ block: 'nearest' })
+    }
+    return true
   } catch (e) {
     validation.value = null
-    error.value = describeStatusPageError(e)
+    toast.error(describeStatusPageError(e))
+    return false
   } finally {
     busy.value = false
   }
 }
 
 const showPreview = async () => {
-  clearMessages()
+  // A page that was not saved yet has no public payload to preview
   if (!isEdit.value) {
-    await validate()
-    if (!error.value) {
-      success.value = 'Valid definition. Save the page to preview it with the data of its endpoints.'
+    if (await validate()) {
+      toast.info('Save the page to preview it with the data of its endpoints.')
     }
     return
   }
@@ -430,16 +449,14 @@ const showPreview = async () => {
   try {
     const { data } = await statusPagesApi.preview(props.slug)
     preview.value = data
-    previewExpanded.value = true
   } catch (e) {
-    error.value = describeStatusPageError(e)
+    toast.error(describeStatusPageError(e))
   } finally {
     busy.value = false
   }
 }
 
 const save = async () => {
-  clearMessages()
   busy.value = true
   try {
     if (isEdit.value) {
@@ -448,27 +465,35 @@ const save = async () => {
       savedError.value = ''
       savedShowMessages.value = form.showMessages
       preview.value = null
-      success.value = data.published ? 'Status page saved and published.' : 'Status page saved. It is not published.'
+      conflictError.value = ''
+      toast.success(data.published ? 'Status page saved and published.' : 'Status page saved. It is not published.')
     } else {
       const { data } = await statusPagesApi.create(currentDocument())
+      // The creation navigates to the edition, and App.vue clears the toasts on every route change: the message is
+      // shown again by the watcher of the slug, after the load
       pendingSuccess = data.published ? 'Status page created and published.' : 'Status page created. It is not published yet: check "Published" once you have reviewed the preview.'
       await router.push({ name: 'AdminStatusPageEdit', params: { slug: data.slug } })
     }
   } catch (e) {
-    error.value = describeStatusPageError(e)
-    versionConflict.value = e.status === 412
+    const message = describeStatusPageError(e)
+    if (e.status === 412) {
+      // Only reloading the current version or a successful save clears it, so that nothing typed is lost
+      conflictError.value = message
+    } else {
+      toast.error(message)
+    }
   } finally {
     busy.value = false
   }
 }
 
 const reloadCurrentVersion = async () => {
-  clearMessages()
   try {
     await loadDetail()
-    success.value = 'Current version loaded.'
+    conflictError.value = ''
+    toast.success('Current version loaded.')
   } catch (e) {
-    error.value = describeStatusPageError(e)
+    toast.error(describeStatusPageError(e))
   }
 }
 
@@ -482,8 +507,10 @@ watch(() => props.slug, async (slug, previousSlug) => {
     return
   }
   await load()
-  success.value = pendingSuccess
-  pendingSuccess = ''
+  if (pendingSuccess) {
+    toast.success(pendingSuccess)
+    pendingSuccess = ''
+  }
 })
 
 onMounted(load)
