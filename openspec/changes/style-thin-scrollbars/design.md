@@ -59,7 +59,7 @@ As regras ficam **fora de `@layer base`**, ao lado de `html { height: 100% }`: o
 ```css
 /* Fork: thin scrollbar in the colors of the theme, only where the pointer is fine: on touch screens the scrollbar of
    the system is kept */
-@media (pointer: fine) {
+@media not all and (pointer: coarse) {
   /* Chrome, Edge and Safari: full control of the size, the shape and the hover */
   *::-webkit-scrollbar {
     width: var(--scrollbar-size);
@@ -122,22 +122,24 @@ As regras ficam **fora de `@layer base`**, ao lado de `html { height: 100% }`: o
 
 - **Por que separar os caminhos:** definir `scrollbar-width`/`scrollbar-color` fora do `@supports` faria o Chromium ignorar as regras `::-webkit-scrollbar`, e a barra sairia com a largura, a forma e o hover do navegador, que foi o erro da primeira versão.
 - **Herança:** as propriedades padrão são herdadas, então basta o `html`. O `*` fica só nos pseudo-elementos do WebKit, que não herdam.
-- **Telas de toque:** tudo fica dentro de `@media (pointer: fine)`, inclusive o caminho do Firefox e o `forced-colors` do WebKit, porque a regra webkit sozinha já troca a barra sobreposta pela clássica. Só `html { scrollbar-color: auto }` fica global, porque não muda o tipo de barra.
+- **Telas de toque:** tudo fica dentro de `@media not all and (pointer: coarse)`, inclusive o caminho do Firefox e o `forced-colors` do WebKit, porque a regra webkit sozinha já troca a barra sobreposta pela clássica. Só `html { scrollbar-color: auto }` fica global, porque não muda o tipo de barra.
+- **Por que `not all and (pointer: coarse)` e não `(pointer: fine)`:** um navegador sem nenhum dispositivo apontador responde `pointer: none` — é o caso do Chromium headless, onde os testes medem a barra, e de TVs e quiosques. Com `(pointer: fine)` esses ambientes ficariam sem o estilo e o E2E não teria o que medir. A negação de `coarse` mantém o que interessa: o celular e o tablet continuam com a barra do sistema. A forma `not all and (...)` é a sintaxe aceita em qualquer navegador.
 - **Setas:** `display: none` mais `width/height: 0`, porque em alguns Chromium do Windows a seta continua ocupando espaço só com `display: none`.
 - **Mais contraste:** `prefers-contrast: more` redefine o repouso **e** o realce, para o hover continuar mais forte que o repouso.
 - **Se o Chromium reconhecer `selector(::-webkit-scrollbar)`:** o caminho do Firefox vira código morto, o que a conferência manual verifica (`CSS.supports('selector(::-webkit-scrollbar)')`). Se um dia o Firefox passar a reconhecer, o isolamento troca para uma condição só dele (por exemplo `@supports (-moz-appearance: none)`), sem mudar o resto.
 
 ### D3. macOS, iOS e Android
 - **Trade-off assumido:** no macOS e no Safari do iPad, as regras `::-webkit-scrollbar` trocam a barra sobreposta por uma barra clássica, sempre visível, que ocupa espaço. É o preço de ter a mesma barra nos navegadores, que é o pedido, e fica registrado em Risks e na documentação.
-- **Celular:** as regras ficam dentro de `@media (pointer: fine)`, então em telas de toque (Android e iPhone) a barra do sistema continua como é hoje, sem ocupar espaço.
-- **`pointer: fine` olha o ponteiro principal:** um notebook Windows com tela de toque, um 2-em-1 em modo notebook e um iPad com teclado e trackpad entram como ponteiro fino e recebem a barra clássica. É o esperado: usar `any-pointer: coarse` desligaria o estilo em qualquer desktop com tela de toque, o oposto do pedido.
+- **Celular:** as regras ficam dentro de `@media not all and (pointer: coarse)`, então em telas de toque (Android e iPhone) a barra do sistema continua como é hoje, sem ocupar espaço.
+- **O `pointer` olha o ponteiro principal:** um notebook Windows com tela de toque, um 2-em-1 em modo notebook e um iPad com teclado e trackpad não entram como ponteiro grosso e recebem a barra clássica. É o esperado: usar `any-pointer: coarse` desligaria o estilo em qualquer desktop com tela de toque, o oposto do pedido.
+- **Sem ponteiro:** um ambiente que responde `pointer: none`, como o Chromium headless dos testes, recebe o mesmo estilo do desktop.
 
 ### D4. Testes
 - **E2E** em `test/e2e/push.sh` (tem o helper `set_theme`, a lista da administração e a tabela de checks):
   - **Sessão com barras:** a sessão do roteiro sobe com `--hide-scrollbars false`, porque o agent-browser 0.37.1 esconde as barras nativas por padrão no Chromium headless. Sem isso, toda medida daria zero e o teste passaria sem barra nenhuma;
   - **Forçar a rolagem:** o painel da lista e a tabela de checks só têm barra quando o conteúdo transborda. O passo reduz a janela até `scrollHeight > clientHeight` no painel e `scrollWidth > clientWidth` na tabela, mede, e depois volta a janela para 1280×900, para não afetar o resto do roteiro;
   - **Espessura:** `offsetWidth - clientWidth` na vertical e `offsetHeight - clientHeight` na horizontal MUST ficar entre 9 e 10 px, o valor exato do `--scrollbar-size`. Um valor de 11 px indicaria que o Chromium caiu no caminho padrão, que foi o erro da primeira versão, e a faixa larga de antes (1–12) esconderia isso;
-  - **Ponteiro:** o passo confere `matchMedia('(pointer: fine)').matches` antes de medir, porque as regras estão nesse recorte;
+  - **Ponteiro:** o passo confere `matchMedia('(pointer: coarse)').matches === false` antes de medir, porque as regras estão nesse recorte. O Chromium headless responde `pointer: none`, então conferir `(pointer: fine)` faria o passo falhar sempre;
   - **Cor por tema:** `getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb').trim()` (o valor vem com espaço à esquerda) MUST ser `215.4 16.3% 46.9%` no claro e `215 20.2% 65.1%` no escuro;
   - **Prints:** lista com rolagem nos dois temas, na sessão com as barras visíveis.
 - **Conferência manual** (registrada no PR): Firefox (barra fina e na cor do tema, e `CSS.supports('selector(::-webkit-scrollbar)') === false`), telas estreitas e, se houver acesso, Safari.

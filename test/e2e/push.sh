@@ -70,7 +70,9 @@ CONFIG
 
 GATUS_CONFIG_PATH="$WORK/config.yaml" dist/gatus > "$WORK/gatus.log" 2>&1 &
 GATUS_PID=$!
-admin() { agent-browser --session e2e-push-admin "$@"; }
+# Fork: --hide-scrollbars false because headless Chromium hides the native scrollbars by default, and the thin
+# scrollbar of the theme is measured in this script
+admin() { agent-browser --session e2e-push-admin --hide-scrollbars false "$@"; }
 cleanup() {
   admin close >/dev/null 2>&1 || true
   kill "$GATUS_PID" >/dev/null 2>&1 || true
@@ -384,6 +386,50 @@ admin wait "[data-testid=\"response-time-chart\"][data-period=\"recent\"]" >/dev
 admin wait 2000 >/dev/null
 admin screenshot "$PRINTS/14-chart-recent-dark.png" >/dev/null
 set_theme admin light
+
+step "Thin scrollbar: 10 px, square and in the colors of the theme"
+# The rules are inside @media not all and (pointer: coarse): on a touch screen the browser keeps the scrollbar of the
+# system. Headless Chromium has no pointing device at all and reports pointer: none, so it is styled like a desktop.
+[ "$(admin eval "matchMedia('(pointer: coarse)').matches" | tr -d '"')" = "false" ] || fail "the browser reports a coarse pointer, the rules of the scrollbar do not apply"
+thumb_color() {
+  admin eval "getComputedStyle(document.documentElement).getPropertyValue('--scrollbar-thumb').trim()" 2>/dev/null | tr -d '"'
+}
+# The scrollbar only exists where the content overflows, so the window is made short enough for the panel of the list
+admin open "$BASE/admin" >/dev/null
+admin wait "$(testid admin-list-scroll)" >/dev/null || fail "the list of endpoints did not open"
+admin set viewport 1280 420 >/dev/null
+vertical_scrollbar() {
+  admin eval "(() => { const el = document.querySelector('[data-testid=\"$1\"]'); if (!el) { return 'missing' } if (el.scrollHeight <= el.clientHeight) { return 'no-overflow' } const style = getComputedStyle(el); const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth); return el.offsetWidth - el.clientWidth - borders })()" 2>/dev/null | tr -d '"'
+}
+VERTICAL=$(vertical_scrollbar admin-list-scroll)
+# 10 px is the value of --scrollbar-size; 11 px would mean that Chromium fell back to scrollbar-width: thin
+case "$VERTICAL" in
+  9 | 10) ;;
+  *) fail "expected a vertical scrollbar of 9 to 10 px in the list of endpoints, got: $VERTICAL" ;;
+esac
+[ "$(thumb_color)" = "215.4 16.3% 46.9%" ] || fail "unexpected color of the thumb in the light theme: $(thumb_color)"
+admin screenshot "$PRINTS/15-scrollbar-light.png" >/dev/null
+set_theme admin dark
+admin open "$BASE/admin" >/dev/null
+admin wait "$(testid admin-list-scroll)" >/dev/null
+[ "$(thumb_color)" = "215 20.2% 65.1%" ] || fail "unexpected color of the thumb in the dark theme: $(thumb_color)"
+admin screenshot "$PRINTS/16-scrollbar-dark.png" >/dev/null
+set_theme admin light
+# Horizontal scrollbar: the table of checks in a narrow window
+admin set viewport 420 900 >/dev/null
+admin open "$BASE/endpoints/_kuma-backup" >/dev/null
+admin wait "$(testid recent-checks-toggle)" >/dev/null
+[ "$(selector_count recent-checks-table)" = 0 ] && admin click "$(testid recent-checks-toggle)" >/dev/null
+admin wait "$(testid recent-check-2)" >/dev/null || fail "the table of checks did not open"
+# offsetWidth/offsetHeight include the borders of the element, which are discounted to get the scrollbar alone
+HORIZONTAL=$(admin eval "(() => { const el = document.querySelector('[data-testid=\"recent-checks-table\"]'); if (!el) { return 'missing' } if (el.scrollWidth <= el.clientWidth) { return 'no-overflow' } const style = getComputedStyle(el); const borders = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth); return el.offsetHeight - el.clientHeight - borders })()" 2>/dev/null | tr -d '"')
+case "$HORIZONTAL" in
+  9 | 10) ;;
+  *) fail "expected a horizontal scrollbar of 9 to 10 px in the table of checks, got: $HORIZONTAL" ;;
+esac
+admin screenshot "$PRINTS/17-scrollbar-horizontal.png" >/dev/null
+# Back to the window of the rest of the script
+admin set viewport 1280 900 >/dev/null
 
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null

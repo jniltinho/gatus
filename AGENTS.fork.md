@@ -121,6 +121,17 @@ Change (archived): `openspec/changes/archive/2026-09-16-kuma-response-time-chart
 - `api/response_time_chart.go`: the protected route checks the key in memory, the public one uses `statuspage.IsEndpointShown` (identical 404) before validating `period` (400). The public payload is cached in `statuspage.chartCache`, separate from `publicCache`, with the sequence of `liveupdates` for Recent and the current minute for the other periods. Recent is limited to 100 results (50 on public pages).
 - Frontend: `utils/responseTimeChart.js` ports `PingChart.vue` of the Uptime Kuma (the aggregates are walked from the newest, like the Kuma, and the series reversed); `npm run test:unit`. The chart exposes `data-period`, `data-line-points`, `data-down-columns` and `data-pending-columns` for the end-to-end tests.
 
+## Thin scrollbar of the theme
+
+Change (archived): `openspec/changes/archive/<date>-style-thin-scrollbars/`; specs in `openspec/specs/ui-square-style` and `openspec/specs/ui-theme`.
+
+- The rules are in `web/app/src/index.css`, **outside of `@layer base`** and next to `html { height: 100% }`: the `custom.css` of `ui.custom-css` is an unlayered `<link>` and would win over anything inside a layer, whatever the order. Keeping the rules unlayered means `ui.custom-css` needs `!important` to override them, which is what `docs/README.md` says.
+- `--scrollbar-size` (10 px) lives in `:root`; `--scrollbar-thumb` and `--scrollbar-thumb-hover` are defined for both themes with the HSL triple convention, from `--muted-foreground` (contrast of at least 3:1 over the background of every scrollable area).
+- `::-webkit-scrollbar` (Chrome, Edge, Safari) is the main path. `scrollbar-width`/`scrollbar-color` are isolated in `@supports not selector(::-webkit-scrollbar)` for Firefox: defining them outside of it makes Chromium 121+ ignore every `::-webkit-scrollbar` rule and fall back to `thin` (about 11 px, rounded, no hover).
+- Everything is inside `@media not all and (pointer: coarse)`, so touch screens keep the scrollbar of the system. A browser without a pointing device reports `pointer: none` and is styled like a desktop, which is what makes the end-to-end measurement possible.
+- `test/e2e/push.sh` runs the session with `--hide-scrollbars false` (headless Chromium hides the native scrollbars by default), shrinks the window until the panel of the list and the table of checks overflow, and requires 9 to 10 px after discounting the borders of the element. A measurement of 11 px means Chromium fell back to `scrollbar-width: thin`.
+- Trade-off: on macOS and on the iPad with a trackpad the overlay scrollbar becomes a classic one and takes space.
+
 ## Login screen of security.basic
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`); specs in `openspec/specs/basic-login-page` and `admin-access-control`.

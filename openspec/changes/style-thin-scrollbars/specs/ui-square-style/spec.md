@@ -7,7 +7,7 @@ A barra de rolagem da interface web MUST ser fina e sem cantos arredondados, com
 
 **Estilo por navegador:** o estilo MUST usar as regras `::-webkit-scrollbar` para Chromium e WebKit e as propriedades padrão apenas onde essas regras não existem, porque definir as duas formas ao mesmo tempo faz o Chromium ignorar as regras específicas.
 
-**Telas de toque:** em dispositivos sem ponteiro fino, a barra do sistema MUST ser mantida, inclusive com o alto contraste do sistema ligado.
+**Telas de toque:** em dispositivos de ponteiro grosso, como celulares e tablets sem trackpad, a barra do sistema MUST ser mantida, inclusive com o alto contraste do sistema ligado.
 
 #### Scenario: Espessura da barra vertical
 - **WHEN** a lista de endpoints da administração tem mais itens que a altura do painel, no Chrome, num dispositivo de ponteiro fino
