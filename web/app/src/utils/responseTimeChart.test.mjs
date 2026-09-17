@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import {
   CHART_COLORS,
   CHART_PERIOD_STORAGE_KEY,
+  CHART_LEGEND_COLORS,
   bucketColor,
   bucketDatasets,
+  chartLegend,
   chartSummary,
   readStoredPeriod,
   recentDatasets,
@@ -246,4 +248,37 @@ test('stored period: an unreadable storage goes back to Recent and writing does 
   // Without a browser (Node), the default storage is missing
   assert.equal(readStoredPeriod(), 'recent')
   assert.doesNotThrow(() => storePeriod('1w'))
+})
+
+const series = (items) => items.map((id) => id)
+
+test('legend: Recent without columns has only the response time', () => {
+  const items = chartLegend('recent', { linePoints: 4, downColumns: 0, pendingColumns: 0 })
+  assert.deepEqual(series(items.map((item) => item.id)), ['response-time'])
+  assert.equal(items[0].color, CHART_LEGEND_COLORS.line)
+  assert.equal(items[0].dash, 'solid')
+})
+
+test('legend: Recent with Down and with Pending', () => {
+  assert.deepEqual(chartLegend('recent', { downColumns: 2, pendingColumns: 0 }).map((item) => item.id), ['response-time', 'down'])
+  assert.deepEqual(chartLegend('recent', { downColumns: 0, pendingColumns: 1 }).map((item) => item.id), ['response-time', 'pending'])
+})
+
+test('legend: the aggregates name the three lines, in the order they are drawn', () => {
+  const items = chartLegend('24h', { linePoints: 10, downColumns: 0, pendingColumns: 0 })
+  assert.deepEqual(items.map((item) => item.id), ['average', 'minimum', 'maximum'])
+  assert.deepEqual(items.map((item) => item.dash), ['solid', 'dashed', 'dotted'])
+  assert.deepEqual(items.map((item) => item.color), [CHART_LEGEND_COLORS.line, CHART_LEGEND_COLORS.minLine, CHART_LEGEND_COLORS.maxLine])
+})
+
+test('legend: the columns come after the lines, Down before Pending', () => {
+  const items = chartLegend('6h', { downColumns: 1, pendingColumns: 3 })
+  assert.deepEqual(items.map((item) => item.id), ['average', 'minimum', 'maximum', 'down', 'pending'])
+  assert.equal(items[3].column, true)
+  assert.equal(items[4].column, true)
+})
+
+test('legend: an aggregate period without a line keeps the three lines', () => {
+  assert.deepEqual(chartLegend('1w', { linePoints: 0, downColumns: 1, pendingColumns: 0 }).map((item) => item.id), ['average', 'minimum', 'maximum', 'down'])
+  assert.deepEqual(chartLegend('1w').map((item) => item.id), ['average', 'minimum', 'maximum'])
 })

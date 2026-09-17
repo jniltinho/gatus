@@ -30,6 +30,23 @@ export const CHART_COLORS = Object.freeze({
   none: '#00000000'
 })
 
+// Fork: colors of the legend samples, the opaque tone of each series (the minimum and the maximum lines are drawn
+// translucent, which over the card is almost the same green as the average)
+export const CHART_LEGEND_COLORS = Object.freeze({
+  line: '#5CDD8B',
+  minLine: '#3CBD6B',
+  maxLine: '#7CBD6B',
+  down: '#DC3545',
+  pending: '#F5B617'
+})
+
+// Dash patterns of the lines, repeated by the sample of each legend item
+export const CHART_LINE_DASHES = Object.freeze({
+  average: [],
+  minimum: [6, 4],
+  maximum: [2, 3]
+})
+
 const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
 const HOUR_MS = 60 * MINUTE_MS
@@ -214,6 +231,26 @@ export const chartSummary = (series) => {
     }
   })
   return summary
+}
+
+// chartLegend returns the legend items of the period, in the order the series are drawn. The identifiers are the
+// values of data-series read by the end-to-end tests.
+export const chartLegend = (period, summary) => {
+  const counts = summary || { downColumns: 0, pendingColumns: 0 }
+  const items = period === RECENT_PERIOD
+    ? [{ id: 'response-time', label: 'Response time', color: CHART_LEGEND_COLORS.line, dash: 'solid' }]
+    : [
+      { id: 'average', label: 'Average', color: CHART_LEGEND_COLORS.line, dash: 'solid' },
+      { id: 'minimum', label: 'Minimum', color: CHART_LEGEND_COLORS.minLine, dash: 'dashed' },
+      { id: 'maximum', label: 'Maximum', color: CHART_LEGEND_COLORS.maxLine, dash: 'dotted' }
+    ]
+  if (counts.downColumns > 0) {
+    items.push({ id: 'down', label: 'Down', color: CHART_LEGEND_COLORS.down, column: true })
+  }
+  if (counts.pendingColumns > 0) {
+    items.push({ id: 'pending', label: 'Pending', color: CHART_LEGEND_COLORS.pending, column: true })
+  }
+  return items
 }
 
 const browserStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
