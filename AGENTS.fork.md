@@ -31,6 +31,8 @@ The module path of the fork is `gatus/v5` (upstream: `github.com/TwiN/gatus/v5`)
 - `.github/workflows/ci.yml`: `make lint`, `make build` and `go test ./... -race` (with `sudo`, because of the ICMP test).
 - `.github/workflows/release.yml`: triggered by `v*-fork.*` tags; builds the tarballs and the GitHub Release. It does not publish images.
 - Fork tags: `v<upstream-version>-fork.<N>`. Never create `vX.Y.Z` tags without the suffix.
+- **Release notes are written in English**, like the rest of what the users of the fork read (interface, `README.md` and `docs/`). Commit messages, pull requests and the OpenSpec artifacts stay in Portuguese. Write the notes from what the user sees — what changed on the screen, what the administrator has to do, what the default is — and not from the names of the files that were touched.
+- Screens of the fork are published in [docs/screenshots](docs/screenshots): curated images, committed to the repository, linked from the `README.md`. They are captured by hand with `agent-browser` at 1280×900, from a local instance with `admin.enabled` and `security.basic`, and have to be retaken whenever a screen changes shape. The screenshots of `test/e2e/*.sh` are a different thing: they go to `dist/prints/`, which stays out of git.
 
 ## Endpoint administration
 
