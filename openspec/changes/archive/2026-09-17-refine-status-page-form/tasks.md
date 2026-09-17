@@ -19,4 +19,4 @@
 - [x] 3.2 Rodar `test/e2e/status-pages.sh` e `test/e2e/push.sh` e conferir os prints nos temas claro e escuro.
 - [x] 3.3 Conferência manual em 1280×900, 800×600 e 390×844: formulário novo, edição de página do YAML (somente leitura), conflito de versão e cartão do gráfico no dashboard e na página pública.
 - [x] 3.4 `npm run build` no `web/app` com o `web/static` versionado, `gofmt`/lint e `openspec validate refine-status-page-form --strict`.
-- [ ] 3.5 Entrega: PR em `jniltinho/gatus` com CI verde, release na próxima versão livre da série (`v5.36.0-fork.22` se a barra de rolagem fina sair antes) com notas em pt-BR, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos atualizadas, e PR de arquivamento da change.
+- [x] 3.5 Entrega: PR em `jniltinho/gatus` com CI verde, release na próxima versão livre da série (`v5.36.0-fork.22` se a barra de rolagem fina sair antes) com notas em pt-BR, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos atualizadas, e PR de arquivamento da change.
