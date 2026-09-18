@@ -138,6 +138,9 @@ Example of the Akamai (or any alerting system) calling a global key:
 https://status.example.com/api/push/<global-key>/erp_site?status=down&msg=Latency%20above%202s
 ```
 
+To register many hosts at once, each with a token of its own, see
+[Importing endpoints from a CSV](admin-endpoints.md#importing-endpoints-from-a-csv).
+
 ## Heartbeat
 
 - For every full heartbeat interval without an accepted push, a failure is recorded with the error
