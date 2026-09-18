@@ -39,9 +39,29 @@ func TestCertificateExpiresInDays(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			actual := certificateExpiresInDays(scenario.results, now)
+			actual, expiresAt := certificateExpiration(scenario.results, now)
 			if (actual == nil) != (scenario.expected == nil) || (actual != nil && *actual != *scenario.expected) {
 				t.Errorf("expected %v, got %v", describeDays(scenario.expected), describeDays(actual))
+			}
+			// Fork: the instant of the expiration comes from the same result as the number of days
+			if (expiresAt == nil) != (actual == nil) {
+				t.Fatalf("the days and the instant of the expiration must be set together, got %v and %v", describeDays(actual), expiresAt)
+			}
+			if expiresAt == nil {
+				return
+			}
+			if expiresAt.Location() != time.UTC {
+				t.Errorf("the instant of the expiration must be in UTC, got %s", expiresAt.Location())
+			}
+			var expected time.Time
+			for i := len(scenario.results) - 1; i >= 0; i-- {
+				if scenario.results[i].CertificateExpiration != 0 {
+					expected = scenario.results[i].Timestamp.Add(scenario.results[i].CertificateExpiration).UTC()
+					break
+				}
+			}
+			if !expiresAt.Equal(expected) {
+				t.Errorf("expected the expiration at %s, got %s", expected, expiresAt)
 			}
 		})
 	}
@@ -105,11 +125,22 @@ func TestBuildPayload_CertificateExpiration(t *testing.T) {
 	if err := decoder.Decode(&decoded); err != nil {
 		t.Fatalf("expected only allowed fields with the certificate expiration, got %v in %s", err, body)
 	}
-	if strings.Contains(string(body), "certificateExpiration\"") || strings.Contains(string(body), "expiresAt") {
-		t.Errorf("expected only the number of days to be published, got %s", body)
+	if strings.Contains(string(body), "certificateExpiration\"") {
+		t.Errorf("expected only the number of days and the instant of the expiration to be published, got %s", body)
+	}
+	// Fork: the instant of the expiration is published next to the days, from the same result
+	expectedExpiration := now.Add(73*24*time.Hour + time.Hour).UTC()
+	if at := payload.Featured[0].CertificateExpiresAt; at == nil || !at.Equal(expectedExpiration) {
+		t.Errorf("expected the featured endpoint to expire at %s, got %v", expectedExpiration, at)
+	}
+	if at := payload.Groups[0].Endpoints[1].CertificateExpiresAt; at != nil {
+		t.Errorf("expected no expiration for the endpoint without certificate, got %s", at)
 	}
 	details := BuildEndpointDetailsPayload(page, selection.Featured[0], summaries["core_site"], nil, now)
 	if details.CertificateExpiresInDays == nil || *details.CertificateExpiresInDays != 73 {
 		t.Errorf("expected 73 days on the details page, got %v", describeDays(details.CertificateExpiresInDays))
+	}
+	if at := details.CertificateExpiresAt; at == nil || !at.Equal(expectedExpiration) {
+		t.Errorf("expected the details page to expire at %s, got %v", expectedExpiration, at)
 	}
 }

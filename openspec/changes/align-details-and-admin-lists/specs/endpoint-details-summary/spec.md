@@ -8,7 +8,7 @@ A tela de detalhes do endpoint do dashboard (`/endpoints/<key>`) e a pública (`
 **Histórico:** o cartão do histórico MUST mostrar as barras dos últimos resultados com 20 px de altura nas duas telas, com os rótulos de tempo do resultado mais antigo e do mais recente nas pontas, e MUST NOT repetir visualmente o nome, o grupo, o host nem o estado do endpoint, que já estão no cabeçalho da página. O resumo textual para leitores de tela continua como está, com o nome do endpoint.
 
 **Diferenças previstas**, que MUST continuar existindo:
-- só o dashboard mostra o host e a data de expiração do certificado, porque o payload público não publica endereço nem data;
+- só o dashboard mostra o host, porque o payload público não publica endereço;
 - só o dashboard tem os botões de atualizar e de alternar entre média e mínimo-máximo, a paginação da tabela e o tooltip com as condições e os erros da verificação;
 - só a tela pública mostra o horário da última atualização, o link de volta para a status page e a tabela de verificações sanitizada, com mensagens apenas quando a página permitir;
 - a quantidade de barras pode ser diferente entre as duas.
@@ -20,8 +20,8 @@ A tela de detalhes do endpoint do dashboard (`/endpoints/<key>`) e a pública (`
 
 #### Scenario: Nada de host na tela pública
 - **WHEN** um visitante abre a tela pública de detalhes de um endpoint
-- **THEN** o cabeçalho não mostra host nem data de expiração do certificado
-- **AND** a tela do dashboard do mesmo endpoint mostra os dois
+- **THEN** o cabeçalho não mostra o host
+- **AND** a tela do dashboard do mesmo endpoint mostra o host
 
 #### Scenario: Mesmo histórico
 - **WHEN** o mesmo endpoint é aberto nas duas telas

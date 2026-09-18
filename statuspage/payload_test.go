@@ -106,7 +106,8 @@ type allowedEndpoint struct {
 		Pending bool `json:"pending"`
 	} `json:"results"`
 	// Only published when the page shows the certificate expiration (fork)
-	CertificateExpiresInDays *int `json:"certificateExpiresInDays"`
+	CertificateExpiresInDays *int    `json:"certificateExpiresInDays"`
+	CertificateExpiresAt     *string `json:"certificateExpiresAt"`
 }
 
 func TestBuildPayload_Allowlist(t *testing.T) {

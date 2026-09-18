@@ -33,14 +33,15 @@
     </template>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
-    <table v-else class="w-full text-sm" data-testid="push-keys-table">
+    <!-- Fork: fixed layout so that the width of the table never depends on the content, and cards below md -->
+    <table v-else class="hidden w-full table-fixed text-sm md:table" data-testid="push-keys-table">
       <thead class="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
         <tr>
           <th class="px-3 py-2 font-medium">Name</th>
-          <th class="px-3 py-2 font-medium">Key</th>
-          <th class="px-3 py-2 font-medium">Source</th>
-          <th class="px-3 py-2 font-medium">Created</th>
-          <th class="px-3 py-2 font-medium text-right">Actions</th>
+          <th class="w-[12%] px-3 py-2 font-medium">Key</th>
+          <th class="hidden w-[10%] px-3 py-2 font-medium lg:table-cell">Source</th>
+          <th class="w-[32%] px-3 py-2 font-medium">Created</th>
+          <th class="w-[8rem] px-3 py-2 font-medium text-right">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -48,14 +49,16 @@
           <td colspan="5" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No push keys yet.</td>
         </tr>
         <tr v-for="key in keys" :key="`${key.origin}-${key.id || key.name}`" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`push-key-row-${key.origin}-${key.name}`">
-          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100">{{ key.name }}</td>
+          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100"><span class="block truncate" :title="key.name">{{ key.name }}</span></td>
           <td class="px-3 py-1.5 font-mono text-xs text-muted-foreground dark:text-gray-400">{{ key.hint ? `…${key.hint}` : '—' }}</td>
-          <td class="px-3 py-1.5">
+          <td class="hidden px-3 py-1.5 lg:table-cell">
             <span :class="['border px-1.5 py-0.5 text-xs', key.origin === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ key.origin === 'admin' ? 'Web' : 'YAML' }}</span>
           </td>
           <td class="px-3 py-1.5 text-muted-foreground dark:text-gray-400">
-            <template v-if="key.createdAt">{{ new Date(key.createdAt).toLocaleString() }}<span v-if="key.createdBy"> · {{ key.createdBy }}</span></template>
-            <template v-else>—</template>
+            <span class="block truncate">
+              <template v-if="key.createdAt">{{ new Date(key.createdAt).toLocaleString() }}<span v-if="key.createdBy"> · {{ key.createdBy }}</span></template>
+              <template v-else>—</template>
+            </span>
           </td>
           <td class="px-3 py-1.5 h-12 whitespace-nowrap text-right">
             <Button v-if="key.origin === 'admin'" variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busy" :data-testid="`push-key-revoke-${key.name}`" @click="pendingRevocation = key">Revoke</Button>
@@ -63,6 +66,27 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- Fork: below md the table gives way to one card per key, with every field and the same action -->
+    <div v-if="!loading" class="divide-y md:hidden dark:divide-gray-700">
+      <p v-if="keys.length === 0" class="px-3 py-8 text-center text-sm text-muted-foreground dark:text-gray-400">No push keys yet.</p>
+      <div v-for="key in keys" :key="`card-${key.origin}-${key.id || key.name}`" class="px-3 py-2.5" :data-testid="`push-key-card-${key.origin}-${key.name}`">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="truncate font-medium text-foreground dark:text-gray-100" :title="key.name">{{ key.name }}</p>
+            <p class="truncate font-mono text-xs text-muted-foreground dark:text-gray-400">{{ key.hint ? `…${key.hint}` : '—' }}</p>
+          </div>
+          <span class="shrink-0 text-xs text-muted-foreground dark:text-gray-400">{{ key.origin === 'admin' ? 'Web' : 'YAML' }}</span>
+        </div>
+        <p class="mt-1 truncate text-xs text-muted-foreground dark:text-gray-400">
+          <template v-if="key.createdAt">{{ new Date(key.createdAt).toLocaleString() }}<span v-if="key.createdBy"> · {{ key.createdBy }}</span></template>
+          <template v-else>—</template>
+        </p>
+        <div v-if="key.origin === 'admin'" class="mt-1">
+          <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busy" :data-testid="`push-key-revoke-${key.name}`" @click="pendingRevocation = key">Revoke</Button>
+        </div>
+      </div>
+    </div>
 
     <template #footer>
       {{ keys.length }} {{ keys.length === 1 ? 'key' : 'keys' }}<span v-if="configKeyCount"> · {{ configKeyCount }} from the configuration file, read-only</span>

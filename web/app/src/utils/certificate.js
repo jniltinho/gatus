@@ -17,6 +17,12 @@ export const certificateOfResults = (results, now = Date.now()) => {
   return null
 }
 
+// certificateDate formats the expiration date the same way on the dashboard and on the public details page
+export const certificateDate = (expiresAt) => {
+  const date = expiresAt instanceof Date ? expiresAt : new Date(expiresAt)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 export const certificateText = (days) => {
   if (days > 1) {
     return `Certificate expires in ${days} days`
