@@ -48,20 +48,22 @@ var (
 
 // Item summarizes a status page for the administration list
 type Item struct {
-	Slug           string     `json:"slug"`
-	Title          string     `json:"title,omitempty"`
-	Origin         Origin     `json:"origin"`
-	Enabled        bool       `json:"enabled"`
-	Published      bool       `json:"published"`
-	Conflict       bool       `json:"conflict"`
-	ConflictOrigin string     `json:"conflictOrigin,omitempty"`
-	Error          string     `json:"error,omitempty"`
-	Endpoints      int        `json:"endpoints"`
-	Path           string     `json:"path"`
-	Version        int64      `json:"version,omitempty"`
-	CreatedAt      *time.Time `json:"createdAt,omitempty"`
-	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
-	UpdatedBy      string     `json:"updatedBy,omitempty"`
+	Slug           string `json:"slug"`
+	Title          string `json:"title,omitempty"`
+	Origin         Origin `json:"origin"`
+	Enabled        bool   `json:"enabled"`
+	Published      bool   `json:"published"`
+	Conflict       bool   `json:"conflict"`
+	ConflictOrigin string `json:"conflictOrigin,omitempty"`
+	Error          string `json:"error,omitempty"`
+	Endpoints      int    `json:"endpoints"`
+	// RequiresLogin is whether the page has a login of its own (fork)
+	RequiresLogin bool       `json:"requiresLogin"`
+	Path          string     `json:"path"`
+	Version       int64      `json:"version,omitempty"`
+	CreatedAt     *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt     *time.Time `json:"updatedAt,omitempty"`
+	UpdatedBy     string     `json:"updatedBy,omitempty"`
 }
 
 // Listing is the administration list of the status pages
@@ -231,7 +233,8 @@ func (s *Service) Validate(raw []byte, slug string) (*Validation, error) {
 		return nil, err
 	}
 	refs := Endpoints()
-	return &Validation{Definition: page, Warnings: selectionWarnings(page, refs), Endpoints: len(Select(page, refs).Keys())}, nil
+	// Fork: like every read of the administration, the validation answers with the hash of the credential masked
+	return &Validation{Definition: maskCredential(page), Warnings: selectionWarnings(page, refs), Endpoints: len(Select(page, refs).Keys())}, nil
 }
 
 // Create creates a managed status page. Without enabled, it is created disabled.
@@ -368,7 +371,13 @@ func (s *Service) Preview(slug string) ([]byte, error) {
 // parseSubmitted parses a submitted definition, in which a missing enabled means disabled. slug is the managed status
 // page being updated, or empty for a creation, in which case the slug must not be used.
 func parseSubmitted(raw []byte, slug string) (*pageconfig.Page, error) {
-	page, err := Parse(raw)
+	// Fork: the plaintext password of the login of the page becomes a bcrypt hash before anything is parsed, and a
+	// password that was not sent keeps the stored hash
+	resolved, err := resolveSubmittedCredential(raw, storedPasswordHash(slug))
+	if err != nil {
+		return nil, err
+	}
+	page, err := Parse(resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -517,6 +526,7 @@ func newItem(state *State, refs []EndpointRef) *Item {
 			item.Enabled = page.Enabled != nil && *page.Enabled
 		}
 		item.Endpoints = len(Select(page, refs).Keys())
+		item.RequiresLogin = page.RequiresLogin()
 	}
 	if stored := state.Stored; stored != nil {
 		createdAt, updatedAt := stored.CreatedAt, stored.UpdatedAt
@@ -531,18 +541,22 @@ func newItem(state *State, refs []EndpointRef) *Item {
 	return item
 }
 
+// newDetail describes a status page with its definition. Fork: the hash of the credential of the page is masked, in
+// the definition and in the YAML, and submitting the mask back keeps the stored hash.
 func newDetail(state *State) (*Detail, error) {
 	detail := &Detail{Item: *newItem(state, Endpoints())}
 	if state.Stored != nil {
-		detail.YAML = state.Stored.Definition
-		detail.Definition, _ = Parse([]byte(state.Stored.Definition))
+		detail.YAML = maskCredentialInDefinition(state.Stored.Definition)
+		if page, err := Parse([]byte(state.Stored.Definition)); err == nil {
+			detail.Definition = maskCredential(page)
+		}
 		return detail, nil
 	}
-	definition, err := yaml.Marshal(state.Page)
+	definition, err := yaml.Marshal(maskCredential(state.Page))
 	if err != nil {
 		return nil, err
 	}
-	detail.YAML, detail.Definition = string(definition), state.Page
+	detail.YAML, detail.Definition = string(definition), maskCredential(state.Page)
 	return detail, nil
 }
 

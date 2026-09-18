@@ -1,11 +1,14 @@
 package statuspage
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/netip"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestValidateSlug(t *testing.T) {
@@ -151,4 +154,88 @@ func TestConfig_DuplicateSlug(t *testing.T) {
 	if err := (&Config{Pages: []*Page{nil}}).ValidateAndSetDefaults(); err == nil {
 		t.Error("expected an error for an empty page")
 	}
+}
+
+// Fork: login of a status page
+
+func TestPageAuth_ValidateAndSetDefaults(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("page-secret"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenarios := []struct {
+		name          string
+		auth          *PageAuth
+		expectedError error
+	}{
+		{name: "without a login", auth: nil},
+		{
+			name: "with a username and a hash",
+			auth: &PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: base64.URLEncoding.EncodeToString(hash)},
+		},
+		{
+			name: "with spaces around the username and the hash",
+			auth: &PageAuth{Username: "  client  ", PasswordBcryptHashBase64Encoded: "  " + base64.URLEncoding.EncodeToString(hash) + "  "},
+		},
+		{
+			name:          "without a username",
+			auth:          &PageAuth{PasswordBcryptHashBase64Encoded: base64.URLEncoding.EncodeToString(hash)},
+			expectedError: ErrInvalidAuthUsername,
+		},
+		{
+			name:          "with a username that is too long",
+			auth:          &PageAuth{Username: strings.Repeat("a", MaximumAuthUsernameLength+1), PasswordBcryptHashBase64Encoded: base64.URLEncoding.EncodeToString(hash)},
+			expectedError: ErrInvalidAuthUsername,
+		},
+		{name: "without a hash", auth: &PageAuth{Username: "client"}, expectedError: ErrInvalidAuthPasswordHash},
+		{
+			name:          "with a hash that is not base64",
+			auth:          &PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: "not base64!"},
+			expectedError: ErrInvalidAuthPasswordHash,
+		},
+		{
+			name:          "with a base64 that is not a bcrypt hash",
+			auth:          &PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: base64.URLEncoding.EncodeToString([]byte("not-a-hash"))},
+			expectedError: ErrInvalidAuthPasswordHash,
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			page := &Page{Slug: "clients", Title: "Clients", Groups: []string{"core"}, Auth: scenario.auth}
+			err := page.ValidateAndSetDefaults()
+			if !errors.Is(err, scenario.expectedError) {
+				t.Fatalf("expected %v, got %v", scenario.expectedError, err)
+			}
+			if scenario.expectedError != nil {
+				return
+			}
+			if page.RequiresLogin() != (scenario.auth != nil) {
+				t.Errorf("expected RequiresLogin to be %v", scenario.auth != nil)
+			}
+			if scenario.auth != nil && page.Auth.Username != "client" {
+				t.Errorf("expected the username to be trimmed, got %q", page.Auth.Username)
+			}
+		})
+	}
+}
+
+// TestPageAuth_HashWithTheURLAlphabet makes sure the alphabet of security.basic works: the documented generator of the
+// fork produces base64 with - and _
+func TestPageAuth_HashWithTheURLAlphabet(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		hash, err := bcrypt.GenerateFromPassword([]byte("page-secret"), bcrypt.MinCost)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encoded := base64.URLEncoding.EncodeToString(hash)
+		if !strings.ContainsAny(encoded, "-_") {
+			continue
+		}
+		page := &Page{Slug: "clients", Title: "Clients", Groups: []string{"core"}, Auth: &PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: encoded}}
+		if err = page.ValidateAndSetDefaults(); err != nil {
+			t.Fatalf("expected a hash with the URL alphabet (%s) to be accepted, got %v", encoded, err)
+		}
+		return
+	}
+	t.Skip("no hash with - or _ was generated")
 }

@@ -44,7 +44,14 @@ func NormalizeDefinition(raw []byte) (*pageconfig.Page, []byte, error) {
 // used by the configuration file, even when a managed status page already uses it. It returns the normalized page, its
 // definition and the selection warnings computed with refs.
 func (s *Service) ValidateRestore(raw []byte, refs []EndpointRef) (*pageconfig.Page, []byte, []Warning, error) {
-	page, definition, err := NormalizeDefinition(raw)
+	// Fork: a backup assembled from the reads of the administration carries the hash of the credential masked. The
+	// credential stored at the destination is merged before the validation, which would refuse the mask as an invalid
+	// hash; a page that does not exist at the destination has no credential to keep and is refused as a masked secret.
+	merged, err := mergeRestoredCredential(raw)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	page, definition, err := NormalizeDefinition(merged)
 	if err != nil {
 		return nil, nil, nil, err
 	}

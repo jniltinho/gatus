@@ -181,8 +181,12 @@ func endpointResponseTimeChartHandler(cfg *config.Config) fiber.Handler {
 func statusPageResponseTimeChartHandler(cfg *config.Config, notFound fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		slug := c.Params("slug")
+		published, captured := publishedStatusPage(c)
+		if !captured {
+			return notFound(c)
+		}
 		key, err := url.QueryUnescape(c.Params("key"))
-		if err != nil || !statuspage.IsEndpointShown(slug, key) {
+		if err != nil || !statuspage.IsEndpointShownOf(published, key) {
 			return notFound(c)
 		}
 		period := c.Query("period")
@@ -196,7 +200,7 @@ func statusPageResponseTimeChartHandler(cfg *config.Config, notFound fiber.Handl
 		switch {
 		case err == nil:
 			setPublicAPIHeaders(c)
-			c.Set(fiber.HeaderCacheControl, "no-cache")
+			setProtectedPageCacheControl(c, published.Page.RequiresLogin(), "no-cache")
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 			return c.Status(fiber.StatusOK).Send(body)
 		case errors.Is(err, statuspage.ErrPageNotFound):

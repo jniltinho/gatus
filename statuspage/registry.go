@@ -140,7 +140,27 @@ func Load(cfg *config.Config) {
 	publish(next)
 	// The cache keys include the revision and the generation, so this only frees memory
 	publicCache.Clear()
+	// Fork: a load may change the credential of a page, so the remembered verifications and the counted failures go too
+	resetAuthState()
 	logPublished(next)
+	warnAboutLoginWithoutSecurity(cfg, next)
+}
+
+// warnAboutLoginWithoutSecurity warns when a page requires a login while the installation has no security: the page is
+// protected, but /api/v1/endpoints/statuses and the badges by key stay open and publish more than the page shows (fork)
+func warnAboutLoginWithoutSecurity(cfg *config.Config, snap *snapshot) {
+	if !snap.enabled || cfg.Security != nil {
+		return
+	}
+	var slugs []string
+	for _, state := range append(sortedStates(snap.configStates), sortedStates(snap.managedStates)...) {
+		if state.IsPublished() && state.Page.RequiresLogin() {
+			slugs = append(slugs, state.Slug)
+		}
+	}
+	if len(slugs) > 0 {
+		logr.Warnf("[statuspage.Load] Status pages with a login of their own (%s) while the installation has no security: the dashboard API stays open and publishes more than these pages show", strings.Join(slugs, ", "))
+	}
 }
 
 func newManagedState(stored *common.ManagedStatusPage, configStates map[string]*State) *State {
