@@ -2,6 +2,8 @@
 
 Numa status page com `show-messages`, a tabela de checagens mostra a mensagem dos envios de push e o `HTTP <código>` das verificações que responderam. Quando a verificação nem chega a responder — certificado que não bate com o host, DNS que não resolve, conexão recusada, tempo esgotado — a coluna Message fica **vazia** e o visitante vê só `Down`, sem saber se o serviço caiu, se a rede falhou ou se o certificado venceu.
 
+Na mesma tela falta outra coisa simples: quantos endpoints estão no ar e quantos não estão. Hoje a faixa diz só o estado geral, e quem quer o número conta as linhas na mão.
+
 O dashboard já mostra o erro inteiro, porque é uma tela autenticada. Na página pública o erro não pode ser publicado como veio: `dial tcp: lookup sso.exemplo.com on 127.0.0.11:53: no such host` entrega o resolvedor DNS interno da instalação, e `x509: certificate is valid for *.exemplo.com` entrega qual certificado o host serve. Esse requisito ("os erros das verificações ativas MUST NOT ser publicados") continua valendo.
 
 Falta o meio-termo: dizer **o tipo** da falha, sem dizer nada sobre a infraestrutura.
@@ -14,11 +16,12 @@ Falta o meio-termo: dizer **o tipo** da falha, sem dizer nada sobre a infraestru
 - Falha sem erro registrado — o caso de TCP, UDP, SCTP e ICMP — passa a ser reconhecida pela conexão, para `Connection failed` não ser inalcançável justamente para eles.
 - `HTTP <código>` passa a ser publicado só com código igual ou maior que 100, senão o banner SSH, que usa `1`, publica `HTTP 1`.
 - A tabela de checagens da página pública passa a mostrar o motivo na coluna Message.
+- A faixa de estado da página pública passa a mostrar quantos endpoints estão no ar e quantos não estão (`12 up · 2 down`, com pendentes e sem dados só quando houver), contados no servidor para continuarem certos numa página truncada.
 - Nada muda no dashboard, nas páginas sem `show-messages` e no payload da página (que continua sem mensagens).
 
 ## Impact
 
-- Specs: `public-status-pages` (requisito "Mensagens opcionais nas status pages").
+- Specs: `public-status-pages` (requisitos "Mensagens opcionais nas status pages" e "Payload público sanitizado") e `status-page-web-ui` (requisito "Página pública de status").
 - Código: `statuspage/payload.go` (`publicMessage`), `common.ResultSummary` e as duas cargas do resumo (`storage/store/sql`, `storage/store/memory`), `api/external_endpoint.go` (origem dos resultados da API externa).
 - Documentação: `docs/status-pages.md` e `docs/push-monitoring.md`; E2E em `test/e2e/status-pages.sh`.
-- Frontend: nenhuma mudança — a tabela já mostra `message` quando vem preenchido.
+- Frontend: a tabela não muda (já mostra `message` quando vem preenchido); a faixa de estado (`components/public/StatusSummary.vue`) ganha a contagem.

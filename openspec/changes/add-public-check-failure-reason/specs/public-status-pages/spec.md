@@ -77,3 +77,32 @@ Os erros das verificações ativas MUST NOT ser publicados, com ou sem `auth` na
 #### Scenario: Payload da página
 - **WHEN** a página `infra` tem `show-messages: true` e um dos resultados falhou com erro
 - **THEN** o payload da página não tem `message` nem `origin` em nenhum resultado
+
+### Requirement: Payload público sanitizado
+A resposta de `GET /api/v1/status-pages/:slug` MUST conter apenas:
+- `slug`, `title`, `description`, `status`, `updatedAt`, `truncated`, `summary`, `featured` e `groups`;
+- em `summary`, a contagem dos endpoints da página por estado: `total`, `up`, `down`, `pending` e `unknown`;
+- em cada grupo, `name`, `status` e `endpoints`;
+- em cada destaque, os campos de endpoint e `group`;
+- em cada endpoint, `name`, `status`, `uptime` (`24h`, `7d`, `30d`), `responseTime` (`24h`, `7d`, `30d`) e `results`, e `certificateExpiresInDays` somente quando a página tem `show-certificate-expiration: true` e o endpoint tem resultado publicado com certificado;
+- em cada resultado, `timestamp`, `success` e `durationMs`, e `pending: true` somente quando o resultado é Pending.
+
+MUST NOT conter nenhum outro campo, nem os valores de chave, URL, hostname, IP, porta, código HTTP, código DNS, erros, mensagens, condições, eventos, datas de expiração, alertas, `extra-labels` ou origem do endpoint. `certificateExpiresInDays` MUST ser um número inteiro de dias, sem data. `updatedAt` MUST ser o instante da montagem, no relógio do servidor.
+
+A contagem de `summary` MUST considerar todos os endpoints publicados da página, inclusive os destaques e os que ficaram fora de uma página truncada, e `total` MUST ser a soma dos quatro estados. O payload de detalhes de um endpoint MUST NOT conter `summary`.
+
+Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`, do mais antigo para o mais recente. O uptime MUST ser `null` num período sem execuções, com qualquer tipo de storage. Uma página com mais de 200 endpoints MUST devolver os 200 primeiros na ordem de exibição, com `truncated: true`. As telas públicas MUST mostrar os resultados Pending em amarelo, com o rótulo "Pending".
+
+#### Scenario: Resultado com dados sensíveis
+- **WHEN** o último resultado do endpoint `core/api` tem hostname `10.0.0.5`, código HTTP 500, erro `dial tcp 10.0.0.5:443` e condições resolvidas
+- **THEN** o JSON da página é decodificado sem erro por structs que só conhecem os campos permitidos, rejeitando campos desconhecidos
+- **AND** não contém os textos `10.0.0.5` nem `dial tcp`
+
+#### Scenario: Contagem dos endpoints
+- **WHEN** a página `infra` publica 12 endpoints no ar, 2 fora, 1 pendente e 1 sem dados
+- **THEN** `summary` é `{"total":16,"up":12,"down":2,"pending":1,"unknown":1}`
+
+#### Scenario: Contagem numa página truncada
+- **WHEN** a página `infra` seleciona 250 endpoints, dos quais 240 estão no ar
+- **THEN** o payload tem `truncated: true` com 200 endpoints
+- **AND** `summary.total` é 250 e `summary.up` é 240

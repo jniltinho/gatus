@@ -69,12 +69,32 @@ Hoje `HTTPStatus > 0` publica `HTTP <código>` antes de qualquer motivo, e `clie
 
 Quem consome a API pública e tratava `message` vazio como "falha de rede" passa a ver uma das cinco strings; quem olha `origin === "push"` não muda.
 
+### D6 — A contagem vem do servidor
+
+A faixa de estado passa a mostrar quantos endpoints estão no ar e quantos não estão. A contagem **não** é somada no navegador: uma página com mais de 200 endpoints é truncada no payload, e a soma no cliente diria `200` numa página de 250. O `Payload` da página ganha:
+
+```go
+// Summary counts the endpoints of the page by status (fork)
+type SummaryPayload struct {
+    Total   int `json:"total"`
+    Up      int `json:"up"`
+    Down    int `json:"down"`
+    Pending int `json:"pending"`
+    Unknown int `json:"unknown"`
+}
+```
+
+Os quatro estados são os mesmos que cada endpoint já publica, contados antes do corte dos 200, e `total` é a soma deles. O payload de **detalhes** não ganha o campo: ele descreve um endpoint, não a página. O struct do teste de allowlist passa a conhecer `summary`, que é o que mantém o `DisallowUnknownFields` como guarda.
+
+Na faixa, `up` e `down` aparecem sempre — inclusive `0 down`, que é a informação que o visitante quer ver —, e pendentes e sem dados só quando houver algum, para a faixa não ficar poluída no caso comum.
+
 ## Risks / Trade-offs
 
 - **O motivo já diz algo**: saber que caiu por certificado é mais do que só `Down`. É o preço de uma tabela útil, e é o mesmo que qualquer visitante descobre abrindo o site no navegador.
 - **Classificação por texto**: as redações do Go podem mudar entre versões. O pior caso é cair em `Check failed` — nada vaza, e os testes cobrem as redações de hoje.
 - **`ui.hide-errors`** zera os erros depois da avaliação: com ele, uma falha HTTP sem status vira `Check failed`.
 - **DNS por rcode e perda de ICMP**: `NXDOMAIN` não gera erro e o resumo não tem o rcode, então cai em `Check failed`; ICMP sem resposta cai em `Connection failed` pela regra de `Connected`.
+- **A contagem revela o tamanho da página**: quem vê a página já vê a lista dos endpoints, então `total` não conta nada de novo — exceto numa página truncada, onde ele revela quantos endpoints existem além dos 200 mostrados. É o preço de uma contagem certa.
 - **`Check failed` é vago**: é intencional, porque o que não foi reconhecido não pode ser descrito sem olhar o texto.
 
 ## Migration Plan
