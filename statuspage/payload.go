@@ -68,6 +68,10 @@ type EndpointPayload struct {
 	// once it expired. It is only set when the page shows the certificate expiration and a published result has a
 	// certificate (fork).
 	CertificateExpiresInDays *int `json:"certificateExpiresInDays,omitempty"`
+
+	// CertificateExpiresAt is the instant of that expiration, from the same result, in UTC. The details page shows it
+	// next to the number of days; the rows of the lists show only the days (fork).
+	CertificateExpiresAt *time.Time `json:"certificateExpiresAt,omitempty"`
 }
 
 // UptimePayload is the uptime of an endpoint, between 0 and 1, or null without execution during the period
@@ -198,7 +202,7 @@ func buildEndpointPayload(page *pageconfig.Page, ref EndpointRef, summary *commo
 		endpointPayload.Results = append(endpointPayload.Results, resultPayload)
 	}
 	if page.ShowCertificateExpiration {
-		endpointPayload.CertificateExpiresInDays = certificateExpiresInDays(summary.Results, now)
+		endpointPayload.CertificateExpiresInDays, endpointPayload.CertificateExpiresAt = certificateExpiration(summary.Results, now)
 	}
 	if numberOfResults := len(summary.Results); numberOfResults > 0 {
 		switch lastResult := summary.Results[numberOfResults-1]; {

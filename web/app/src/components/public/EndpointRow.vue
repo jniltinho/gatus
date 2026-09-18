@@ -82,6 +82,11 @@
         {{ activeResultText }}
       </span>
     </div>
+    <!-- Fork: on the details page the ends of the history are labelled, like the card of the dashboard -->
+    <div v-if="!showHeader" class="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+      <span>{{ oldestResultTime }}</span>
+      <span>{{ newestResultTime }}</span>
+    </div>
     <!-- The live region stays on the page even without an active result: one that only appears with the text announces nothing -->
     <span class="sr-only" aria-live="polite" aria-atomic="true">{{ activeResultText }}</span>
   </li>
@@ -91,6 +96,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { endpointKey, formatDateTime, formatMilliseconds, formatUptime, STATUS_LABELS } from '@/utils/statusPage'
+import { generatePrettyTimeAgo } from '@/utils/time'
 import { certificateClass, certificateText } from '@/utils/certificate'
 
 const props = defineProps({
@@ -128,6 +134,14 @@ const lastResult = computed(() => {
   const results = props.endpoint.results || []
   return results.length > 0 ? results[results.length - 1] : null
 })
+
+const firstResult = computed(() => {
+  const results = props.endpoint.results || []
+  return results.length > 0 ? results[0] : null
+})
+
+const oldestResultTime = computed(() => (firstResult.value ? generatePrettyTimeAgo(firstResult.value.timestamp) : ''))
+const newestResultTime = computed(() => (lastResult.value ? generatePrettyTimeAgo(lastResult.value.timestamp) : ''))
 
 const responseTime = computed(() => props.endpoint.responseTime || {})
 

@@ -440,6 +440,24 @@ admin screenshot "$PRINTS/17-scrollbar-horizontal.png" >/dev/null
 # Back to the window of the rest of the script
 admin set viewport 1280 900 >/dev/null
 
+step "Push keys list without horizontal scrolling"
+# Fork: the same widths as the other lists; the key created through the web is the row with the Revoke action
+for width in 1100 900 820; do
+  admin set viewport "$width" 800 >/dev/null
+  admin open "$BASE/admin/push-keys" >/dev/null
+  admin wait "$(testid push-keys-table)" >/dev/null || fail "the list of push keys did not open at $width px"
+  FITS=$(admin eval "(() => { const panel = document.querySelector('[data-testid=\"admin-list-scroll\"]'); const action = document.querySelector('[data-testid=\"push-key-revoke-akamai\"]'); return panel.scrollWidth <= panel.clientWidth && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(action) && action.getBoundingClientRect().right <= innerWidth + 1 })()" 2>/dev/null | tr -d '"')
+  [ "$FITS" = "true" ] || fail "the list of push keys has horizontal scrolling or actions out of the window at $width px"
+done
+for width in 700 390 360; do
+  admin set viewport "$width" 800 >/dev/null
+  admin open "$BASE/admin/push-keys" >/dev/null
+  admin wait "$(testid push-key-card-admin-akamai)" >/dev/null || fail "the list of push keys is not in cards at $width px"
+  CARDS=$(admin eval "(() => { const table = document.querySelector('[data-testid=\"push-keys-table\"]'); return (!table || getComputedStyle(table).display === 'none') && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(document.querySelector('[data-testid=\"push-key-revoke-akamai\"]')) })()" 2>/dev/null | tr -d '"')
+  [ "$CARDS" = "true" ] || fail "the cards of the push keys at $width px still have a table, horizontal scrolling or no actions"
+done
+admin set viewport 1280 900 >/dev/null
+
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null
 admin wait "$(testid push-key-revoke-akamai)" >/dev/null

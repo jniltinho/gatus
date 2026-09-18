@@ -1,6 +1,8 @@
 <template>
-  <Card class="endpoint h-full flex flex-col transition hover:shadow-lg hover:scale-[1.01] dark:hover:border-gray-700">
-    <CardHeader class="endpoint-header px-3 sm:px-6 pt-3 sm:pt-6 pb-2 space-y-0">
+  <!-- Fork: in compact mode (the details page) the card has no header of its own and the bars are the ones of the
+       public details page: the name, the group, the host and the status are already in the header of the page -->
+  <Card :class="['endpoint h-full flex flex-col transition dark:hover:border-gray-700', compact ? '' : 'hover:shadow-lg hover:scale-[1.01]']">
+    <CardHeader v-if="!compact" class="endpoint-header px-3 sm:px-6 pt-3 sm:pt-6 pb-2 space-y-0">
       <div class="flex items-start justify-between gap-2 sm:gap-3">
         <div class="flex-1 min-w-0 overflow-hidden">
           <CardTitle class="text-base sm:text-lg truncate">
@@ -26,7 +28,7 @@
         </div>
       </div>
     </CardHeader>
-    <CardContent class="endpoint-content flex-1 pb-3 sm:pb-4 px-3 sm:px-6 pt-2">
+    <CardContent :class="['endpoint-content flex-1 pb-3 sm:pb-4 px-3 sm:px-6', compact ? 'pt-0' : 'pt-2']">
       <div class="space-y-2">
         <div>
           <div class="flex items-center justify-between mb-1">
@@ -38,7 +40,8 @@
               v-for="(result, index) in displayResults"
               :key="index"
               :class="[
-                'flex-1 h-6 sm:h-8 rounded-sm transition-all',
+                'flex-1 rounded-sm transition-all',
+                compact ? 'h-5' : 'h-6 sm:h-8',
                 result ? 'cursor-pointer' : '',
                 result ? (
                   result.success 
@@ -84,6 +87,11 @@ const props = defineProps({
   showAverageResponseTime: {
     type: Boolean,
     default: true
+  },
+  // Used by the details page: no header of its own and the same bars as the public details page (fork)
+  compact: {
+    type: Boolean,
+    default: false
   }
 })
 

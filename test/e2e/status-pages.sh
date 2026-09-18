@@ -66,6 +66,13 @@ endpoints:
     interval: 5s
     conditions:
       - "[STATUS] == 200"
+  # Fork: long name and long URL, so that the admin list is measured with the case it has to survive
+  - name: a-very-long-endpoint-name-for-checking-the-truncation-of-the-list
+    group: filler
+    url: $BASE/health?a-very-long-query-string-that-keeps-going-and-going-to-check-the-truncation-of-the-url-column=1
+    interval: 1h
+    conditions:
+      - "[STATUS] == 200"
 $FILLER_ENDPOINTS
 # Fork: push endpoint of the real-time test of the public details page
 external-endpoints:
@@ -483,6 +490,61 @@ public open "$BASE/status/team" >/dev/null
 public wait --text "Services used by the team" >/dev/null || fail "the published page did not open without credentials"
 public wait "[data-testid=\"status-featured\"] [data-testid=\"status-endpoint-panel\"]" >/dev/null || fail "the team page did not show panel as featured"
 public screenshot --full "$PRINTS/10-team-public.png" >/dev/null
+
+step "Administration: lists without horizontal scrolling"
+# Fork: measured with a long name and a long URL, in widths away from the breakpoints (lg = 1024, md = 768)
+list_fits() {
+  local label=$1 row=$2
+  [ "$(js admin "(() => { const panel = document.querySelector('[data-testid=\"admin-list-scroll\"]'); const row = document.querySelector('[data-testid=\"$row\"]'); const action = row ? row.querySelector('button, a') : null; return panel.scrollWidth <= panel.clientWidth && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(action) && action.getBoundingClientRect().right <= innerWidth + 1 })()")" = true ] || fail "$label has horizontal scrolling or actions out of the window"
+}
+for width in 1100 900 820; do
+  admin set viewport "$width" 800 >/dev/null
+  admin open "$BASE/admin" >/dev/null
+  admin wait "$(testid admin-table)" >/dev/null || fail "the list of endpoints did not open at $width px"
+  list_fits "the list of endpoints at $width px" "admin-row-filler_a-very-long-endpoint-name-for-checking-the-truncation-of-the-list"
+  admin open "$BASE/admin/status-pages" >/dev/null
+  admin wait "$(testid status-pages-table)" >/dev/null || fail "the list of status pages did not open at $width px"
+  list_fits "the list of status pages at $width px" "status-page-row-admin-team"
+done
+# Below md the tables give way to cards, with the same actions
+for width in 700 390 360; do
+  admin set viewport "$width" 800 >/dev/null
+  admin open "$BASE/admin" >/dev/null
+  admin wait "$(testid admin-card-core_health)" >/dev/null || fail "the list of endpoints is not in cards at $width px"
+  [ "$(js admin "(() => { const table = document.querySelector('[data-testid=\"admin-table\"]'); return (!table || getComputedStyle(table).display === 'none') && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(document.querySelector('[data-testid=\"admin-open-core_health\"]')) })()")" = true ] || fail "the cards of the endpoints at $width px still have a table, horizontal scrolling or no actions"
+  admin open "$BASE/admin/status-pages" >/dev/null
+  admin wait "$(testid status-page-card-admin-team)" >/dev/null || fail "the list of status pages is not in cards at $width px"
+  [ "$(js admin "(() => { const table = document.querySelector('[data-testid=\"status-pages-table\"]'); return (!table || getComputedStyle(table).display === 'none') && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(document.querySelector('[data-testid=\"status-page-edit-team\"]')) })()")" = true ] || fail "the cards of the status pages at $width px still have a table, horizontal scrolling or no actions"
+done
+admin set viewport 1280 900 >/dev/null
+admin open "$BASE/admin" >/dev/null
+admin wait "$(testid admin-table)" >/dev/null
+# The long URL is truncated, with the whole address in the title
+[ "$(js admin "(() => { const cell = document.querySelector('[data-testid=\"admin-row-filler_a-very-long-endpoint-name-for-checking-the-truncation-of-the-list\"] td:nth-child(4)'); const span = cell.querySelector('span'); return span.scrollWidth > span.clientWidth && cell.title.includes('a-very-long-query-string') })()")" = true ] || fail "the long URL is not truncated with the whole address in the title"
+admin screenshot "$PRINTS/12-admin-list-wide.png" >/dev/null
+
+step "Details of the endpoint: the two screens with the same header and the same history"
+admin open "$BASE/endpoints/core_health" >/dev/null
+admin wait "$(testid endpoint-name)" >/dev/null || fail "the details page of the dashboard did not open"
+admin wait 1500 >/dev/null
+dashboard_details=$(js admin "(() => { const bar = document.querySelector('[data-testid=\"recent-checks-card\"] .flex-1.rounded-sm'); const card = document.querySelector('[data-testid=\"recent-checks-card\"]'); const blocks = ['recent-checks-card', 'details-summary', 'response-time-trend', 'checks-table-card', 'details-badges', 'details-health'].map((id) => { const el = document.querySelector('[data-testid=\"' + id + '\"]'); return el ? Math.round(el.getBoundingClientRect().top + scrollY) : -1 }); return JSON.stringify({ fontSize: getComputedStyle(document.querySelector('[data-testid=\"endpoint-name\"]')).fontSize, bar: bar ? Math.round(bar.getBoundingClientRect().height) : 0, name: card.innerText.includes('health'), order: blocks.join(','), sorted: blocks.every((top, index) => index === 0 || (top > 0 && top >= blocks[index - 1])) })})()" | tr -d '\\')
+grep -q "bar:20" <<<"$dashboard_details" || fail "the bars of the dashboard are not 20 px: $dashboard_details"
+grep -q "name:false" <<<"$dashboard_details" || fail "the card of the history of the dashboard repeats the name: $dashboard_details"
+grep -q "sorted:true" <<<"$dashboard_details" || fail "the blocks of the dashboard are out of order: $dashboard_details"
+dashboard_font=$(sed -n 's/.*fontSize:\([0-9]*\)px.*/\1/p' <<<"$dashboard_details")
+public open "$BASE/status/services/endpoints/core_health" >/dev/null
+public wait "$(testid status-endpoint-name)" >/dev/null || fail "the public details page did not open"
+public wait 1500 >/dev/null
+public_details=$(js public "(() => { const bar = document.querySelector('[data-testid=\"status-endpoint-recent-checks\"] [role=group] > span'); const card = document.querySelector('[data-testid=\"status-endpoint-recent-checks\"]').cloneNode(true); card.querySelectorAll('.sr-only, [aria-hidden=true]').forEach((node) => node.remove()); const blocks = ['status-endpoint-recent-checks', 'details-summary', 'status-endpoint-chart', 'status-endpoint-checks-table', 'details-badges', 'details-health'].map((id) => { const el = document.querySelector('[data-testid=\"' + id + '\"]'); return el ? Math.round(el.getBoundingClientRect().top + scrollY) : -1 }); return JSON.stringify({ fontSize: getComputedStyle(document.querySelector('[data-testid=\"status-endpoint-name\"]')).fontSize, bar: bar ? Math.round(bar.getBoundingClientRect().height) : 0, name: card.innerText.includes('health'), group: document.body.innerText.includes('Group:'), sorted: blocks.every((top, index) => index === 0 || (top > 0 && top >= blocks[index - 1])) })})()" | tr -d '\\')
+grep -q "bar:20" <<<"$public_details" || fail "the bars of the public page are not 20 px: $public_details"
+grep -q "name:false" <<<"$public_details" || fail "the card of the history of the public page shows the name: $public_details"
+grep -q "group:true" <<<"$public_details" || fail "the public page does not show the group: $public_details"
+grep -q "sorted:true" <<<"$public_details" || fail "the blocks of the public page are out of order: $public_details"
+public_font=$(sed -n 's/.*fontSize:\([0-9]*\)px.*/\1/p' <<<"$public_details")
+[ "$dashboard_font" = "$public_font" ] || fail "the title has different sizes: $dashboard_font px and $public_font px"
+# The public payload keeps the host to itself and publishes the expiration with the date
+grep -q "127.0.0.1" <<<"$(js public "document.querySelector('[data-testid=\"status-endpoint-details\"]').innerText")" && fail "the public details page shows the host"
+public screenshot "$PRINTS/12b-public-endpoint-details.png" >/dev/null
 
 step "Administration: exposure warning in the endpoint form"
 admin open "$BASE/admin/endpoints/new" >/dev/null

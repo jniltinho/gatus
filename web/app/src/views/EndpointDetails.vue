@@ -10,7 +10,7 @@
         <div v-if="endpointStatus && endpointStatus.name" class="space-y-6">
           <div class="flex items-start justify-between">
             <div>
-              <h1 class="text-2xl font-semibold tracking-tight">{{ endpointStatus.name }}</h1>
+              <h1 class="text-2xl font-semibold tracking-tight break-words" data-testid="endpoint-name">{{ endpointStatus.name }}</h1>
               <div class="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                 <span v-if="endpointStatus.group">Group: {{ endpointStatus.group }}</span>
                 <span v-if="endpointStatus.group && hostname">•</span>
@@ -55,6 +55,7 @@
               <!-- Fork: the bars, the numbers and the chart always show the latest results (page 1), whatever the page of the table -->
               <EndpointCard
                 v-if="currentStatus"
+                compact
                 :endpoint="currentStatus"
                 :maxResults="resultPageSize"
                 :showAverageResponseTime="showAverageResponseTime"
@@ -107,7 +108,7 @@
             </div>
           </Card>
 
-          <div v-if="showResponseTimeChartAndBadges" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div v-if="showResponseTimeChartAndBadges" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="details-badges">
             <Card v-for="period in ['30d', '7d', '24h', '1h']" :key="period">
               <CardHeader class="pb-2">
                 <CardTitle class="text-sm font-medium text-muted-foreground text-center">
@@ -120,7 +121,7 @@
             </Card>
           </div>
 
-          <Card>
+          <Card data-testid="details-health">
             <CardHeader>
               <CardTitle>Current Health</CardTitle>
             </CardHeader>
@@ -165,7 +166,7 @@ import RecentChecksTable from '@/components/RecentChecksTable.vue'
 import EventsTimeline from '@/components/EventsTimeline.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
 import { generatePrettyTimeAgo, generatePrettyTimeDifference } from '@/utils/time'
-import { certificateClass, certificateOfResults, certificateText } from '@/utils/certificate'
+import { certificateClass, certificateDate, certificateOfResults, certificateText } from '@/utils/certificate'
 import { PROTECTED_API_HEADERS, notifyUnauthorized } from '@/utils/auth'
 import { watchEndpointResults } from '@/utils/liveUpdates'
 import { CHART_PERIOD_OPTIONS, readStoredPeriod, storePeriod } from '@/utils/responseTimeChart'
@@ -215,7 +216,7 @@ const certificate = computed(() => {
   return {
     text: certificateText(expiration.days),
     className: certificateClass(expiration.days),
-    date: expiration.expiresAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    date: certificateDate(expiration.expiresAt)
   }
 })
 

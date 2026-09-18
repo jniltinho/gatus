@@ -1,7 +1,7 @@
 # Screenshots
 
 The screens this fork adds to [TwiN/gatus](https://github.com/TwiN/gatus), captured at 1280×900 on
-`v5.36.0-fork.23`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
+`v5.36.0-fork.24`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
 visitor can switch with the button in the header.
 
 ## Dashboard

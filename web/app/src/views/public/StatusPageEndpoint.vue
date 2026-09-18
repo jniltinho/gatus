@@ -30,13 +30,16 @@
       <div v-if="details" class="space-y-6" data-testid="status-endpoint-details">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0">
-            <h1 class="text-4xl font-bold tracking-tight break-words" data-testid="status-endpoint-name">{{ details.name }}</h1>
-            <p class="mt-2 text-muted-foreground">
-              <span v-if="details.group">Group: {{ details.group }} · </span>Updated {{ relativeTimeLabel(details.updatedAt, now) }}
-            </p>
-            <!-- Fork: expiration of the TLS certificate, when the page shows it -->
+            <!-- Fork: same header as the details page of the dashboard -->
+            <h1 class="text-2xl font-semibold tracking-tight break-words" data-testid="status-endpoint-name">{{ details.name }}</h1>
+            <div class="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span v-if="details.group">Group: {{ details.group }}</span>
+              <span v-if="details.group">•</span>
+              <span>Updated {{ relativeTimeLabel(details.updatedAt, now) }}</span>
+            </div>
+            <!-- Fork: expiration of the TLS certificate, when the page shows it, with the date like the dashboard -->
             <p v-if="certificateDays !== null" :class="['mt-1 text-xs', certificateClass(certificateDays)]" data-testid="status-endpoint-certificate">
-              {{ certificateText(certificateDays) }}
+              {{ certificateText(certificateDays) }}<template v-if="certificateExpiresAt"> · {{ certificateExpiresAt }}</template>
             </p>
           </div>
           <StatusBadge :status="healthStatus" />
@@ -86,7 +89,7 @@
           </div>
         </Card>
 
-        <div v-if="hasResponseTimes" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div v-if="hasResponseTimes" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="details-badges">
           <Card v-for="period in BADGE_PERIODS" :key="period.value">
             <CardHeader class="pb-2">
               <CardTitle class="text-sm font-medium text-muted-foreground text-center">{{ period.label }}</CardTitle>
@@ -97,7 +100,7 @@
           </Card>
         </div>
 
-        <Card>
+        <Card data-testid="details-health">
           <CardHeader>
             <CardTitle>Current Health</CardTitle>
           </CardHeader>
@@ -133,7 +136,7 @@ import EventsTimeline from '@/components/EventsTimeline.vue'
 import DetailsSummary from '@/components/DetailsSummary.vue'
 import { describeEvents, formatDateTime, relativeTimeLabel, SLUG_PATTERN } from '@/utils/statusPage'
 import { CHART_PERIOD_OPTIONS, readStoredPeriod, storePeriod } from '@/utils/responseTimeChart'
-import { certificateClass, certificateText } from '@/utils/certificate'
+import { certificateClass, certificateDate, certificateText } from '@/utils/certificate'
 import { watchEndpointResults } from '@/utils/liveUpdates'
 
 const REFRESH_INTERVAL_MS = 60000
@@ -178,6 +181,8 @@ const events = computed(() => (details.value ? describeEvents(details.value.even
 const eventItems = computed(() => events.value.map((event) => ({ key: `${event.type}-${event.timestamp}`, type: event.type, text: event.text, dateTime: formatDateTime(event.timestamp), timeAgo: event.timeAgo })))
 // Days until the TLS certificate expires, only published when the page shows it (fork)
 const certificateDays = computed(() => (details.value && Number.isInteger(details.value.certificateExpiresInDays) ? details.value.certificateExpiresInDays : null))
+// Fork: the details page shows the date next to the days, like the dashboard; the rows of the lists show only the days
+const certificateExpiresAt = computed(() => (details.value && details.value.certificateExpiresAt ? certificateDate(details.value.certificateExpiresAt) : ''))
 // Like the dashboard, which shows the chart as soon as a result has a duration: results faster than 1 ms have a
 // durationMs of 0 in the public payload, but still have points in the chart
 const hasResponseTimes = computed(() => results.value.length > 0)

@@ -25,15 +25,16 @@
     </template>
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
-    <table v-else class="w-full text-sm" data-testid="status-pages-table">
+    <!-- Fork: fixed layout so that the width of the table never depends on the content, and cards below md -->
+    <table v-else class="hidden w-full table-fixed text-sm md:table" data-testid="status-pages-table">
       <thead class="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
         <tr>
-          <th class="px-3 py-2 font-medium">Slug</th>
+          <th class="w-[20%] px-3 py-2 font-medium">Slug</th>
           <th class="px-3 py-2 font-medium">Title</th>
-          <th class="px-3 py-2 font-medium">Source</th>
-          <th class="px-3 py-2 font-medium">Status</th>
-          <th class="px-3 py-2 font-medium">Endpoints</th>
-          <th class="px-3 py-2 font-medium text-right">Actions</th>
+          <th class="hidden w-[8%] px-3 py-2 font-medium lg:table-cell">Source</th>
+          <th class="w-[12%] px-3 py-2 font-medium">Status</th>
+          <th class="hidden w-[10%] px-3 py-2 font-medium lg:table-cell">Endpoints</th>
+          <th class="w-[25rem] px-3 py-2 font-medium text-right">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -41,15 +42,15 @@
           <td colspan="6" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No status pages yet.</td>
         </tr>
         <tr v-for="item in items" :key="`${item.origin}-${item.slug}`" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`status-page-row-${item.origin}-${item.slug}`">
-          <td class="px-3 py-1.5 font-mono text-xs text-foreground dark:text-gray-100">{{ item.slug }}</td>
-          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100">{{ item.title || '—' }}</td>
-          <td class="px-3 py-1.5">
+          <td class="px-3 py-1.5 font-mono text-xs text-foreground dark:text-gray-100"><span class="block truncate" :title="item.slug">{{ item.slug }}</span></td>
+          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100"><span class="block truncate" :title="item.title || ''">{{ item.title || '—' }}</span></td>
+          <td class="hidden px-3 py-1.5 lg:table-cell">
             <span :class="['border px-1.5 py-0.5 text-xs', item.origin === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.origin === 'admin' ? 'Web' : 'YAML' }}</span>
           </td>
           <td class="px-3 py-1.5">
             <span :class="stateClass(item)" :title="item.conflictOrigin || item.error || ''">{{ stateLabel(item) }}</span>
           </td>
-          <td class="px-3 py-1.5">{{ item.endpoints }}</td>
+          <td class="hidden px-3 py-1.5 lg:table-cell">{{ item.endpoints }}</td>
           <td class="px-3 py-1.5 whitespace-nowrap text-right">
             <a :href="item.path" target="_blank" rel="noopener" class="inline-flex h-9 items-center px-3 text-sm font-medium hover:bg-accent dark:hover:bg-gray-800" :data-testid="`status-page-open-${item.slug}`">Open</a>
             <Button variant="ghost" size="sm" :data-testid="`status-page-copy-${item.slug}`" @click="copyLink(item)">Copy link</Button>
@@ -62,6 +63,33 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- Fork: below md the table gives way to one card per status page, with every field and the same actions -->
+    <div v-if="!loading" class="divide-y md:hidden dark:divide-gray-700">
+      <p v-if="items.length === 0" class="px-3 py-8 text-center text-sm text-muted-foreground dark:text-gray-400">No status pages yet.</p>
+      <div v-for="item in items" :key="`card-${item.origin}-${item.slug}`" class="px-3 py-2.5" :data-testid="`status-page-card-${item.origin}-${item.slug}`">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="truncate font-medium text-foreground dark:text-gray-100" :title="item.title || ''">{{ item.title || '—' }}</p>
+            <p class="truncate font-mono text-xs text-muted-foreground dark:text-gray-400" :title="item.slug">{{ item.slug }}</p>
+          </div>
+          <span :class="['shrink-0 text-xs', stateClass(item)]" :title="item.conflictOrigin || item.error || ''">{{ stateLabel(item) }}</span>
+        </div>
+        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground dark:text-gray-400">
+          <span>{{ item.origin === 'admin' ? 'Web' : 'YAML' }}</span>
+          <span>{{ item.endpoints }} {{ item.endpoints === 1 ? 'endpoint' : 'endpoints' }}</span>
+        </div>
+        <div class="mt-1 flex flex-wrap items-center gap-1">
+            <a :href="item.path" target="_blank" rel="noopener" class="inline-flex h-9 items-center px-3 text-sm font-medium hover:bg-accent dark:hover:bg-gray-800" :data-testid="`status-page-open-${item.slug}`">Open</a>
+            <Button variant="ghost" size="sm" :data-testid="`status-page-copy-${item.slug}`" @click="copyLink(item)">Copy link</Button>
+            <Button variant="ghost" size="sm" :data-testid="`status-page-edit-${item.slug}`" @click="edit(item)">{{ item.origin === 'admin' ? 'Edit' : 'View' }}</Button>
+            <template v-if="item.origin === 'admin'">
+              <Button variant="ghost" size="sm" :disabled="busySlug === item.slug || item.conflict || Boolean(item.error)" :data-testid="`status-page-toggle-${item.slug}`" @click="toggle(item)">{{ item.enabled ? 'Disable' : 'Enable' }}</Button>
+              <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busySlug === item.slug" :data-testid="`status-page-remove-${item.slug}`" @click="pendingRemoval = item">Remove</Button>
+            </template>
+        </div>
+      </div>
+    </div>
 
     <template #footer>
       {{ items.length }} {{ items.length === 1 ? 'status page' : 'status pages' }}<span v-if="publishedCount"> · {{ publishedCount }} published</span>
