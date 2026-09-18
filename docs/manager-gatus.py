@@ -75,9 +75,18 @@ def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", strip_accents(value).lower()).strip("-")
 
 
+def sanitize_key_part(value: str) -> str:
+    """Exactly what Gatus does to build a key: lowercase, and each of / _ . , space # + & turned into a hyphen. Accents
+    are kept, and repeated separators are not collapsed, so the key is the same one Gatus shows."""
+    value = value.strip().lower()
+    for character in ("/", "_", ".", ",", " ", "#", "+", "&"):
+        value = value.replace(character, "-")
+    return value
+
+
 def endpoint_key(group: str, name: str) -> str:
     """The key of an endpoint, as Gatus builds it from the group and the name"""
-    return f"{slugify(group)}_{slugify(name)}"
+    return f"{sanitize_key_part(group)}_{sanitize_key_part(name)}"
 
 
 def generate_token() -> str:
@@ -282,20 +291,30 @@ def command_groups(arguments: argparse.Namespace) -> int:
 
 
 def command_rename_group(arguments: argparse.Namespace) -> int:
-    """Changes the group of every endpoint of a group. Gatus renames the endpoint, because the key is <group>_<name>:
-    the history is kept, and the managed status pages follow the new key by themselves."""
+    """Changes the group of every endpoint of a group. The new group is written as it is typed, because the group is a
+    label: only the key of the endpoint is normalized. When the key changes, this is the rename of the administration,
+    which keeps the history and the push token; when only the case or the accents of the label change, the key stays
+    the same and it is an ordinary update."""
     gatus = Gatus(arguments)
-    source, target = slugify(arguments.source), slugify(arguments.target)
+    source, target = arguments.source.strip(), arguments.target.strip()
     if not target:
-        raise GatusError(f"the new group is empty after the slug: {arguments.target!r}")
-    if source == target:
-        raise GatusError("the new group is the same as the current one")
-    selected = [item for item in gatus.list_endpoints() if slugify(item.get("group") or "") == source]
+        raise GatusError("the new group is empty")
+    if not slugify(target):
+        raise GatusError(f"the new group has no letter or digit: {arguments.target!r}")
+    # The group is matched by the label or by its slug, so --from tradimus finds the group written Tradimus
+    selected = [
+        item
+        for item in gatus.list_endpoints()
+        if (item.get("group") or "") == source or slugify(item.get("group") or "") == slugify(source)
+    ]
     if not selected:
         raise GatusError(f"no endpoint is in the group {source}")
+    if all((item.get("group") or "") == target for item in selected):
+        raise GatusError("every endpoint of the group already has this exact name")
     from_config = [item for item in selected if item.get("source") == SOURCE_CONFIG]
     managed = [item for item in selected if item.get("source") != SOURCE_CONFIG]
-    print(f"{len(selected)} endpoints in {source} -> {target}" + (" (dry run)" if arguments.dry_run else ""))
+    note = "" if slugify(source) != slugify(target) else ", keys unchanged"
+    print(f"{len(selected)} endpoints in {source} -> {target}{note}" + (" (dry run)" if arguments.dry_run else ""))
     for item in from_config:
         print(f"  = {item['key']}: of the configuration file, change it in the YAML", file=sys.stderr)
     renamed = failed = 0
