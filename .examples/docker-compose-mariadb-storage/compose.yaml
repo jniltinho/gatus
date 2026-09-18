@@ -20,7 +20,7 @@ services:
       - web
 
   gatus:
-    image: jniltinho/gatus:v5.36.0-fork.24
+    image: jniltinho/gatus:v5.36.0-fork.25
     restart: always
     ports:
       - "8080:8080"
