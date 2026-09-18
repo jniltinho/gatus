@@ -406,7 +406,7 @@ thumb_color() {
 # The scrollbar only exists where the content overflows, so the window is made short enough for the panel of the list
 admin open "$BASE/admin" >/dev/null
 admin wait "$(testid admin-list-scroll)" >/dev/null || fail "the list of endpoints did not open"
-admin set viewport 1280 420 >/dev/null
+admin set viewport 1280 300 >/dev/null
 vertical_scrollbar() {
   admin eval "(() => { const el = document.querySelector('[data-testid=\"$1\"]'); if (!el) { return 'missing' } if (el.scrollHeight <= el.clientHeight) { return 'no-overflow' } const style = getComputedStyle(el); const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth); return el.offsetWidth - el.clientWidth - borders })()" 2>/dev/null | tr -d '"'
 }
@@ -440,6 +440,25 @@ admin screenshot "$PRINTS/17-scrollbar-horizontal.png" >/dev/null
 # Back to the window of the rest of the script
 admin set viewport 1280 900 >/dev/null
 
+step "Admin lists: rows of the same height and actions as icons"
+# Fork: measured at 1000 and 900 px, where the Type column is tight — at 1280 px the push badge fits and the defect hides
+for width in 1000 900; do
+  admin set viewport "$width" 800 >/dev/null
+  admin open "$BASE/admin" >/dev/null
+  admin wait "$(testid admin-accepts-push-core_health)" >/dev/null || fail "the badge of the endpoint that receives push is missing at $width px"
+  ROWS=$(admin eval "(() => { const rows = Array.from(document.querySelectorAll('[data-testid^=\"admin-row-\"]')).map((row) => Math.round(row.getBoundingClientRect().height)); return JSON.stringify({ same: new Set(rows).size === 1, tallest: Math.max(...rows), count: rows.length }) })()" 2>/dev/null | tr -d '\\"')
+  grep -q "same:true" <<<"$ROWS" || fail "the rows of the list of endpoints have different heights at $width px: $ROWS"
+  TALLEST=$(sed -n 's/.*tallest:\([0-9]*\).*/\1/p' <<<"$ROWS")
+  [ "$TALLEST" -le 32 ] || fail "the rows of the list of endpoints are ${TALLEST} px tall at $width px, more than the 32 px of the requirement"
+done
+admin set viewport 1280 900 >/dev/null
+admin open "$BASE/admin" >/dev/null
+admin wait "$(testid admin-table)" >/dev/null
+# The actions are icons: accessible name with the action and the name of the endpoint, and no visible text
+ACTIONS=$(admin eval "(() => { const ids = ['admin-open-core_health', 'admin-toggle-jobs_backup', 'admin-remove-jobs_backup']; return JSON.stringify(ids.map((id) => { const el = document.querySelector('[data-testid=\"' + id + '\"]'); if (!el) { return id + ':missing' } const label = el.getAttribute('aria-label') || ''; return (label.length > 0 && el.textContent.trim() === '') ? 'ok' : id + ':' + label + '/' + el.textContent.trim() })) })()" 2>/dev/null | tr -d '\\"')
+grep -q "ok,ok,ok" <<<"$ACTIONS" || fail "the actions of the list are not icons with an accessible name: $ACTIONS"
+grep -q "health" <<<"$(admin eval "document.querySelector('[data-testid=\"admin-open-core_health\"]').getAttribute('aria-label')" 2>/dev/null)" || fail "the accessible name of the action does not have the name of the endpoint"
+
 step "Push keys list without horizontal scrolling"
 # Fork: the same widths as the other lists; the key created through the web is the row with the Revoke action
 for width in 1100 900 820; do
@@ -457,6 +476,13 @@ for width in 700 390 360; do
   [ "$CARDS" = "true" ] || fail "the cards of the push keys at $width px still have a table, horizontal scrolling or no actions"
 done
 admin set viewport 1280 900 >/dev/null
+admin open "$BASE/admin/push-keys" >/dev/null
+admin wait "$(testid push-keys-table)" >/dev/null
+# The rows of the keys also have the same height, with and without the revoke action
+KEYS=$(admin eval "(() => { const rows = Array.from(document.querySelectorAll('[data-testid^=\"push-key-row-\"]')).map((row) => Math.round(row.getBoundingClientRect().height)); const action = document.querySelector('[data-testid=\"push-key-revoke-akamai\"]'); return JSON.stringify({ same: new Set(rows).size === 1, tallest: Math.max(...rows), label: action ? action.getAttribute('aria-label') : '', text: action ? action.textContent.trim() : 'missing' }) })()" 2>/dev/null | tr -d '\\"')
+grep -q "same:true" <<<"$KEYS" || fail "the rows of the list of push keys have different heights: $KEYS"
+grep -q "label:Revoke akamai" <<<"$KEYS" || fail "the revoke action has no accessible name: $KEYS"
+grep -q "text:}" <<<"$KEYS" || fail "the revoke action still has visible text: $KEYS"
 
 step "Revoking the created key"
 admin open "$BASE/admin/push-keys" >/dev/null

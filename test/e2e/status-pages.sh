@@ -517,6 +517,15 @@ for width in 700 390 360; do
   [ "$(js admin "(() => { const table = document.querySelector('[data-testid=\"status-pages-table\"]'); return (!table || getComputedStyle(table).display === 'none') && document.documentElement.scrollWidth <= innerWidth + 1 && Boolean(document.querySelector('[data-testid=\"status-page-edit-team\"]')) })()")" = true ] || fail "the cards of the status pages at $width px still have a table, horizontal scrolling or no actions"
 done
 admin set viewport 1280 900 >/dev/null
+admin open "$BASE/admin/status-pages" >/dev/null
+admin wait "$(testid status-pages-table)" >/dev/null
+# Fork: rows of the same height, with the actions as icons with an accessible name
+PAGES=$(js admin "(() => { const rows = Array.from(document.querySelectorAll('[data-testid^=\"status-page-row-\"]')).map((row) => Math.round(row.getBoundingClientRect().height)); const edit = document.querySelector('[data-testid=\"status-page-edit-team\"]'); const open = document.querySelector('[data-testid=\"status-page-open-team\"]'); return JSON.stringify({ same: new Set(rows).size === 1, tallest: Math.max(...rows), label: edit ? edit.getAttribute('aria-label') : '', text: edit ? edit.textContent.trim() : 'missing', link: open ? open.tagName : 'missing' }) })()" | tr -d '\\')
+grep -q "same:true" <<<"$PAGES" || fail "the rows of the list of status pages have different heights: $PAGES"
+[ "$(sed -n 's/.*tallest:\([0-9]*\).*/\1/p' <<<"$PAGES")" -le 32 ] || fail "the rows of the list of status pages are taller than 32 px: $PAGES"
+grep -q "label:Edit team" <<<"$PAGES" || fail "the edit action has no accessible name: $PAGES"
+grep -q "text:," <<<"$PAGES" || fail "the edit action still has visible text: $PAGES"
+grep -q "link:A" <<<"$PAGES" || fail "the action that opens the public page must stay a link: $PAGES"
 admin open "$BASE/admin" >/dev/null
 admin wait "$(testid admin-table)" >/dev/null
 # The long URL is truncated, with the whole address in the title
