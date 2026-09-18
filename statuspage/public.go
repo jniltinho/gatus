@@ -87,6 +87,12 @@ func PublicPage(slug string) ([]byte, error) {
 	if !ok {
 		return nil, ErrPageNotFound
 	}
+	return PublicPageOf(slug, published)
+}
+
+// PublicPageOf returns the payload of a page already looked up by the caller, so that a request that authorises and
+// then assembles resolves the slug only once (fork)
+func PublicPageOf(slug string, published Published) ([]byte, error) {
 	cacheKey := fmt.Sprintf("%s|%d|%d", slug, published.Revision, published.Generation)
 	return cachedAssembly(cacheKey, publicCacheTTL, slug, func() ([]byte, error) {
 		return assemble(published.Page, published.MaximumResults, time.Now())
@@ -100,11 +106,16 @@ func PublicPage(slug string) ([]byte, error) {
 // It returns ErrPageNotFound, without reading the storage, when the page is not published or does not show the
 // endpoint, and ErrPageUnavailable when the storage could not be read or the assembly waited too long for a slot.
 func PublicEndpointDetails(slug, key string) ([]byte, error) {
-	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
-		return nil, ErrPageNotFound
-	}
 	published, ok := Lookup(slug)
 	if !ok {
+		return nil, ErrPageNotFound
+	}
+	return PublicEndpointDetailsOf(slug, published, key)
+}
+
+// PublicEndpointDetailsOf returns the details of an endpoint of a page already looked up by the caller (fork)
+func PublicEndpointDetailsOf(slug string, published Published, key string) ([]byte, error) {
+	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return nil, ErrPageNotFound
 	}
 	ref, shown := findShownEndpoint(published.Page, key)
@@ -120,6 +131,15 @@ func PublicEndpointDetails(slug, key string) ([]byte, error) {
 
 // IsEndpointShown returns whether the published status page with the given slug shows the endpoint with the given key,
 // without reading the storage (fork)
+func IsEndpointShownOf(published Published, key string) bool {
+	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
+		return false
+	}
+	_, shown := findShownEndpoint(published.Page, key)
+	return shown
+}
+
+// IsEndpointShown returns whether the page with the given slug shows the endpoint with the given key
 func IsEndpointShown(slug, key string) bool {
 	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return false

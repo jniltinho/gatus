@@ -34,7 +34,10 @@ func adminStatusPageError(c *fiber.Ctx, err error) error {
 		errors.Is(err, pageconfig.ErrInvalidTitle), errors.Is(err, pageconfig.ErrDescriptionTooLong),
 		errors.Is(err, pageconfig.ErrEmptySelection), errors.Is(err, pageconfig.ErrInvalidGroups),
 		errors.Is(err, pageconfig.ErrInvalidEndpoints), errors.Is(err, pageconfig.ErrInvalidFeatured),
-		errors.Is(err, pageconfig.ErrInvalidCharts):
+		errors.Is(err, pageconfig.ErrInvalidCharts),
+		errors.Is(err, statuspage.ErrAuthPasswordTooShort), errors.Is(err, statuspage.ErrAuthPasswordTooLong),
+		errors.Is(err, statuspage.ErrAuthPasswordRequired), errors.Is(err, pageconfig.ErrInvalidAuthUsername),
+		errors.Is(err, pageconfig.ErrInvalidAuthPasswordHash):
 		status = http.StatusBadRequest
 	}
 	if status == http.StatusInternalServerError {

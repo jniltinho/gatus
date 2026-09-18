@@ -2,12 +2,15 @@
 package statuspage
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/netip"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -36,6 +39,9 @@ const (
 	// MaximumEndpointKeyLength is the maximum length of an endpoint key
 	MaximumEndpointKeyLength = 400
 
+	// MaximumAuthUsernameLength is the maximum length of the username of the login of a page (fork)
+	MaximumAuthUsernameLength = 100
+
 	// MaximumFeatured is the maximum number of featured endpoints of a page
 	MaximumFeatured = 10
 
@@ -61,6 +67,12 @@ var (
 
 	// ErrEmptySelection is returned when a page selects no group, no endpoint and no featured endpoint
 	ErrEmptySelection = errors.New("status page must select at least one group, endpoint or featured endpoint")
+
+	// ErrInvalidAuthUsername is returned when the username of the credential of a page is empty or too long (fork)
+	ErrInvalidAuthUsername = fmt.Errorf("the username of the login of a status page must have 1 to %d characters", MaximumAuthUsernameLength)
+
+	// ErrInvalidAuthPasswordHash is returned when the password of a page is not a bcrypt hash in base64 (fork)
+	ErrInvalidAuthPasswordHash = errors.New("the password of the login of a status page must be a bcrypt hash encoded in base64")
 
 	// ErrInvalidGroups is returned when the groups of a page are invalid
 	ErrInvalidGroups = errors.New("invalid groups")
@@ -192,6 +204,10 @@ type Page struct {
 	// are published, never their errors.
 	ShowMessages bool `yaml:"show-messages,omitempty" json:"show-messages,omitempty"`
 
+	// Auth requires a username and a password to view the page: with it, every route of the page answers 401 without
+	// the credential of this page (fork). Without it, the page stays public.
+	Auth *PageAuth `yaml:"auth,omitempty" json:"auth,omitempty"`
+
 	// Enabled is whether the page is published. Pages of the configuration file default to true.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }
@@ -238,7 +254,44 @@ func (p *Page) ValidateAndSetDefaults() error {
 	if len(groups) == 0 && len(endpoints) == 0 && len(featured) == 0 {
 		return ErrEmptySelection
 	}
+	if err = p.Auth.validate(); err != nil {
+		return err
+	}
 	p.Groups, p.Endpoints, p.Featured, p.Charts = groups, endpoints, featured, charts
+	return nil
+}
+
+// PageAuth is the credential required to view a page, in the same shape as security.basic (fork)
+type PageAuth struct {
+	// Username is the username of the HTTP Basic credential of the page
+	Username string `yaml:"username" json:"username"`
+
+	// PasswordBcryptHashBase64Encoded is the bcrypt hash of the password, encoded in base64 with the URL alphabet. The
+	// password itself is never stored.
+	PasswordBcryptHashBase64Encoded string `yaml:"password-bcrypt-base64" json:"password-bcrypt-base64"`
+}
+
+// RequiresLogin returns whether the page requires a credential to be viewed
+func (p *Page) RequiresLogin() bool {
+	return p != nil && p.Auth != nil
+}
+
+// validate returns an error when the credential of the page is incomplete or does not hold a bcrypt hash
+func (a *PageAuth) validate() error {
+	if a == nil {
+		return nil
+	}
+	a.Username = strings.TrimSpace(a.Username)
+	if length := utf8.RuneCountInString(a.Username); length == 0 || length > MaximumAuthUsernameLength {
+		return ErrInvalidAuthUsername
+	}
+	hash, err := base64.URLEncoding.DecodeString(strings.TrimSpace(a.PasswordBcryptHashBase64Encoded))
+	if err != nil {
+		return ErrInvalidAuthPasswordHash
+	}
+	if _, err = bcrypt.Cost(hash); err != nil {
+		return ErrInvalidAuthPasswordHash
+	}
 	return nil
 }
 

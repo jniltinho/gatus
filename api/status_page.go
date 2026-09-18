@@ -27,31 +27,49 @@ const (
 // path under it reaches the security middleware (which would answer 401 and open the login prompt of the browser).
 func registerStatusPageRoutes(app *fiber.App, unprotectedAPIRouter fiber.Router, cfg *config.Config) {
 	statuspage.ConfigureLimiter(cfg.StatusPages.GetRateLimit())
-	notFound := statusPageNotFound(cfg.StatusPages.TrustedProxyPrefixes())
+	trustedProxies := cfg.StatusPages.TrustedProxyPrefixes()
+	notFound := statusPageNotFound(trustedProxies)
+	// Fork: the middleware of the login of a page runs on each route of a page, never on the catch-all, and captures the
+	// page for the route that answers
+	auth := statusPageAuth(notFound, trustedProxies)
 	if cfg.StatusPages.IsEnabled() {
-		unprotectedAPIRouter.Get("/v1/status-pages/:slug", statusPageHandler(notFound))
-		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key", statusPageEndpointHandler(notFound))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug", auth, statusPageHandler(notFound))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key", auth, statusPageEndpointHandler(notFound))
 		// Fork: notifications of the new results of an endpoint of the page in real time, see api/live_updates.go
-		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/events", statusPageEndpointEventsHandler(notFound, cfg.StatusPages.TrustedProxyPrefixes()))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/events", auth, statusPageEndpointEventsHandler(notFound, trustedProxies))
 		// Fork: data of the response time chart of an endpoint of the page, see api/response_time_chart.go
-		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/response-time-chart", statusPageResponseTimeChartHandler(cfg, notFound))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/response-time-chart", auth, statusPageResponseTimeChartHandler(cfg, notFound))
+		// Fork: badges of the page, so that a page with a login does not publish its numbers through the global routes
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/health/badge.svg", auth, statusPageBadgeHandler(notFound, HealthBadge))
+		unprotectedAPIRouter.Get("/v1/status-pages/:slug/endpoints/:key/response-times/:duration/badge.svg", auth, statusPageBadgeHandler(notFound, ResponseTimeBadge(cfg)))
 	}
 	unprotectedAPIRouter.All("/v1/status-pages", notFound)
 	unprotectedAPIRouter.All("/v1/status-pages/*", notFound)
-	// The HTML never reveals whether a page exists: it is always 200, and the page asks the API
-	spa := renderSPA(cfg.UI, setPublicHeaders)
-	app.Get("/status/:slug", spa)
-	app.Get("/status/*", spa)
+	// The HTML never reveals whether a page exists: it is always 200, and the page asks the API. A page with a login is
+	// the exception: it answers 401 so that the browser asks for the credential.
+	spa := renderSPA(cfg.UI, func(c *fiber.Ctx) {
+		setPublicHeaders(c)
+		// Fork: the HTML of a page that requires a login is private, like every other answer of that page
+		if protected, _ := c.Locals(localsProtectedPageHTML).(bool); protected {
+			setProtectedPageCacheControl(c, true, "")
+		}
+	})
+	app.Get("/status/:slug", statusPageHTMLAuth(trustedProxies), spa)
+	app.Get("/status/*", statusPageHTMLAuth(trustedProxies), spa)
 }
 
 func statusPageHandler(notFound fiber.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		body, err := statuspage.PublicPage(c.Params("slug"))
+		published, captured := publishedStatusPage(c)
+		if !captured {
+			return notFound(c)
+		}
+		body, err := statuspage.PublicPageOf(c.Params("slug"), published)
 		switch {
 		case err == nil:
 			setPublicAPIHeaders(c)
 			// The payload is cached by the server: an HTTP cache must not keep a page that was just disabled
-			c.Set(fiber.HeaderCacheControl, "no-cache")
+			setProtectedPageCacheControl(c, published.Page.RequiresLogin(), "no-cache")
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 			return c.Status(fiber.StatusOK).Send(body)
 		case errors.Is(err, statuspage.ErrPageNotFound):
@@ -70,11 +88,15 @@ func statusPageEndpointHandler(notFound fiber.Handler) fiber.Handler {
 		if err != nil {
 			return notFound(c)
 		}
-		body, err := statuspage.PublicEndpointDetails(c.Params("slug"), key)
+		published, captured := publishedStatusPage(c)
+		if !captured {
+			return notFound(c)
+		}
+		body, err := statuspage.PublicEndpointDetailsOf(c.Params("slug"), published, key)
 		switch {
 		case err == nil:
 			setPublicAPIHeaders(c)
-			c.Set(fiber.HeaderCacheControl, "no-cache")
+			setProtectedPageCacheControl(c, published.Page.RequiresLogin(), "no-cache")
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 			return c.Status(fiber.StatusOK).Send(body)
 		case errors.Is(err, statuspage.ErrPageNotFound):

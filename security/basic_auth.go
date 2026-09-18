@@ -220,22 +220,33 @@ func (c *BasicConfig) sessionUsername(token string, now time.Time) (string, bool
 	return session.Username, true
 }
 
-// checkCredentials returns whether the username and the password are the configured ones. Both are always checked, the
-// username in constant time and the password with bcrypt against the configured hash, so that the response time does
-// not tell whether the username is right.
+// checkCredentials returns whether the username and the password are the configured ones
 func (c *BasicConfig) checkCredentials(username, password string) bool {
-	expectedUsername := sha256.Sum256([]byte(c.Username))
-	receivedUsername := sha256.Sum256([]byte(username))
-	usernameMatches := subtle.ConstantTimeCompare(expectedUsername[:], receivedUsername[:]) == 1
-	passwordHash, _ := base64.URLEncoding.DecodeString(c.PasswordBcryptHashBase64Encoded)
+	return CheckCredentials(c.Username, c.PasswordBcryptHashBase64Encoded, username, password)
+}
+
+// CheckCredentials returns whether the username and the password match the expected ones. Both are always checked, the
+// username in constant time and the password with bcrypt against the expected hash, so that the response time does not
+// tell whether the username is right. The status pages of the fork use it for the login of a page.
+func CheckCredentials(expectedUsername, expectedPasswordBcryptHashBase64Encoded, username, password string) bool {
+	expected := sha256.Sum256([]byte(expectedUsername))
+	received := sha256.Sum256([]byte(username))
+	usernameMatches := subtle.ConstantTimeCompare(expected[:], received[:]) == 1
+	passwordHash, _ := base64.URLEncoding.DecodeString(expectedPasswordBcryptHashBase64Encoded)
 	passwordMatches := compareHashAndPassword(passwordHash, []byte(password)) == nil
 	return usernameMatches && passwordMatches
 }
 
+// CredentialFingerprint returns the SHA-256 hash, in hexadecimal, of a username and a password hash, with the length of
+// the username as a prefix so that different pairs never produce the same fingerprint (fork)
+func CredentialFingerprint(username, passwordBcryptHashBase64Encoded string) string {
+	sum := sha256.Sum256([]byte(strconv.Itoa(len(username)) + ":" + username + passwordBcryptHashBase64Encoded))
+	return hex.EncodeToString(sum[:])
+}
+
 // credentialFingerprint returns the SHA-256 hash, in hexadecimal, of the configured username and password hash
 func (c *BasicConfig) credentialFingerprint() string {
-	sum := sha256.Sum256([]byte(strconv.Itoa(len(c.Username)) + ":" + c.Username + c.PasswordBcryptHashBase64Encoded))
-	return hex.EncodeToString(sum[:])
+	return CredentialFingerprint(c.Username, c.PasswordBcryptHashBase64Encoded)
 }
 
 // basicCredentials returns the username and the password of the Authorization: Basic header of the request

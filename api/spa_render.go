@@ -25,10 +25,11 @@ func renderSPA(uiConfig *ui.Config, headers func(c *fiber.Ctx)) fiber.Handler {
 			logr.Errorf("[api.renderSPA] Failed to execute template: %s", err.Error())
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to execute template. This should never happen, because the template is validated on start.")
 		}
-		headers(c)
-		// The template depends on the theme cookie
+		// The template depends on the theme cookie. The headers of the route come after, so that a page that requires a
+		// login can keep its HTML out of any shared cache (fork).
 		c.Set(fiber.HeaderCacheControl, "no-cache")
 		c.Set(fiber.HeaderContentType, "text/html")
+		headers(c)
 		return c.Status(fiber.StatusOK).Send(body.Bytes())
 	}
 }

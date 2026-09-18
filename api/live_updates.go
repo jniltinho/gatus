@@ -87,11 +87,19 @@ func endpointEventsHandler(cfg *config.Config) fiber.Handler {
 // 404 of the status pages, before any limit and without reading the storage.
 func statusPageEndpointEventsHandler(notFound fiber.Handler, trustedProxies []netip.Prefix) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		published, captured := publishedStatusPage(c)
+		if !captured {
+			return notFound(c)
+		}
 		key, err := url.QueryUnescape(c.Params("key"))
-		if err != nil || !statuspage.IsEndpointShown(c.Params("slug"), key) {
+		if err != nil || !statuspage.IsEndpointShownOf(published, key) {
 			return notFound(c)
 		}
 		setPublicAPIHeaders(c)
+		if published.Page.RequiresLogin() {
+			c.Vary(fiber.HeaderAuthorization)
+			c.Locals(localsProtectedEventStream, true)
+		}
 		return streamEndpointEvents(c, key, eventStreamClientIP(c, trustedProxies), func(status int, body string) error {
 			return sendStatusPageError(c, status, body)
 		})
@@ -144,7 +152,12 @@ func streamEndpointEvents(c *fiber.Ctx, key string, clientIP netip.Addr, sendErr
 
 func setEventStreamHeaders(c *fiber.Ctx) {
 	c.Set(fiber.HeaderContentType, "text/event-stream")
-	c.Set(fiber.HeaderCacheControl, "no-cache, no-store, no-transform")
+	// Fork: the stream of a page that requires a login is private, so that no shared cache keeps it
+	if protected, _ := c.Locals(localsProtectedEventStream).(bool); protected {
+		c.Set(fiber.HeaderCacheControl, "private, no-cache, no-store, no-transform")
+	} else {
+		c.Set(fiber.HeaderCacheControl, "no-cache, no-store, no-transform")
+	}
 	c.Set("X-Accel-Buffering", "no")
 }
 
