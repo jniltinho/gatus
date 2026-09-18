@@ -30,6 +30,12 @@ Se a listagem das páginas gerenciadas falhar na carga, o sistema MUST publicar 
 - **THEN** `GET /api/v1/status-pages/infra` responde 200
 - **AND** `GET /api/v1/admin/status-pages` informa que as páginas gerenciadas estão indisponíveis
 
+**Listagem:** cada item da listagem MUST dizer se a página exige login, para a tela poder marcá-la, sem devolver usuário nem hash.
+
+#### Scenario: Item da lista
+- **WHEN** a administração lista as páginas e uma delas exige login
+- **THEN** o item dessa página diz que ela exige login, sem a credencial
+
 ### Requirement: Autorização e proteções da API de administração
 As rotas `/api/v1/admin/status-pages/*` MUST existir apenas com `admin.enabled: true` e MUST exigir autenticação e autorização de administrador, como `/api/v1/admin/endpoints`. Nas requisições `POST`, `PUT` e `DELETE`, MUST aplicar a mesma proteção CSRF, o limite de 256 KB de corpo e os mesmos tipos de mídia aceitos. A API de administração de status pages MUST continuar disponível com `status-pages.enabled: false` e MUST informar esse estado na listagem.
 
@@ -83,6 +89,22 @@ As rotas `/api/v1/admin/status-pages/*` MUST existir apenas com `admin.enabled: 
 - **WHEN** a definição enviada tem o campo `grups`
 - **THEN** a API responde 400 e nada é gravado
 
+**Credencial da página:** a criação e a alteração MAY receber, no documento de submissão da administração, a senha em claro junto do usuário. O serviço MUST gerar o hash bcrypt e persistir **somente o hash**: a senha MUST NOT ser gravada na definição, no YAML guardado, em log nem em mensagem de erro. A senha MUST ter pelo menos 8 caracteres e no máximo 72 bytes, o limite do bcrypt; fora disso a escrita MUST ser recusada com 400.
+
+Na alteração de uma página que já exige login, senha vazia MUST manter o hash guardado, e o hash mascarado MUST ser entendido como "manter o hash guardado", porque o administrador pode reenviar o documento que leu. Numa página que ainda não exige login, a senha MUST ser obrigatória. Remover a credencial MUST apagá-la na mesma escrita.
+
+#### Scenario: Criação com login
+- **WHEN** o administrador cria a página `clientes` com usuário `cliente` e senha `segredo-bom`
+- **THEN** a definição salva tem o hash bcrypt, e nem a definição nem o YAML guardado contêm a senha
+
+#### Scenario: Alteração sem trocar a senha
+- **WHEN** o administrador salva a página `clientes` com senha vazia, ou reenvia o documento com o hash mascarado
+- **THEN** o hash salvo continua o mesmo
+
+#### Scenario: Senha curta demais
+- **WHEN** a senha tem menos de 8 caracteres
+- **THEN** a escrita é recusada com 400 e a definição não muda
+
 ### Requirement: Validação, opções, exposição e pré-visualização
 O sistema MUST oferecer:
 - `POST /api/v1/admin/status-pages/validate`: devolve a definição normalizada e avisos para grupos e chaves sem endpoint correspondente, sem gravar;
@@ -110,6 +132,13 @@ O sistema MUST oferecer:
 - **WHEN** a página gerenciada `clientes` está desabilitada
 - **THEN** `GET /api/v1/admin/status-pages/clientes/preview` responde 200 com o payload da página
 - **AND** `GET /api/v1/status-pages/clientes` responde 404
+
+**Segredo mascarado:** o hash da credencial da página MUST ser mascarado em todas as leituras da administração — no detalhe (na definição e no YAML), na validação e na pré-visualização —, como já é feito com os segredos dos endpoints. O detalhe MUST dizer o usuário e que a página exige login, sem o hash. O registro em memória que serve as rotas públicas continua com o hash verdadeiro.
+
+#### Scenario: Leitura não devolve o hash
+- **WHEN** o administrador abre o detalhe, valida ou pré-visualiza uma página que exige login
+- **THEN** nenhuma das respostas contém o hash da senha
+- **AND** o detalhe mostra o usuário e que a página exige login
 
 ### Requirement: Alteração com concorrência otimista
 `GET /api/v1/admin/status-pages/:slug` MUST devolver `ETag` com a versão. `PUT`, `DELETE`, `POST .../enable` e `POST .../disable` MUST exigir `If-Match`: 428 sem ele e 412 com uma versão diferente da atual. Um `PUT` com `slug` diferente do da URL MUST responder 400. Uma alteração bem-sucedida MUST incrementar a versão e publicar a página com uma revisão nova, de modo que a próxima requisição pública não use a resposta anterior.

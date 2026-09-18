@@ -106,7 +106,7 @@ A operação MUST ser registrada no log com o autor, as quantidades e se houve c
   - definição recusada pelas validações da web, considerando os tokens e as chaves planejados;
   - `key` diferente da chave calculada;
   - troca de tipo de endpoint;
-  - segredo mascarado em qualquer lugar mascarado pela API (headers, senha ou query da URL, segredos de client ou SSH, tokens e folhas de `provider-override`);
+  - segredo mascarado em qualquer lugar mascarado pela API (headers, senha ou query da URL, segredos de client ou SSH, tokens e folhas de `provider-override`), **exceto** o hash da credencial de uma status page que já existe no destino: nesse caso o hash do destino MUST ser mantido e o item MUST seguir como `update` ou `unchanged` pelo restante da definição. A mesclagem MUST acontecer **antes** da validação da definição, senão o valor mascarado é recusado como hash inválido. Uma status page nova com o hash mascarado MUST ser `skip`, porque não há credencial para manter;
   - endpoint Push sem token;
 - nome ou grupo diferentes com a mesma chave MUST ser `update` com o motivo "name or group changes";
 - com `disableEndpoints`, os endpoints criados ou atualizados MUST ficar desabilitados.
@@ -162,6 +162,15 @@ A operação MUST ser registrada no log com o autor, as quantidades e se houve c
 #### Scenario: Chave de push repetida
 - **WHEN** o arquivo tem a chave `akamai` com o mesmo hash da chave `akamai` existente
 - **THEN** o item aparece como `unchanged`
+
+#### Scenario: Credencial mascarada de uma página existente
+- **WHEN** o arquivo restaurado traz a página `clientes`, que já existe no destino exigindo login, com o hash mascarado
+- **THEN** a prévia mostra `update` ou `unchanged` pelo restante da definição
+- **AND** a credencial do destino é mantida
+
+#### Scenario: Credencial mascarada de uma página nova
+- **WHEN** o mesmo arquivo traz a página `parceiros`, que não existe no destino, com o hash mascarado
+- **THEN** a prévia mostra `skip` com o motivo do segredo mascarado
 
 ### Requirement: Aplicação do restore
 `POST /api/v1/admin/restore` MUST receber o corpo da prévia mais o `fingerprint`.
