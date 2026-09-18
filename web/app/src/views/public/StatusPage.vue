@@ -30,7 +30,7 @@
           <p v-if="page.description" class="mt-1 text-muted-foreground whitespace-pre-line" data-testid="status-page-description">{{ page.description }}</p>
         </header>
 
-        <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" />
+        <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" :summary="page.summary" />
 
         <p v-if="page.truncated" class="mt-2 text-sm text-muted-foreground">Showing the first 200 services.</p>
         <p v-if="page.groups.length === 0 && featuredEndpoints.length === 0" class="mt-6 text-center text-muted-foreground">No services on this page.</p>

@@ -128,6 +128,9 @@ calling the URL in the format of the Uptime Kuma. It is off by default:
         token: erp-site-token   # optional
   ```
 
+Results sent to the external endpoint API of the original Gatus (`POST /api/v1/endpoints/<key>/external`) are marked
+as Push too, and the text of their `error=` is never published on a status page.
+
 A push is recorded in the same history as the checks of Gatus, marked as Push, and counts for the uptime, the events,
 the metrics and the alerts. The status of the endpoint is the status of the last result, whether it came from a check or
 from a push: a `down` push is followed by the next successful check. Heartbeats do not apply to active endpoints.

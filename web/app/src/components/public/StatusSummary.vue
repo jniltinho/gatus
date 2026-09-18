@@ -4,7 +4,13 @@
       <span :class="['inline-block h-3 w-3 rounded-full flex-shrink-0', dotClass]" aria-hidden="true"></span>
       {{ label }}
     </p>
-    <p class="text-sm opacity-80" data-testid="status-summary-updated">{{ updatedLabel }}</p>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm opacity-80">
+      <!-- Fork: how many endpoints are up and down, counted by the server so that a truncated page stays right -->
+      <p v-if="counts" data-testid="status-summary-counts">
+        <span v-for="(count, index) in counts" :key="count.label">{{ index > 0 ? ' · ' : '' }}{{ count.value }} {{ count.label }}</span>
+      </p>
+      <p data-testid="status-summary-updated">{{ updatedLabel }}</p>
+    </div>
   </div>
 </template>
 
@@ -15,7 +21,27 @@ import { relativeTimeLabel, STATUS_LABELS } from '@/utils/statusPage'
 const props = defineProps({
   status: { type: String, required: true },
   updatedAt: { type: String, required: true },
-  now: { type: Number, required: true }
+  now: { type: Number, required: true },
+  // Fork: count of the endpoints of the page by status, from the payload
+  summary: { type: Object, default: null }
+})
+
+// up and down are always shown, including "0 down"; pending and unknown only when there is any
+const counts = computed(() => {
+  if (!props.summary || typeof props.summary.total !== 'number') {
+    return null
+  }
+  const counted = [
+    { label: 'up', value: props.summary.up || 0 },
+    { label: 'down', value: props.summary.down || 0 }
+  ]
+  if (props.summary.pending) {
+    counted.push({ label: 'pending', value: props.summary.pending })
+  }
+  if (props.summary.unknown) {
+    counted.push({ label: 'no data', value: props.summary.unknown })
+  }
+  return counted
 })
 
 const label = computed(() => STATUS_LABELS[props.status]?.page || STATUS_LABELS.unknown.page)

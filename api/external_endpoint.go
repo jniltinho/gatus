@@ -39,10 +39,13 @@ func CreateExternalEndpointResult(cfg *config.Config) fiber.Handler {
 			logr.Errorf("[api.CreateExternalEndpointResult] Invalid token for external endpoint with key=%s", key)
 			return c.Status(401).SendString("invalid token")
 		}
+		// Fork: a result of this API is reported by an external system, like a push: with the origin, a status page that
+		// shows messages never turns the text sent in error= into a reason of its own
 		result := &endpoint.Result{
 			Timestamp: time.Now(),
 			Success:   c.QueryBool("success"),
 			Errors:    []string{},
+			Origin:    endpoint.ResultOriginPush,
 		}
 		if len(c.Query("duration")) > 0 {
 			parsedDuration, err := time.ParseDuration(c.Query("duration"))

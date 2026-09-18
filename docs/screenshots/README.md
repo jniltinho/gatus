@@ -1,7 +1,7 @@
 # Screenshots
 
 The screens this fork adds to [TwiN/gatus](https://github.com/TwiN/gatus), captured at 1280×900 on
-`v5.36.0-fork.26`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
+`v5.36.0-fork.27`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
 visitor can switch with the button in the header.
 
 ## Dashboard
@@ -64,7 +64,7 @@ update or skip before anything is written.
 ## Public status page
 
 Open without login at `/status/<slug>`, with featured endpoints, uptime of 24h, 7d and 30d aligned in columns, and
-the days left until the TLS certificate expires.
+the days left until the TLS certificate expires. The banner counts how many endpoints are up and down.
 
 ![Public status page](status-page.png)
 
@@ -75,7 +75,8 @@ The same page in dark mode:
 ## Public endpoint details
 
 Every endpoint of a status page links to a public details page with its history, its response time chart and,
-when the page allows it, the table of checks with the messages.
+when the page allows it, the table of checks with the messages. A check that failed without answering shows why —
+`Certificate error`, `DNS error`, `Timeout`, `Connection failed` or `Check failed` — never the error itself.
 
 ![Public details of an endpoint](status-page-endpoint.png)
 

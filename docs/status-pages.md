@@ -42,7 +42,7 @@ status-pages:
 | `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
 | `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
 | `show-certificate-expiration` | Optional, defaults to `false`. Shows below the name of each endpoint how many days are left until its TLS certificate expires, like the *Show Certificate Expiry* option of Uptime Kuma. |
-| `show-messages` | Optional, defaults to `false`. Shows, on the details page of each endpoint, the same table of checks as the dashboard, with the message and the origin of each result. Only the messages of pushes and heartbeats and the HTTP status of the checks (`HTTP 200`) are published, never the errors of the checks. The message of a push is published as it was sent. |
+| `show-messages` | Optional, defaults to `false`. Shows, on the details page of each endpoint, the same table of checks as the dashboard, with the message and the origin of each result. Only the messages of pushes and heartbeats, the HTTP status of the checks (`HTTP 200`) and the [reason of a failure](#reason-of-a-failure) are published, never the errors of the checks. The message of a push is published as it was sent. |
 | `auth` | Optional. Requires a username and a password to see the page: `username` and `password-bcrypt-base64`. See [Login of a page](#login-of-a-page). |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
@@ -71,6 +71,10 @@ database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
 
 ## What the page shows
 
+- A **status banner** with the state of the page in words and colour ("All systems operational", "Partial outage",
+  "Major outage" or "No data"), how many endpoints are up and down (`12 up · 2 down`, with pending and without data
+  only when there are any) and when the page was assembled. The counts come from the server, so they stay right on a
+  page that shows only the first 200 services.
 - **Featured** endpoints first, in cards with the uptime and the average response time over 24 hours, 7 days and
   30 days, the last response time, the check bars and a **View details** link.
 - The name of every endpoint links to its details page (see below).
@@ -110,7 +114,8 @@ of the endpoint details page of the dashboard (`/endpoints/<key>`), in the order
   Recent / 3h / 6h / 24h / 1w selector (see [response time chart](#response-time-chart));
 - **Checks table**, collapsed by default: status (Up, Down or Pending), date and time and response time of the latest
   checks, or, with `show-messages: true`, the same columns as the dashboard (status, date and time, message and origin),
-  never with the errors of the checks;
+  never with the errors of the checks — a check that failed without answering shows the
+  [reason of the failure](#reason-of-a-failure);
 - response time and health badges;
 - **Events**, collapsed by default like the table of checks (the browser remembers when it is expanded): monitoring
   started, became healthy, was unhealthy for…, the latest 50.
@@ -261,6 +266,31 @@ expiration, alerts and `extra-labels`; the page payload has no key and no event.
 - Headers: `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`, `Cache-Control: no-cache` (200) and `no-store` (404, 429 and 503).
 - The page can be embedded in an iframe (for example, on a monitoring TV). The public API does not send CORS headers.
+
+## Reason of a failure
+
+With `show-messages`, a check that failed **without answering** — no message and no HTTP status — publishes why it
+failed, from a closed set of five texts:
+
+| Message | When |
+|---------|------|
+| `Certificate error` | Error of TLS or of the certificate: it does not match the host, it expired, it was signed by an unknown authority. |
+| `DNS error` | The name does not resolve. |
+| `Timeout` | The check ran out of time. |
+| `Connection failed` | Connection refused, host unreachable, connection closed, and any check that did not connect — which is how TCP, UDP, SCTP and ICMP fail, without registering an error. |
+| `Check failed` | Any other failure, including a condition that failed with the service answering. |
+
+**The error itself is never published**, not even in part: the five texts are constants, chosen by Gatus from the
+errors of the check. That is on purpose, because the errors carry the infrastructure: `dial tcp: lookup
+sso.example.org on 127.0.0.11:53: no such host` gives away the DNS resolver of the installation, and `x509:
+certificate is valid for *.example.com` gives away the certificate the host serves. The whole text stays on the
+dashboard, which is protected by `security`; a page with a [login of its own](#login-of-a-page) serves the same
+sanitized payload, because its credential belongs to a customer, not to whoever runs Gatus.
+
+The five texts are stable and are not translated: they are part of the public API of the page.
+
+A push keeps publishing the message it sent, a heartbeat keeps publishing its own text, and a result that is Pending
+never gets a reason, because it is not a failure.
 
 ## Login of a page
 

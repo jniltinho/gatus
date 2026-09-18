@@ -52,6 +52,7 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 				Duration:              result.Duration,
 				CertificateExpiration: result.CertificateExpiration,
 				Pending:               result.Pending,
+				Connected:             result.Connected,
 				Message:               result.Message,
 				Origin:                result.Origin,
 				HTTPStatus:            result.HTTPStatus,

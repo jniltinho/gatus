@@ -29,6 +29,11 @@ type ResultSummary struct {
 	// Pending is whether the result is pending (fork)
 	Pending bool
 
+	// Connected is whether the connection could be established. Status pages never publish it: it only tells a network
+	// failure, which registers no error for TCP, UDP, SCTP and ICMP, from a condition that failed with the service
+	// answering (fork).
+	Connected bool
+
 	// Message, Origin, HTTPStatus and Errors are only used by the details page of a status page that shows messages, which
 	// publishes the message, the origin and the HTTP status but never the errors: the errors are only read to recognize
 	// the message of the heartbeat of results stored before it had one (fork)

@@ -10,6 +10,40 @@ import (
 	"gatus/v5/storage/store/common"
 )
 
+// Fork: the reasons of a failed check published by a page that shows messages. They are a closed set: the text of the
+// error is never published, because it carries the URL of the endpoint, the address of the DNS resolver of the
+// installation and the certificate the host serves. They are constants of the public API, in English and not localized.
+const (
+	// ReasonCertificateError is a failure of TLS or of the certificate of the endpoint
+	ReasonCertificateError = "Certificate error"
+
+	// ReasonDNSError is a name that does not resolve
+	ReasonDNSError = "DNS error"
+
+	// ReasonTimeout is a check that ran out of time
+	ReasonTimeout = "Timeout"
+
+	// ReasonConnectionFailed is a connection refused, unreachable or closed, and a check that did not connect
+	ReasonConnectionFailed = "Connection failed"
+
+	// ReasonCheckFailed is any other failure, including a condition that failed with the service answering
+	ReasonCheckFailed = "Check failed"
+
+	// minimumHTTPStatus is the smallest HTTP status code that exists: below it the code is not from HTTP
+	minimumHTTPStatus = 100
+)
+
+// failureReasons matches the errors of a result, in this order, against markers compared in lowercase
+var failureReasons = []struct {
+	text    string
+	markers []string
+}{
+	{ReasonCertificateError, []string{"x509:", "tls:", "certificate is valid for", "certificate has expired", "certificate signed by", "unknown authority"}},
+	{ReasonDNSError, []string{"no such host", "server misbehaving", "lookup ", "dns: "}},
+	{ReasonTimeout, []string{"i/o timeout", "context deadline exceeded", "handshake timeout", "timeout awaiting"}},
+	{ReasonConnectionFailed, []string{"connection refused", "no route to host", "network is unreachable", "connection reset by peer", "broken pipe", "unexpected eof", ": eof"}},
+}
+
 const (
 	// StatusOperational means that every endpoint with results is up
 	StatusOperational = "operational"
@@ -33,14 +67,29 @@ const (
 // Payload is the public representation of a status page. It only has the fields that can be published: no key, URL,
 // hostname, IP address, HTTP status, error, condition or event.
 type Payload struct {
-	Slug        string                    `json:"slug"`
-	Title       string                    `json:"title"`
-	Description string                    `json:"description"`
-	Status      string                    `json:"status"`
-	UpdatedAt   time.Time                 `json:"updatedAt"`
-	Truncated   bool                      `json:"truncated"`
-	Featured    []FeaturedEndpointPayload `json:"featured"`
-	Groups      []GroupPayload            `json:"groups"`
+	Slug        string    `json:"slug"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Truncated   bool      `json:"truncated"`
+
+	// Summary counts the endpoints of the page by status, so that the page does not have to be counted in the browser
+	// (fork)
+	Summary SummaryPayload `json:"summary"`
+
+	Featured []FeaturedEndpointPayload `json:"featured"`
+	Groups   []GroupPayload            `json:"groups"`
+}
+
+// SummaryPayload counts the endpoints of a status page by status (fork). On a truncated page it counts the endpoints
+// that are published, which are the ones the page shows next to the notice of the first 200.
+type SummaryPayload struct {
+	Total   int `json:"total"`
+	Up      int `json:"up"`
+	Down    int `json:"down"`
+	Pending int `json:"pending"`
+	Unknown int `json:"unknown"`
 }
 
 // GroupPayload is a section of a public status page. Endpoints without group are in a group with an empty name.
@@ -160,7 +209,26 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 		pageStatuses = append(pageStatuses, groupStatuses...)
 	}
 	payload.Status = aggregateStatus(pageStatuses)
+	payload.Summary = summaryOf(pageStatuses)
 	return payload
+}
+
+// summaryOf counts the endpoints of a page by status (fork)
+func summaryOf(endpointStatuses []string) SummaryPayload {
+	summary := SummaryPayload{Total: len(endpointStatuses)}
+	for _, status := range endpointStatuses {
+		switch status {
+		case StatusUp:
+			summary.Up++
+		case StatusDown:
+			summary.Down++
+		case StatusPending:
+			summary.Pending++
+		default:
+			summary.Unknown++
+		}
+	}
+	return summary
 }
 
 // BuildEndpointDetailsPayload builds the public representation of an endpoint of a page for its details page, from its
@@ -231,7 +299,8 @@ func UptimePayloads(uptimes common.EndpointUptimes) (UptimePayload, ResponseTime
 
 // publicMessage returns the message of a result that can be published by a page that shows messages (fork): the message
 // of a push or of the heartbeat; the message of the heartbeat found in the errors of a result stored before results had
-// a message; or the HTTP status of a check. The other errors are never published.
+// a message; the HTTP status of a check; or, for a check that failed without answering, the reason of the failure. The
+// errors themselves are never published.
 func publicMessage(result common.ResultSummary) string {
 	if len(result.Message) > 0 {
 		return result.Message
@@ -241,10 +310,43 @@ func publicMessage(result common.ResultSummary) string {
 			return resultError
 		}
 	}
-	if result.HTTPStatus > 0 {
+	// Only a real HTTP status: CheckSSHBanner answers 1 and a SSH command answers its exit code, which would be
+	// published as "HTTP 1"
+	if result.HTTPStatus >= minimumHTTPStatus {
 		return "HTTP " + strconv.Itoa(result.HTTPStatus)
 	}
-	return ""
+	// A pushed result always has a message, and a pending result is not a failure
+	if result.Success || result.Pending || len(result.Origin) > 0 {
+		return ""
+	}
+	return failureReason(result)
+}
+
+// failureReason returns why a check failed, as one of the constants of failureReasons: the first category that matches
+// any of the errors of the result, in the order of the table, and never a single character of the error itself. The
+// markers are distinctive on purpose, because the errors of Go carry the URL of the endpoint: "certificate", "dns" and
+// "timeout" alone would match a host like dns.example.org or a path like /certificate-status and publish a category
+// chosen by the address the page hides.
+func failureReason(result common.ResultSummary) string {
+	if len(result.Errors) == 0 {
+		// TCP, UDP, SCTP and ICMP fail without any error: only the connection tells a network failure from a condition
+		// that failed with the service answering
+		if result.Connected {
+			return ReasonCheckFailed
+		}
+		return ReasonConnectionFailed
+	}
+	for _, reason := range failureReasons {
+		for _, resultError := range result.Errors {
+			lowercased := strings.ToLower(resultError)
+			for _, marker := range reason.markers {
+				if strings.Contains(lowercased, marker) {
+					return reason.text
+				}
+			}
+		}
+	}
+	return ReasonCheckFailed
 }
 
 // aggregateStatus returns the status of a group or a page from the statuses of its endpoints, ignoring unknown ones:

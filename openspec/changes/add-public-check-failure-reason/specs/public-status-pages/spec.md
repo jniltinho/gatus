@@ -89,7 +89,7 @@ A resposta de `GET /api/v1/status-pages/:slug` MUST conter apenas:
 
 MUST NOT conter nenhum outro campo, nem os valores de chave, URL, hostname, IP, porta, código HTTP, código DNS, erros, mensagens, condições, eventos, datas de expiração, alertas, `extra-labels` ou origem do endpoint. `certificateExpiresInDays` MUST ser um número inteiro de dias, sem data. `updatedAt` MUST ser o instante da montagem, no relógio do servidor.
 
-A contagem de `summary` MUST considerar todos os endpoints publicados da página, inclusive os destaques e os que ficaram fora de uma página truncada, e `total` MUST ser a soma dos quatro estados. O payload de detalhes de um endpoint MUST NOT conter `summary`.
+A contagem de `summary` MUST considerar todos os endpoints do payload, inclusive os destaques, e `total` MUST ser a soma dos quatro estados. Numa página truncada ela MUST contar os endpoints publicados, que são os mesmos que a página mostra junto do aviso dos 200 primeiros: carregar o resumo dos demais anularia o corte. O payload de detalhes de um endpoint MUST NOT conter `summary`.
 
 Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`, do mais antigo para o mais recente. O uptime MUST ser `null` num período sem execuções, com qualquer tipo de storage. Uma página com mais de 200 endpoints MUST devolver os 200 primeiros na ordem de exibição, com `truncated: true`. As telas públicas MUST mostrar os resultados Pending em amarelo, com o rótulo "Pending".
 
@@ -103,6 +103,6 @@ Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`,
 - **THEN** `summary` é `{"total":16,"up":12,"down":2,"pending":1,"unknown":1}`
 
 #### Scenario: Contagem numa página truncada
-- **WHEN** a página `infra` seleciona 250 endpoints, dos quais 240 estão no ar
+- **WHEN** a página `infra` seleciona 250 endpoints e os 200 publicados estão no ar
 - **THEN** o payload tem `truncated: true` com 200 endpoints
-- **AND** `summary.total` é 250 e `summary.up` é 240
+- **AND** `summary.total` é 200 e `summary.up` é 200

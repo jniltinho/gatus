@@ -84,7 +84,7 @@ type SummaryPayload struct {
 }
 ```
 
-Os quatro estados são os mesmos que cada endpoint já publica, contados antes do corte dos 200, e `total` é a soma deles. O payload de **detalhes** não ganha o campo: ele descreve um endpoint, não a página. O struct do teste de allowlist passa a conhecer `summary`, que é o que mantém o `DisallowUnknownFields` como guarda.
+Os quatro estados são os mesmos que cada endpoint já publica, contados sobre o que o payload leva — destaques e seções —, e `total` é a soma deles. Numa página truncada a contagem é a dos endpoints publicados: contar os demais exigiria carregar o resumo de todos, que é justamente o que o corte evita, e a página já avisa que mostra os 200 primeiros. O payload de **detalhes** não ganha o campo: ele descreve um endpoint, não a página. O struct do teste de allowlist passa a conhecer `summary`, que é o que mantém o `DisallowUnknownFields` como guarda.
 
 Na faixa, `up` e `down` aparecem sempre — inclusive `0 down`, que é a informação que o visitante quer ver —, e pendentes e sem dados só quando houver algum, para a faixa não ficar poluída no caso comum.
 
