@@ -253,9 +253,14 @@ kept safe, exactly like a backup of the administration.
 ### rename-group
 
 `rename-group --from <current> --to <new>` changes the group of every endpoint already registered in that group. The
-key of an endpoint is `<group>_<name>`, so this is the [rename](#renaming) of the administration, one endpoint at a
-time: the history, the uptime and the events are kept, the push token does not change, and the managed status pages
-follow the new key by themselves.
+group is a label, written exactly as it is typed (`--to "Dados / BI"` keeps the capitals, the spaces and the accents);
+only the key is normalized, to `<group>_<name>`. `--from` finds the group by the label or by its key, so `--from
+tradimus` also finds the group written `Tradimus`.
+
+When the key changes, this is the [rename](#renaming) of the administration, one endpoint at a time: the history, the
+uptime and the events are kept, the push token does not change, and the managed status pages follow the new key by
+themselves. When only the capitals or the accents of the label change, the key stays the same and it is an ordinary
+update — the script says `keys unchanged`.
 
 - endpoints of the **configuration file** are not touched, because the administration cannot change them: the script
   lists them so that they can be changed in the YAML;
