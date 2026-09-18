@@ -7,8 +7,11 @@ TBD - created by archiving change add-public-status-pages. Update Purpose after 
 A rota `/status/:slug` do frontend MUST mostrar:
 - logo e cabeçalho da configuração `ui`, título e descrição da página;
 - uma faixa com o estado geral em texto e cor ("All systems operational", "Partial outage", "Major outage" ou "No data");
+- na mesma faixa, a contagem dos endpoints da página por estado, com os que estão no ar e os que não estão sempre presentes (`12 up · 2 down`), e os pendentes e sem dados somente quando houver algum;
 - uma seção por grupo com o estado do grupo, com a seção sem grupo rotulada "Other services";
 - para cada endpoint: nome, indicador de estado, uptime de 24h, 7d e 30d ("—" quando indisponível) e barras dos últimos resultados, com tooltip de horário, sucesso e duração em milissegundos.
+
+A contagem MUST vir do payload, e não ser somada no navegador, para continuar certa numa página truncada. Ela MUST ficar legível nas duas versões do tema e MUST NOT provocar rolagem horizontal a partir de 360 px.
 
 **Densidade e alinhamento:** a linha de um endpoint de grupo MUST ocupar no máximo 72 px de altura em telas a partir de 640 px, sem a linha opcional da expiração do certificado, e as barras do histórico MUST ter 20 px de altura. Em telas a partir de 640 px os uptimes MUST ficar em colunas de largura fixa à direita, alinhadas entre os endpoints do mesmo grupo, com os valores visíveis, e os rótulos `24h`, `7d` e `30d` MUST aparecer uma vez no cabeçalho do grupo, escondidos nas linhas e fora do alcance dos leitores de tela. Abaixo de 640 px cada linha MUST mostrar rótulo e valor juntos, e a página MUST continuar sem rolagem horizontal a partir de 360 px.
 
@@ -21,37 +24,14 @@ Com `truncated: true` no payload, a página MUST mostrar o aviso "Showing the fi
 - **THEN** a faixa mostra "Degradação parcial"
 - **AND** o grupo `core` e o endpoint aparecem com estado de falha
 
-#### Scenario: Página truncada
-- **WHEN** a resposta da API tem `truncated: true`
-- **THEN** a página mostra "Mostrando os primeiros 200 serviços"
+#### Scenario: Contagem na faixa
+- **WHEN** a página `infra` tem 12 endpoints no ar e 2 fora
+- **THEN** a faixa mostra `12 up` e `2 down`
+- **AND** não mostra contagem de pendentes nem de sem dados
 
-#### Scenario: Descrição com HTML
-- **WHEN** a descrição da página é `<img src=x onerror=alert(1)>`
-- **THEN** o texto aparece literalmente e nenhum script é executado
-
-#### Scenario: Tela de celular
-- **WHEN** a página é aberta com 390 px de largura
-- **THEN** o conteúdo cabe na largura sem rolagem horizontal e mostra até 25 barras por endpoint
-
-#### Scenario: Linha enxuta
-- **WHEN** um visitante abre `/status/services` numa janela de 1280×900
-- **THEN** a linha de um endpoint de grupo, sem aviso de certificado, tem no máximo 72 px de altura
-
-#### Scenario: Uptimes alinhados
-- **WHEN** a página mostra dois endpoints no mesmo grupo numa janela de 1280×900
-- **THEN** as colunas de 24h, 7d e 30d dos dois começam na mesma posição horizontal
-- **AND** os rótulos dos períodos aparecem só no cabeçalho do grupo
-
-#### Scenario: Tooltip não empurra a lista
-- **WHEN** o visitante passa o ponteiro sobre a última barra do histórico de um endpoint
-- **THEN** o detalhe com horário, resultado e duração aparece
-- **AND** a altura da linha e a posição da linha seguinte continuam as mesmas
-- **AND** o tooltip cabe na largura da linha e a página não ganha rolagem horizontal
-
-#### Scenario: Região aria-live sem verificação ativa
-- **WHEN** a página acaba de carregar e nenhuma barra está ativa
-- **THEN** cada endpoint tem a região `aria-live` do detalhe, vazia
-- **AND** nenhum tooltip está visível
+#### Scenario: Contagem com pendentes
+- **WHEN** a página `jobs` tem 3 endpoints no ar, 1 pendente e nenhum fora
+- **THEN** a faixa mostra `3 up`, `0 down` e `1 pending`
 
 ### Requirement: Acessibilidade da página pública
 A página pública MUST:
