@@ -16,48 +16,61 @@
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
     <!-- Fork: fixed layout so that the width of the table never depends on the content, and cards below md -->
-    <table v-else class="hidden w-full table-fixed text-sm md:table" data-testid="admin-table">
+    <table v-else class="hidden w-full table-fixed text-xs md:table" data-testid="admin-table">
       <thead class="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
-        <tr>
-          <th class="w-[22%] px-3 py-2 font-medium">Name</th>
-          <th class="w-[12%] px-3 py-2 font-medium">Group</th>
-          <th class="w-[9%] px-3 py-2 font-medium">Type</th>
-          <th class="px-3 py-2 font-medium">URL</th>
-          <th class="hidden w-[8%] px-3 py-2 font-medium lg:table-cell">Interval</th>
-          <th class="w-[9%] px-3 py-2 font-medium">Status</th>
-          <th class="hidden w-[8%] px-3 py-2 font-medium lg:table-cell">Source</th>
-          <th class="w-[15rem] px-3 py-2 font-medium text-right">Actions</th>
+        <tr class="uppercase tracking-wide">
+          <th class="w-[26%] px-2 py-1.5 font-medium">Name</th>
+          <th class="w-[12%] px-2 py-1.5 font-medium">Group</th>
+          <th class="w-28 px-2 py-1.5 font-medium">Type</th>
+          <th class="px-2 py-1.5 font-medium">URL</th>
+          <th class="hidden w-24 px-2 py-1.5 text-right font-medium lg:table-cell">Interval</th>
+          <th class="w-28 px-2 py-1.5 font-medium">Status</th>
+          <th class="hidden w-20 px-2 py-1.5 font-medium lg:table-cell">Source</th>
+          <th class="w-28 px-2 py-1.5 text-right font-medium">Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="filteredItems.length === 0">
-          <td colspan="8" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No endpoints found.</td>
+          <td colspan="8" class="px-2 py-8 text-center text-muted-foreground dark:text-gray-400">No endpoints found.</td>
         </tr>
         <tr v-for="item in filteredItems" :key="item.key" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`admin-row-${item.key}`">
-          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100">
-            <span class="block truncate" :title="item.name">{{ item.name }}</span>
-            <!-- The warning is on a line of its own so that it does not add width to the cell -->
-            <span v-if="item.conflict" :title="item.conflictOrigin" class="mt-0.5 inline-block border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">Conflicts with YAML</span>
-            <span v-else-if="item.error" :title="item.error" class="mt-0.5 inline-block border border-red-300 bg-red-50 px-1.5 text-xs text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">Invalid</span>
+          <td class="px-2 py-1 font-medium text-foreground dark:text-gray-100">
+            <span class="flex min-w-0 items-center gap-1">
+              <span class="min-w-0 truncate text-sm" :title="item.name">{{ item.name }}</span>
+              <!-- The warning is an icon so that it neither adds width nor pushes the row to a second line -->
+              <AlertTriangle
+                v-if="item.conflict || item.error"
+                :class="['h-3.5 w-3.5 shrink-0', item.conflict ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400']"
+                :aria-label="item.conflict ? `Conflicts with the configuration file: ${item.conflictOrigin}` : `Invalid definition: ${item.error}`"
+                :title="item.conflict ? `Conflicts with YAML: ${item.conflictOrigin}` : `Invalid: ${item.error}`"
+                :data-testid="`admin-warning-${item.key}`"
+              />
+            </span>
           </td>
-          <td class="px-3 py-1.5 text-muted-foreground dark:text-gray-400"><span class="block truncate" :title="item.group">{{ item.group }}</span></td>
-          <td class="px-3 py-1.5 uppercase text-muted-foreground dark:text-gray-400">
+          <td class="px-2 py-1 text-muted-foreground dark:text-gray-400"><span class="block truncate" :title="item.group">{{ item.group }}</span></td>
+          <td class="whitespace-nowrap px-2 py-1 uppercase text-muted-foreground dark:text-gray-400">
             {{ item.type }}
-            <span v-if="item.acceptsPush && item.type !== 'PUSH'" title="Also receives push" class="ml-1 border border-violet-300 bg-violet-50 px-1 py-0.5 text-xs normal-case text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-200" :data-testid="`admin-accepts-push-${item.key}`">+ push</span>
+            <span v-if="item.acceptsPush && item.type !== 'PUSH'" title="Also receives push" class="ml-1 whitespace-nowrap border border-violet-300 bg-violet-50 px-1 text-[11px] normal-case leading-4 text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-200" :data-testid="`admin-accepts-push-${item.key}`">push</span>
           </td>
-          <td class="px-3 py-1.5 font-mono text-xs" :title="item.url"><span class="block truncate">{{ item.url || (item.type === 'PUSH' ? '—' : '') }}</span></td>
-          <td class="hidden px-3 py-1.5 lg:table-cell">{{ item.interval }}</td>
-          <td class="px-3 py-1.5">
+          <td class="px-2 py-1 font-mono text-[11px]" :title="item.url"><span class="block truncate">{{ item.url || (item.type === 'PUSH' ? '—' : '') }}</span></td>
+          <td class="hidden px-2 py-1 text-right lg:table-cell">{{ item.interval }}</td>
+          <td class="px-2 py-1">
             <span :class="item.enabled ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-500'">{{ item.enabled ? 'Enabled' : 'Disabled' }}</span>
           </td>
-          <td class="hidden px-3 py-1.5 lg:table-cell">
-            <span :class="['border px-1.5 py-0.5 text-xs', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
+          <td class="hidden px-2 py-1 lg:table-cell">
+            <span :class="['border px-1 text-[11px] leading-4', item.source === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
           </td>
-          <td class="px-3 py-1.5 whitespace-nowrap text-right">
-            <Button variant="ghost" size="sm" :data-testid="`admin-open-${item.key}`" @click="open(item)">{{ item.source === 'admin' ? 'Edit' : 'View' }}</Button>
+          <td class="whitespace-nowrap px-2 py-0 text-right">
+            <AdminActionButton :icon="item.source === 'admin' ? Pencil : Eye" :label="`${item.source === 'admin' ? 'Edit' : 'View'} ${item.name}`" :testid="`admin-open-${item.key}`" @click="open(item)" />
             <template v-if="item.source === 'admin'">
-              <Button variant="ghost" size="sm" :disabled="busyKey === item.key || item.conflict" :data-testid="`admin-toggle-${item.key}`" @click="toggle(item)">{{ item.enabled ? 'Disable' : 'Enable' }}</Button>
-              <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busyKey === item.key" :data-testid="`admin-remove-${item.key}`" @click="pendingRemoval = item">Remove</Button>
+              <AdminActionButton
+                :icon="item.enabled ? CirclePause : CirclePlay"
+                :label="`${item.enabled ? 'Disable' : 'Enable'} ${item.name}${item.conflict ? ' (in conflict with the configuration file)' : ''}`"
+                :testid="`admin-toggle-${item.key}`"
+                :disabled="busyKey === item.key || item.conflict"
+                @click="toggle(item)"
+              />
+              <AdminActionButton :icon="Trash2" :label="`Remove ${item.name}`" :testid="`admin-remove-${item.key}`" :disabled="busyKey === item.key" destructive @click="pendingRemoval = item" />
             </template>
           </td>
         </tr>
@@ -70,7 +83,15 @@
       <div v-for="item in filteredItems" :key="`card-${item.key}`" class="px-3 py-2.5" :data-testid="`admin-card-${item.key}`">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="truncate font-medium text-foreground dark:text-gray-100" :title="item.name">{{ item.name }}</p>
+            <p class="flex min-w-0 items-center gap-1 font-medium text-foreground dark:text-gray-100">
+              <span class="min-w-0 truncate" :title="item.name">{{ item.name }}</span>
+              <AlertTriangle
+                v-if="item.conflict || item.error"
+                :class="['h-3.5 w-3.5 shrink-0', item.conflict ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400']"
+                :aria-label="item.conflict ? `Conflicts with the configuration file: ${item.conflictOrigin}` : `Invalid definition: ${item.error}`"
+                :title="item.conflict ? `Conflicts with YAML: ${item.conflictOrigin}` : `Invalid: ${item.error}`"
+              />
+            </p>
             <p class="truncate font-mono text-xs text-muted-foreground dark:text-gray-400" :title="item.url">{{ item.url || (item.type === 'PUSH' ? '—' : '') }}</p>
           </div>
           <span :class="['shrink-0 text-xs', item.enabled ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-500']">{{ item.enabled ? 'Enabled' : 'Disabled' }}</span>
@@ -78,17 +99,22 @@
         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground dark:text-gray-400">
           <span v-if="item.group" class="truncate">{{ item.group }}</span>
           <span class="uppercase">{{ item.type }}</span>
-          <span v-if="item.acceptsPush && item.type !== 'PUSH'" class="normal-case">+ push</span>
+          <span v-if="item.acceptsPush && item.type !== 'PUSH'">push</span>
           <span>{{ item.interval }}</span>
           <span>{{ item.source === 'admin' ? 'Web' : 'YAML' }}</span>
-          <span v-if="item.conflict" :title="item.conflictOrigin" class="text-amber-700 dark:text-amber-300">Conflicts with YAML</span>
-          <span v-else-if="item.error" :title="item.error" class="text-red-700 dark:text-red-300">Invalid</span>
         </div>
         <div class="mt-1 flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="sm" :data-testid="`admin-open-${item.key}`" @click="open(item)">{{ item.source === 'admin' ? 'Edit' : 'View' }}</Button>
+          <AdminActionButton :icon="item.source === 'admin' ? Pencil : Eye" :label="`${item.source === 'admin' ? 'Edit' : 'View'} ${item.name}`" :testid="`admin-open-${item.key}`" :compact="false" @click="open(item)" />
           <template v-if="item.source === 'admin'">
-            <Button variant="ghost" size="sm" :disabled="busyKey === item.key || item.conflict" :data-testid="`admin-toggle-${item.key}`" @click="toggle(item)">{{ item.enabled ? 'Disable' : 'Enable' }}</Button>
-            <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busyKey === item.key" :data-testid="`admin-remove-${item.key}`" @click="pendingRemoval = item">Remove</Button>
+            <AdminActionButton
+              :icon="item.enabled ? CirclePause : CirclePlay"
+              :label="`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`"
+              :testid="`admin-toggle-${item.key}`"
+              :disabled="busyKey === item.key || item.conflict"
+              :compact="false"
+              @click="toggle(item)"
+            />
+            <AdminActionButton :icon="Trash2" :label="`Remove ${item.name}`" :testid="`admin-remove-${item.key}`" :disabled="busyKey === item.key" destructive :compact="false" @click="pendingRemoval = item" />
           </template>
         </div>
       </div>
@@ -114,7 +140,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { AlertTriangle, CirclePause, CirclePlay, Eye, Pencil, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import { Input } from '@/components/ui/input'
 import Loading from '@/components/Loading.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'

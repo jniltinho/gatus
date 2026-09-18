@@ -34,34 +34,36 @@
 
     <div v-if="loading" class="py-12 flex justify-center"><Loading /></div>
     <!-- Fork: fixed layout so that the width of the table never depends on the content, and cards below md -->
-    <table v-else class="hidden w-full table-fixed text-sm md:table" data-testid="push-keys-table">
+    <table v-else class="hidden w-full table-fixed text-xs md:table" data-testid="push-keys-table">
       <thead class="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_0_rgb(229,231,235)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[0_1px_0_0_rgb(55,65,81)]">
-        <tr>
-          <th class="px-3 py-2 font-medium">Name</th>
-          <th class="w-[12%] px-3 py-2 font-medium">Key</th>
-          <th class="hidden w-[10%] px-3 py-2 font-medium lg:table-cell">Source</th>
-          <th class="w-[32%] px-3 py-2 font-medium">Created</th>
-          <th class="w-[8rem] px-3 py-2 font-medium text-right">Actions</th>
+        <tr class="uppercase tracking-wide">
+          <th class="px-2 py-1.5 font-medium">Name</th>
+          <th class="w-28 px-2 py-1.5 font-medium">Key</th>
+          <th class="hidden w-20 px-2 py-1.5 font-medium lg:table-cell">Source</th>
+          <th class="w-[30%] px-2 py-1.5 font-medium">Created</th>
+          <th class="w-16 px-2 py-1.5 text-right font-medium">Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="keys.length === 0">
-          <td colspan="5" class="px-3 py-8 text-center text-muted-foreground dark:text-gray-400">No push keys yet.</td>
+          <td colspan="5" class="px-2 py-8 text-center text-muted-foreground dark:text-gray-400">No push keys yet.</td>
         </tr>
         <tr v-for="key in keys" :key="`${key.origin}-${key.id || key.name}`" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`push-key-row-${key.origin}-${key.name}`">
-          <td class="px-3 py-1.5 font-medium text-foreground dark:text-gray-100"><span class="block truncate" :title="key.name">{{ key.name }}</span></td>
-          <td class="px-3 py-1.5 font-mono text-xs text-muted-foreground dark:text-gray-400">{{ key.hint ? `…${key.hint}` : '—' }}</td>
-          <td class="hidden px-3 py-1.5 lg:table-cell">
-            <span :class="['border px-1.5 py-0.5 text-xs', key.origin === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ key.origin === 'admin' ? 'Web' : 'YAML' }}</span>
+          <td class="px-2 py-1 font-medium text-foreground dark:text-gray-100"><span class="block truncate text-sm" :title="key.name">{{ key.name }}</span></td>
+          <td class="px-2 py-1 font-mono text-[11px] text-muted-foreground dark:text-gray-400">{{ key.hint ? `…${key.hint}` : '—' }}</td>
+          <td class="hidden px-2 py-1 lg:table-cell">
+            <span :class="['border px-1 text-[11px] leading-4', key.origin === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ key.origin === 'admin' ? 'Web' : 'YAML' }}</span>
           </td>
-          <td class="px-3 py-1.5 text-muted-foreground dark:text-gray-400">
+          <td class="px-2 py-1 text-muted-foreground dark:text-gray-400">
             <span class="block truncate">
               <template v-if="key.createdAt">{{ new Date(key.createdAt).toLocaleString() }}<span v-if="key.createdBy"> · {{ key.createdBy }}</span></template>
               <template v-else>—</template>
             </span>
           </td>
-          <td class="px-3 py-1.5 h-12 whitespace-nowrap text-right">
-            <Button v-if="key.origin === 'admin'" variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busy" :data-testid="`push-key-revoke-${key.name}`" @click="pendingRevocation = key">Revoke</Button>
+          <td class="whitespace-nowrap px-2 py-0 text-right">
+            <AdminActionButton v-if="key.origin === 'admin'" :icon="Trash2" :label="`Revoke ${key.name}`" :testid="`push-key-revoke-${key.name}`" :disabled="busy" destructive @click="pendingRevocation = key" />
+            <!-- Keeps the height of the row equal to the ones that have the action -->
+            <span v-else class="block h-7" aria-hidden="true"></span>
           </td>
         </tr>
       </tbody>
@@ -83,7 +85,7 @@
           <template v-else>—</template>
         </p>
         <div v-if="key.origin === 'admin'" class="mt-1">
-          <Button variant="ghost" size="sm" class="text-red-600 dark:text-red-400" :disabled="busy" :data-testid="`push-key-revoke-${key.name}`" @click="pendingRevocation = key">Revoke</Button>
+          <AdminActionButton :icon="Trash2" :label="`Revoke ${key.name}`" :testid="`push-key-revoke-${key.name}`" :disabled="busy" destructive :compact="false" @click="pendingRevocation = key" />
         </div>
       </div>
     </div>
@@ -107,7 +109,9 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import { Input } from '@/components/ui/input'
 import Loading from '@/components/Loading.vue'
 import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
