@@ -27,7 +27,11 @@ A tela `/admin` MUST listar os endpoints ativos e Push, do arquivo de configura�
 - em janelas a partir de 1024 px a tabela MUST mostrar todas as colunas; entre 768 px e 1024 px o intervalo e a origem MUST sair da tabela;
 - abaixo de 768 px a lista MUST deixar de ser tabela e virar um cartão por endpoint, com **todos** os campos, inclusive o intervalo, e com as mesmas ações, pelos mesmos identificadores de teste das ações da tabela.
 
-As listas de status pages e de chaves de push MUST seguir as mesmas regras, com os campos de cada uma. A tela MUST permitir buscar por nome, grupo ou URL, MUST destacar endpoints em conflito ou com erro de validação e MUST permitir habilitar e desabilitar endpoints de origem Web. Endpoints de origem YAML MUST ser apenas visualizáveis.
+As listas de status pages e de chaves de push MUST seguir as mesmas regras, com os campos de cada uma.
+
+**Densidade e ações:** na tabela, todas as linhas MUST ter a mesma altura — inclusive a de um endpoint que também recebe push e a de um endpoint em conflito ou com definição inválida — e essa altura MUST ser de no máximo 32 px. Os selos MUST NOT quebrar em mais de uma linha, e o aviso de conflito ou de definição inválida MUST caber na mesma linha do nome, com a explicação disponível ao repousar o ponteiro e um nome acessível equivalente.
+
+As ações de cada item MUST ser alvos de ícone, sem texto visível, cada um com nome acessível que inclua a ação e o nome do item, dica ao repousar o ponteiro e o mesmo identificador de teste da ação equivalente de antes. Uma ação que leva a outra página MUST continuar sendo um link, com o destino em nova aba onde já era. Uma ação indisponível MUST continuar explicando o motivo ao repousar o ponteiro. A confirmação de remoção MUST continuar a mesma, e os cartões das telas estreitas MUST usar os mesmos ícones, com alvo maior por serem telas de toque. A tela MUST permitir buscar por nome, grupo ou URL, MUST destacar endpoints em conflito ou com erro de validação e MUST permitir habilitar e desabilitar endpoints de origem Web. Endpoints de origem YAML MUST ser apenas visualizáveis.
 
 #### Scenario: Busca
 - **WHEN** o administrador digita `core` na busca
@@ -56,6 +60,18 @@ As listas de status pages e de chaves de push MUST seguir as mesmas regras, com 
 - **THEN** cada endpoint aparece como um cartão, sem tabela, com o intervalo entre os campos
 - **AND** as ações continuam disponíveis pelos mesmos identificadores da tabela
 - **AND** a página não tem rolagem horizontal
+
+#### Scenario: Linhas com a mesma altura
+- **WHEN** a lista, numa janela de 1000 px, mostra um endpoint que também recebe push e um endpoint em conflito com o YAML, junto de endpoints comuns
+- **THEN** o selo de push e o aviso de conflito cabem na mesma linha de cada um
+- **AND** todas as linhas da lista têm a mesma altura, de no máximo 32 px
+
+#### Scenario: Ações por ícone
+- **WHEN** o administrador olha a linha de um endpoint gerenciado pela web
+- **THEN** as ações aparecem como ícones, sem texto visível
+- **AND** cada ícone tem nome acessível com a ação e o nome do endpoint
+- **AND** o ícone de remover abre a mesma confirmação de antes
+- **AND** uma ação indisponível continua explicando o motivo ao repousar o ponteiro
 
 ### Requirement: Formulário e editor YAML
 As telas de criação e edição MUST oferecer um modo formulário e um modo YAML, preservando o conteúdo ao alternar entre eles.
