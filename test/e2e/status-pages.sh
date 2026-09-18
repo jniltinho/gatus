@@ -194,6 +194,10 @@ public set viewport 1280 900 >/dev/null
 set_theme public light
 public open "$BASE/status/services" >/dev/null
 public wait --text "Partial outage" >/dev/null || fail "the page did not show the partial outage"
+# Fork: the banner counts the endpoints of the page, from the payload
+summary=$(js public "document.querySelector('[data-testid=\"status-summary\"]').innerText.replace(/\n/g, ' ')")
+grep -q "up" <<<"$summary" && grep -q "down" <<<"$summary" || fail "the banner does not count the endpoints: $summary"
+curl -s "$BASE/api/v1/status-pages/services" | grep -q '"summary":{"total":3,"up":2,"down":1,"pending":0,"unknown":0}' || fail "the payload of the page does not count the endpoints"
 public wait 700 >/dev/null
 public screenshot --full "$PRINTS/01-services-light.png" >/dev/null
 [ "$(js public 'document.title')" = "Services" ] || fail "document.title is not the title of the page"
@@ -335,6 +339,8 @@ grep -q '"showMessages":true' <<<"$details" || fail "the details payload does no
 grep -q '"message":"HTTP 200"' <<<"$details" || fail "the details payload does not have the HTTP status as message"
 offline=$(curl -s "$BASE/api/v1/status-pages/messages/endpoints/core_offline")
 grep -qE '127\.0\.0\.1|connection refused|dial tcp' <<<"$offline" && fail "the errors of the checks were published"
+# Fork: the check that failed without answering publishes the reason of the failure, from a closed set
+grep -q '"message":"Connection failed"' <<<"$offline" || fail "the details payload does not have the reason of the failure"
 grep -q '"showMessages":false' <<<"$(curl -s "$BASE/api/v1/status-pages/services/endpoints/_panel")" || fail "the page without the option should not show messages"
 public open "$BASE/status/messages/endpoints/core_health" >/dev/null
 public wait "$(testid details-summary)" >/dev/null || fail "the panel of numbers is not shown on the public details page"
@@ -344,6 +350,14 @@ public wait "$(testid recent-check-message)" >/dev/null || fail "the public tabl
 grep -q "HTTP 200" <<<"$(js public "document.querySelector('[data-testid=\"recent-checks-table\"]').innerText")" || fail "the public table does not show the HTTP status as message"
 public wait 1500 >/dev/null
 public screenshot --full "$PRINTS/endpoint-details-messages.png" >/dev/null
+# The table of the endpoint that is offline shows the reason, and nothing of the error
+public open "$BASE/status/messages/endpoints/core_offline" >/dev/null
+public wait "$(testid recent-checks-toggle)" >/dev/null
+[ "$(js public "document.querySelectorAll('[data-testid=\"recent-checks-table\"]').length")" = 0 ] && public click "$(testid recent-checks-toggle)" >/dev/null
+public wait "$(testid recent-check-message)" >/dev/null || fail "the table of the endpoint that is offline has no message column"
+offline_table=$(js public "document.querySelector('[data-testid=\"recent-checks-table\"]').innerText")
+grep -q "Connection failed" <<<"$offline_table" || fail "the public table does not show the reason of the failure: $offline_table"
+grep -qE '127\.0\.0\.1|connection refused|dial tcp' <<<"$offline_table" && fail "the public table showed the error of the check"
 
 step "Real time: a pending push shows up on the public details page without reloading it"
 curl -s "$BASE/api/push/realtime-job-token-0000000000000000?status=up&msg=First%20run&ping=20" | grep -q '"ok":true' || fail "the first push was not accepted"

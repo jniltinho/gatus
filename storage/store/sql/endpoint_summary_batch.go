@@ -57,9 +57,9 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 		rows, err := tx.Query(`
 			SELECT recent_results.endpoint_id, recent_results.success, recent_results.duration,
 				recent_results.certificate_expiration, recent_results.timestamp, recent_results.status, recent_results.errors,
-				m.message, m.origin, m.pending
+				recent_results.connected, m.message, m.origin, m.pending
 			FROM (
-				SELECT endpoint_id, endpoint_result_id, success, duration, certificate_expiration, timestamp, status, errors,
+				SELECT endpoint_id, endpoint_result_id, success, duration, certificate_expiration, timestamp, status, errors, connected,
 					ROW_NUMBER() OVER (PARTITION BY endpoint_id ORDER BY endpoint_result_id DESC) AS rn
 				FROM endpoint_results
 				WHERE endpoint_id IN (`+placeholders+`)
@@ -77,7 +77,7 @@ func (s *Store) GetEndpointSummaries(keys []string, maximumResults int, now time
 			var joinedErrors string
 			var message, origin sql.NullString
 			var pending sql.NullBool
-			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.CertificateExpiration, &result.Timestamp, &result.HTTPStatus, &joinedErrors, &message, &origin, &pending); err != nil {
+			if err := rows.Scan(&id, &result.Success, &result.Duration, &result.CertificateExpiration, &result.Timestamp, &result.HTTPStatus, &joinedErrors, &result.Connected, &message, &origin, &pending); err != nil {
 				_ = rows.Close()
 				return nil, err
 			}

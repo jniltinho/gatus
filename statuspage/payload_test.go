@@ -70,8 +70,18 @@ type allowedPayload struct {
 	Status      string            `json:"status"`
 	UpdatedAt   string            `json:"updatedAt"`
 	Truncated   bool              `json:"truncated"`
+	Summary     allowedSummary    `json:"summary"`
 	Featured    []allowedFeatured `json:"featured"`
 	Groups      []allowedGroup    `json:"groups"`
+}
+
+// allowedSummary is the count of the endpoints of the page by status (fork)
+type allowedSummary struct {
+	Total   int `json:"total"`
+	Up      int `json:"up"`
+	Down    int `json:"down"`
+	Pending int `json:"pending"`
+	Unknown int `json:"unknown"`
 }
 
 type allowedFeatured struct {
@@ -112,8 +122,12 @@ type allowedEndpoint struct {
 
 func TestBuildPayload_Allowlist(t *testing.T) {
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}}
-	selection := Selection{Sections: []Section{{Group: "core", Endpoints: []EndpointRef{{Key: "core_db-master-10-0-0-5", Name: "db"}}}}}
-	summaries := map[string]*common.EndpointSummary{"core_db-master-10-0-0-5": {Results: []common.ResultSummary{{Timestamp: time.Now(), Success: true, Duration: time.Millisecond}}}}
+	selection := Selection{Sections: []Section{{Group: "core", Endpoints: []EndpointRef{{Key: "core_db-master-10-0-0-5", Name: "db"}, {Key: "core_api", Name: "api"}}}}}
+	// Fork: a failed result with errors, so that a regression that published messages or a reason on the page is caught
+	summaries := map[string]*common.EndpointSummary{
+		"core_db-master-10-0-0-5": {Results: []common.ResultSummary{{Timestamp: time.Now(), Success: true, Duration: time.Millisecond}}},
+		"core_api":                {Results: []common.ResultSummary{{Timestamp: time.Now(), Success: false, Errors: []string{"dial tcp 10.0.0.5:443: connect: connection refused"}}}},
+	}
 	body, err := json.Marshal(BuildPayload(page, selection, summaries, time.Now()))
 	if err != nil {
 		t.Fatal(err)
@@ -126,6 +140,9 @@ func TestBuildPayload_Allowlist(t *testing.T) {
 	}
 	if strings.Contains(string(body), "10-0-0-5") {
 		t.Errorf("expected the endpoint key not to be published, got %s", body)
+	}
+	if strings.Contains(string(body), "10.0.0.5") || strings.Contains(string(body), "dial tcp") || strings.Contains(string(body), ReasonConnectionFailed) {
+		t.Errorf("expected the page not to publish errors nor a reason, got %s", body)
 	}
 }
 

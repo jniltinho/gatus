@@ -64,7 +64,8 @@ func TestBuildEndpointDetailsPayload_Messages(t *testing.T) {
 	withMessages := &pageconfig.Page{Slug: "infra", Title: "Infra", ShowMessages: true}
 	payload := BuildEndpointDetailsPayload(withMessages, ref, summary, nil, now)
 	messages := []string{payload.Results[0].Message, payload.Results[1].Message, payload.Results[2].Message, payload.Results[3].Message}
-	if !payload.Page.ShowMessages || messages[0] != "" || messages[1] != "HTTP 200" || messages[2] != "heartbeat: no update received within 1m0s" || messages[3] != "Aguardando" || payload.Results[3].Origin != "push" {
+	// Fork: the check that failed without answering publishes the reason of the failure, never the error
+	if !payload.Page.ShowMessages || messages[0] != ReasonConnectionFailed || messages[1] != "HTTP 200" || messages[2] != "heartbeat: no update received within 1m0s" || messages[3] != "Aguardando" || payload.Results[3].Origin != "push" {
 		t.Errorf("unexpected messages %q in %+v", messages, payload)
 	}
 	body, err := json.Marshal(payload)
