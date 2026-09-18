@@ -314,8 +314,9 @@ func TestConfig_HasLoadedConfigurationBeenModified(t *testing.T) {
 		if config.HasLoadedConfigurationBeenModified() {
 			t.Errorf("expected config.HasLoadedConfigurationBeenModified() to return false because nothing has happened since it was created")
 		}
-		time.Sleep(time.Second) // Because the file mod time only has second precision, we have to wait for a second
-		// Update the config file
+		// Fork: the modification time has a precision of one second, and sleeping for exactly one second is not always
+		// enough: the file is written a fraction of a second after the load, so the two can land on the same second.
+		// Setting the time of the file makes the test deterministic and instantaneous.
 		if err = os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(`endpoints:
   - name: website
     url: https://twin.sh/health
@@ -323,8 +324,17 @@ func TestConfig_HasLoadedConfigurationBeenModified(t *testing.T) {
       - "[STATUS] == 200"`), 0o644); err != nil {
 			t.Fatalf("failed to overwrite config file: %v", err)
 		}
+		modifiedAt := time.Now().Add(2 * time.Second)
+		if err = os.Chtimes(configFilePath, modifiedAt, modifiedAt); err != nil {
+			t.Fatalf("failed to set the modification time of the config file: %v", err)
+		}
 		if !config.HasLoadedConfigurationBeenModified() {
 			t.Errorf("expected config.HasLoadedConfigurationBeenModified() to return true because a new file has been added in the directory")
+		}
+		// The next subtest reads the same directory, so the file goes back to a time in the past
+		past := time.Now().Add(-time.Minute)
+		if err = os.Chtimes(configFilePath, past, past); err != nil {
+			t.Fatalf("failed to restore the modification time of the config file: %v", err)
 		}
 	})
 	t.Run("config-directory-as-config-path", func(t *testing.T) {
@@ -335,10 +345,14 @@ func TestConfig_HasLoadedConfigurationBeenModified(t *testing.T) {
 		if config.HasLoadedConfigurationBeenModified() {
 			t.Errorf("expected config.HasLoadedConfigurationBeenModified() to return false because nothing has happened since it was created")
 		}
-		time.Sleep(time.Second) // Because the file mod time only has second precision, we have to wait for a second
-		// Update the config file
-		if err = os.WriteFile(filepath.Join(dir, "metrics.yaml"), []byte(`metrics: true`), 0o644); err != nil {
+		// Fork: same reason as above, the modification time is set instead of waiting for the next second
+		metricsFilePath := filepath.Join(dir, "metrics.yaml")
+		if err = os.WriteFile(metricsFilePath, []byte(`metrics: true`), 0o644); err != nil {
 			t.Fatalf("failed to overwrite config file: %v", err)
+		}
+		modifiedAt := time.Now().Add(2 * time.Second)
+		if err = os.Chtimes(metricsFilePath, modifiedAt, modifiedAt); err != nil {
+			t.Fatalf("failed to set the modification time of the config file: %v", err)
 		}
 		if !config.HasLoadedConfigurationBeenModified() {
 			t.Errorf("expected config.HasLoadedConfigurationBeenModified() to return true because a new file has been added in the directory")
