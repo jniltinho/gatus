@@ -15,7 +15,7 @@ way; on top of it:
 | | |
 |---|---|
 | **Endpoint administration through the web** | Create, edit, disable and remove endpoints at `/admin`, without restarting Gatus. [docs/admin-endpoints.md](docs/admin-endpoints.md) |
-| **Public status pages** | Pages open without login at `/status/<slug>`, with featured endpoints and a details page for every endpoint, while the dashboard stays protected. [docs/status-pages.md](docs/status-pages.md) |
+| **Public status pages** | Pages open without login at `/status/<slug>`, with featured endpoints and a details page for every endpoint, while the dashboard stays protected. A page can also ask for a username and a password of its own. [docs/status-pages.md](docs/status-pages.md) |
 | **MySQL and MariaDB storage** | `storage.type: mysql` for MySQL 8.4+ and MariaDB 10.11+, besides SQLite and PostgreSQL. [docs/storage-mysql.md](docs/storage-mysql.md) |
 | **Push monitoring compatible with the Uptime Kuma** | Scripts and services report their status at `/api/push/<token>?status=up&msg=OK&ping=`, with Push endpoints, global keys, push on active endpoints and a Pending status with retries. [docs/push-monitoring.md](docs/push-monitoring.md) |
 | **Response time chart of the Uptime Kuma** | Periods Recent, 3h, 6h, 24h and 1w, with the average, the minimum and the maximum, and columns for the failures. [docs/status-pages.md](docs/status-pages.md#response-time-chart) |

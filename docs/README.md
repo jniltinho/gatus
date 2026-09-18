@@ -1,7 +1,9 @@
 > Full documentation of Gatus, from the original [TwiN/gatus](https://github.com/TwiN/gatus) README. The summary
 > of the [jniltinho/gatus](https://github.com/jniltinho/gatus) fork and the quick start are in the
 > [README](../README.md); the features of the fork are in [admin-endpoints.md](admin-endpoints.md),
-> [status-pages.md](status-pages.md) and [storage-mysql.md](storage-mysql.md).
+> [status-pages.md](status-pages.md) and [storage-mysql.md](storage-mysql.md). A status page of the fork can also ask
+> for a username and a password of its own, which the browser requests as in `security.basic`: see
+> [status-pages.md](status-pages.md#login-of-a-page).
 
 [![Gatus](../.github/assets/logo-with-dark-text.png)](https://gatus.io)
 

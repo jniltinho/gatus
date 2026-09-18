@@ -305,17 +305,19 @@ const fetchChart = async ({ silent = false } = {}) => {
     loading.value = true
     error.value = null
   }
-  const options = props.publicRoute ? { credentials: 'omit' } : { credentials: 'include', headers: PROTECTED_API_HEADERS }
+  // Fork: same-origin on the public routes, so that the credential of a page with a login goes with the request
+  const options = props.publicRoute ? { credentials: 'same-origin' } : { credentials: 'include', headers: PROTECTED_API_HEADERS }
   try {
     const response = await fetch(`${props.chartUrl}?period=${encodeURIComponent(props.period)}`, options)
     if (generation !== requestGeneration) {
       return
     }
-    if (response.status === 401 && !props.publicRoute) {
-      notifyUnauthorized()
-      if (!silent) {
-        error.value = 'Failed to load chart data'
+    if (response.status === 401) {
+      if (!props.publicRoute) {
+        notifyUnauthorized()
       }
+      // Fork: on a page with a login of its own, the credential has to be given again on a new navigation
+      error.value = props.publicRoute ? 'Reload the page to sign in again' : 'Failed to load chart data'
       return
     }
     if (response.status !== 200) {

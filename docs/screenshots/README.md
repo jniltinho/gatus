@@ -1,7 +1,7 @@
 # Screenshots
 
 The screens this fork adds to [TwiN/gatus](https://github.com/TwiN/gatus), captured at 1280×900 on
-`v5.36.0-fork.25`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
+`v5.36.0-fork.26`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
 visitor can switch with the button in the header.
 
 ## Dashboard
@@ -36,12 +36,13 @@ read-only.
 ## Status pages
 
 Managed status pages and the ones defined in the configuration file, with their address, state and number of
-endpoints.
+endpoints. A page that asks for a login of its own is marked with a padlock.
 
 ![Administration of the status pages](admin-status-pages.png)
 
 The form fills the window: General and Groups on the left, the list of endpoints on the right, each column scrolling
-on its own, with Validate, Preview and Save always visible.
+on its own, with Validate, Preview and Save always visible. **Require login to view this page** asks the visitor for a
+username and a password of that page, which the browser requests as in `security.basic`.
 
 ![Form of a status page](admin-status-page-form.png)
 

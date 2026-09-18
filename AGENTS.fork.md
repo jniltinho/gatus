@@ -80,6 +80,17 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/
 - In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
 - The interface texts are in English, like the rest of the Gatus UI.
 
+## Login of a status page
+
+Change: `openspec/changes/add-status-page-authentication/` (documentation in `docs/status-pages.md#login-of-a-page`).
+
+- `auth` in the definition (`config/statuspage`) holds the username and the bcrypt hash in base64, like `security.basic`. The plaintext password exists **only** in the document submitted by the administration: the definition is persisted with `yaml.Marshal` of the struct, so a password field there would reach the database, the YAML of the detail and the backup. `statuspage/credential.go` converts submission → definition before any parse.
+- Every read of the administration masks the hash with `********` (detail, YAML, validation, preview and list), and receiving the mask back means "keep the stored hash". The restore merges the credential of the destination **before** validating, because the mask is not a valid hash.
+- `api/status_page_auth.go` puts the middleware on **each** route of a page, never on the group nor on the catch-all: it resolves the slug once into `c.Locals` and the handlers use that capture. The 404 of a page comes before the challenge; the 404 of a key comes after it.
+- Never reuse `isBrowserRequest` here: it omits `WWW-Authenticate` on purpose for the login screen of `security.basic`, and this page needs the dialog of the browser.
+- `statuspage/auth.go` keeps the order limiter → memory → bcrypt → failure. The memory is an HMAC with a key drawn at startup, with the length of each part as a prefix; the limiter is keyed by page and client IP; both are reset by `Load`.
+- The public SPA fetches the routes of the page with `credentials: 'same-origin'` (with `omit` the page would open empty after the dialog), and the badges of the details page point to the routes under the page. The routes by key of the original Gatus stay public.
+
 ## Push monitoring
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-push-monitoring/` (read `design.md` before touching these areas; documentation in `docs/push-monitoring.md`); spec in `openspec/specs/push-monitoring`.
