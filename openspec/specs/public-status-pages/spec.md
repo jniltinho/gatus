@@ -85,6 +85,16 @@ Um grupo ou uma chave sem endpoint correspondente MUST NOT invalidar a página. 
 - **WHEN** uma página do YAML tem `groups: [clientes]` e só endpoints gerenciados usam esse grupo
 - **THEN** nenhum aviso de grupo sem correspondência é registrado
 
+**Credencial da página:** com `auth` na definição, o usuário MUST ser não vazio e a senha MUST ser um hash bcrypt válido, codificado em base64 com o alfabeto URL, como em `security.basic`. Uma definição com `auth` incompleto ou com hash inválido MUST ser recusada, com a mesma severidade das demais validações de página. Sem `auth`, a página continua pública. Uma página com `auth` numa instalação **sem** `security` MUST registrar um aviso na carga, porque as rotas por chave do dashboard continuam abertas e publicam mais do que a página protegida.
+
+#### Scenario: Credencial incompleta
+- **WHEN** uma página traz `auth` com o usuário vazio, ou com um hash que não é bcrypt
+- **THEN** a definição é recusada com erro de validação
+
+#### Scenario: Página com login sem security na instalação
+- **WHEN** o arquivo de configuração define uma página com `auth` e não define `security`
+- **THEN** a carga registra um aviso de que as rotas por chave continuam públicas
+
 ### Requirement: Seleção dos endpoints da página
 Uma página MUST incluir os endpoints publicáveis cujo `group`, depois de remover espaços das pontas, seja igual (diferenciando maiúsculas) a um item de `groups`, e os endpoints publicáveis cuja chave esteja em `endpoints`. São publicáveis:
 - os endpoints habilitados do YAML;
@@ -125,9 +135,11 @@ As seções MUST seguir a ordem de `groups`, seguidas, em ordem alfabética, dos
 - **THEN** as seções aparecem na ordem `web`, `core`, `database` e a seção com `name` vazio
 
 ### Requirement: Acesso público sem autenticação
-`GET /status/:slug`, qualquer caminho sob `/status/`, `GET /api/v1/status-pages/:slug` e qualquer outro caminho ou método sob `/api/v1/status-pages` MUST ser atendidos sem credenciais nem sessão, com qualquer configuração de `security` e de `status-pages.enabled`. Nenhuma dessas respostas MUST ser 401 nem incluir `WWW-Authenticate`, e elas MUST ser iguais para requisições anônimas e autenticadas. As rotas de status já protegidas MUST continuar exigindo autenticação.
+`GET /status/:slug`, qualquer caminho sob `/status/`, `GET /api/v1/status-pages/:slug` e qualquer outro caminho ou método sob `/api/v1/status-pages` MUST ser atendidos sem credenciais nem sessão, com qualquer configuração de `security` e de `status-pages.enabled`, **exceto as rotas de uma página que exija login** (requisito "Páginas com login próprio"). Fora essa exceção, nenhuma dessas respostas MUST ser 401 nem incluir `WWW-Authenticate`, e elas MUST ser iguais para requisições anônimas e autenticadas. As rotas de status já protegidas MUST continuar exigindo autenticação.
 
-A rota HTML `/status/*` MUST responder sempre 200 com o HTML da SPA, para `GET` e `HEAD`, sem revelar se a página existe.
+O `security` da instalação MUST NOT valer para as rotas públicas: a credencial ou a sessão da administração MUST NOT abrir uma página que exige login, e a credencial de uma página MUST NOT abrir nenhuma rota protegida nem outra página.
+
+A rota HTML `/status/*` MUST responder sempre 200 com o HTML da SPA, para `GET` e `HEAD`, sem revelar se a página existe — **exceto** o caminho de uma página que exige login e os caminhos sob ele, que respondem 401 em `GET` e em `HEAD`.
 
 #### Scenario: Basic auth configurado
 - **WHEN** a configuração usa `security.basic` e uma requisição sem credenciais pede `GET /api/v1/status-pages/infra`
@@ -232,7 +244,7 @@ Para slug inexistente, slug inválido, slug vazio, caminho com mais segmentos, p
 - **AND** o storage não é consultado
 
 ### Requirement: Cabeçalhos das rotas públicas
-As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff` e `Referrer-Policy: strict-origin-when-cross-origin`. As respostas da API pública MUST incluir `Vary: Accept-Encoding`, com ou sem compressão. A API MUST responder `Cache-Control: no-cache` com 200 e `Cache-Control: no-store` com 404, 429 e 503, para que nenhum cache HTTP mantenha no ar uma página desabilitada. Os canais de eventos MUST responder 200 com `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-store, no-transform` e `X-Accel-Buffering: no`, sem compressão, e 429 e 503 com `Cache-Control: no-store` e os corpos JSON das demais respostas da API pública. A rota HTML MUST responder `Cache-Control: no-cache`. A API pública MUST NOT enviar cabeçalhos CORS.
+As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff` e `Referrer-Policy: strict-origin-when-cross-origin`. As respostas da API pública MUST incluir `Vary: Accept-Encoding`, com ou sem compressão. A API MUST responder `Cache-Control: no-cache` com 200 e `Cache-Control: no-store` com 401, 404, 429 e 503, para que nenhum cache HTTP mantenha no ar uma página desabilitada. As respostas 200 das rotas de uma página que exige login MUST usar `Cache-Control: private, no-store` no lugar de `no-cache`, e o canal de eventos dessa página MUST usar `private, no-cache, no-store, no-transform`, para nenhum cache compartilhado guardar conteúdo restrito. Os canais de eventos MUST responder 200 com `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-store, no-transform` e `X-Accel-Buffering: no`, sem compressão, e 429 e 503 com `Cache-Control: no-store` e os corpos JSON das demais respostas da API pública. A rota HTML MUST responder `Cache-Control: no-cache`. A API pública MUST NOT enviar cabeçalhos CORS.
 
 #### Scenario: Página publicada
 - **WHEN** chega `GET /api/v1/status-pages/infra` para uma página publicada
@@ -245,6 +257,11 @@ As respostas das rotas públicas MUST incluir `X-Robots-Tag: noindex, nofollow`,
 #### Scenario: Canal de eventos
 - **WHEN** chega `GET /api/v1/status-pages/infra/endpoints/core_api/events` com `Accept-Encoding: br`
 - **THEN** a resposta é 200 sem compressão, com `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-store, no-transform`, `X-Accel-Buffering: no` e os cabeçalhos `X-Robots-Tag`, `X-Content-Type-Options` e `Referrer-Policy`
+
+#### Scenario: Página com login
+- **WHEN** chega `GET /api/v1/status-pages/clientes` com a credencial certa de uma página que exige login
+- **THEN** a resposta é 200 com `Cache-Control: private, no-store`
+- **AND** sem credencial a resposta é 401 com `Cache-Control: no-store`
 
 ### Requirement: Cache e montagem única
 Cada requisição MUST capturar uma única vez o slug, a revisão em memória, a geração do ciclo e a definição da página, e a montagem MUST usar só a definição capturada. A resposta de cada revisão de página MUST ser mantida em cache próprio por até 30 s, com chave formada por slug, revisão e geração; a revisão MUST mudar a cada publicação e a cada carga, e MUST NOT ser a versão do banco. Requisições simultâneas à mesma revisão MUST disparar no máximo uma montagem, síncrona na goroutine da requisição, e no máximo 4 montagens públicas MUST rodar ao mesmo tempo. A vaga MUST ser pedida só pela montagem que efetivamente monta, depois da deduplicação, de modo que requisições da mesma revisão ocupem uma única vaga. Uma montagem que esperar mais de 5 s por vaga MUST responder 503 a todas as requisições que aguardavam por ela, sem guardar a resposta em cache. O leitor do storage MUST ser obtido a cada montagem, e nenhum leitor MUST ser reaproveitado entre recargas.
@@ -364,4 +381,54 @@ Os erros das verificações ativas MUST NOT ser publicados. O payload da página
 #### Scenario: Página sem a opção
 - **WHEN** a página `jobs` não tem `show-messages`
 - **THEN** o payload de detalhes não tem `message` nem `origin`
+
+### Requirement: Páginas com login próprio
+Uma página MAY exigir usuário e senha para ser vista. Com `auth` na definição, as rotas daquela página MUST exigir autenticação HTTP Basic com a credencial **daquela página**:
+
+- a rota HTML `/status/<slug>` e os caminhos sob ela, em `GET` e em `HEAD`;
+- `GET /api/v1/status-pages/<slug>` e as rotas de detalhes, de eventos e do gráfico de tempo de resposta dos endpoints dela;
+- as rotas de badge da página (`/api/v1/status-pages/<slug>/endpoints/<chave>/health/badge.svg` e `.../response-times/<período>/badge.svg`), que a página de detalhes MUST usar no lugar das rotas globais por chave.
+
+As rotas globais por chave (`/api/v1/endpoints/<chave>/...`) MUST continuar públicas, como no Gatus original: proteger uma página esconde o conjunto que ela publica, não cada número de um endpoint cuja chave já seja conhecida, e a documentação MUST dizer isso.
+
+Sem credencial, ou com credencial errada, a resposta MUST ser 401 com `WWW-Authenticate: Basic realm="<slug>", charset="UTF-8"`, com o slug vindo da definição publicada, e o cabeçalho MUST ser enviado em qualquer requisição, inclusive as que parecem de navegador. A verificação MUST comparar o usuário em tempo constante e a senha com bcrypt, sempre as duas. Sessão, OIDC e a credencial do `security` da instalação MUST ser ignorados por essa verificação.
+
+A requisição MUST resolver a página uma única vez: a definição capturada na autorização MUST ser a mesma usada para montar a resposta. As regras **de página** — inexistente, não publicada, em conflito, `status-pages.enabled: false` e caminho fora do padrão da API — MUST continuar respondendo o mesmo 404 de hoje, sem `WWW-Authenticate`, **antes** do desafio; já o 404 de uma chave que não pertence à página MUST vir **depois** do 401, para que a resposta não diga quais endpoints a página tem.
+
+Tentativas com credencial errada MUST entrar num limite por página e por IP do cliente, resolvido com `status-pages.trusted-proxies`: uma página bloqueada MUST NOT bloquear outra. Estourado o limite, a resposta MUST ser 429 com `Retry-After`, sem comparar a senha, inclusive para quem apresentar a credencial certa dentro da janela. Uma verificação bem-sucedida MUST poder ser memorizada por no máximo cinco minutos para não repetir o bcrypt, com a memória perdendo efeito quando o usuário ou o hash da página mudar, e sem que credenciais diferentes possam colidir na mesma entrada.
+
+Uma página sem `auth` MUST continuar respondendo exatamente como hoje, sem 401 e sem `WWW-Authenticate`.
+
+#### Scenario: Página protegida sem credencial
+- **WHEN** chegam, sem credencial, `GET /status/clientes`, `HEAD /status/clientes`, `GET /status/clientes/endpoints/core_api`, `GET /api/v1/status-pages/clientes` e o badge da página
+- **THEN** todas respondem 401 com `WWW-Authenticate: Basic` e `Cache-Control: no-store`
+
+#### Scenario: Requisição que parece de navegador
+- **WHEN** a requisição sem credencial traz `Sec-Fetch-Site: same-origin` e `X-Requested-With`
+- **THEN** a resposta continua 401 **com** `WWW-Authenticate`
+
+#### Scenario: Página protegida com a credencial certa
+- **WHEN** a requisição traz a credencial da página
+- **THEN** a resposta é 200 com o mesmo conteúdo de uma página pública equivalente e `Cache-Control: private, no-store`
+
+#### Scenario: Credencial de outra origem não serve
+- **WHEN** a requisição traz a credencial ou a sessão do `security` da instalação, ou a credencial de outra status page
+- **THEN** a resposta é 401
+
+#### Scenario: Chave que não está na página
+- **WHEN** chega, sem credencial, o detalhe de uma chave que não pertence à página protegida
+- **THEN** a resposta é 401, e não 404
+
+#### Scenario: Página protegida e desabilitada
+- **WHEN** a página com `auth` está desabilitada e chega `GET /api/v1/status-pages/clientes` sem credencial
+- **THEN** a resposta é o 404 de sempre, sem `WWW-Authenticate`
+
+#### Scenario: Excesso de tentativas numa página
+- **WHEN** um mesmo cliente erra a senha da página `clientes` mais vezes que o limite dentro da janela
+- **THEN** as requisições seguintes a `clientes` respondem 429 com `Retry-After`, sem comparar a senha, mesmo com a credencial certa
+- **AND** a página `parceiros` continua aceitando a credencial dela no mesmo IP
+
+#### Scenario: Página pública não muda
+- **WHEN** chega `GET /api/v1/status-pages/infra` sem credencial, para uma página sem `auth`
+- **THEN** a resposta é 200, sem `WWW-Authenticate`
 
