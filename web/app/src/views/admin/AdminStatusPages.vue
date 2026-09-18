@@ -1,5 +1,5 @@
 <template>
-  <AdminListLayout title="Status pages" description="Public pages, open without login at /status/<slug>" active="status-pages">
+  <AdminListLayout title="Status pages" description="Pages at /status/&lt;slug&gt;, open without login unless the page asks for one" active="status-pages">
     <template #actions>
       <router-link to="/" class="inline-flex h-9 items-center border border-input bg-background px-3 text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800">Dashboard</router-link>
       <Button size="sm" data-testid="admin-new-status-page" @click="router.push({ name: 'AdminStatusPageNew' })">New status page</Button>
