@@ -42,7 +42,13 @@
           <td colspan="6" class="px-2 py-8 text-center text-muted-foreground dark:text-gray-400">No status pages yet.</td>
         </tr>
         <tr v-for="item in items" :key="`${item.origin}-${item.slug}`" class="border-t hover:bg-muted/40 dark:border-gray-700 dark:hover:bg-gray-800/50" :data-testid="`status-page-row-${item.origin}-${item.slug}`">
-          <td class="px-2 py-1 font-mono text-[11px] text-foreground dark:text-gray-100"><span class="block truncate" :title="item.slug">{{ item.slug }}</span></td>
+          <td class="px-2 py-1 font-mono text-[11px] text-foreground dark:text-gray-100">
+            <span class="flex items-center gap-1">
+              <!-- Fork: the page has a login of its own -->
+              <Lock v-if="item.requiresLogin" class="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-label="Requires login" :data-testid="`status-page-requires-login-${item.slug}`" />
+              <span class="truncate" :title="item.slug">{{ item.slug }}</span>
+            </span>
+          </td>
           <td class="px-2 py-1 font-medium text-foreground dark:text-gray-100"><span class="block truncate text-sm" :title="item.title || ''">{{ item.title || '—' }}</span></td>
           <td class="hidden px-2 py-1 lg:table-cell">
             <span :class="['border px-1 text-[11px] leading-4', item.origin === 'admin' ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300']">{{ item.origin === 'admin' ? 'Web' : 'YAML' }}</span>
@@ -85,6 +91,10 @@
         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground dark:text-gray-400">
           <span>{{ item.origin === 'admin' ? 'Web' : 'YAML' }}</span>
           <span>{{ item.endpoints }} {{ item.endpoints === 1 ? 'endpoint' : 'endpoints' }}</span>
+          <!-- Fork: the page has a login of its own -->
+          <span v-if="item.requiresLogin" class="flex items-center gap-1 text-amber-600 dark:text-amber-400" :data-testid="`status-page-requires-login-${item.slug}`">
+            <Lock class="h-3 w-3 shrink-0" aria-hidden="true" />Requires login
+          </span>
         </div>
         <div class="mt-1 flex flex-wrap items-center gap-1">
           <AdminActionButton :icon="ExternalLink" :label="`Open ${item.slug} in a new tab`" :testid="`status-page-open-${item.slug}`" :href="item.path" :compact="false" />
@@ -106,7 +116,7 @@
     </div>
 
     <template #footer>
-      {{ items.length }} {{ items.length === 1 ? 'status page' : 'status pages' }}<span v-if="publishedCount"> · {{ publishedCount }} published</span>
+      {{ items.length }} {{ items.length === 1 ? 'status page' : 'status pages' }}<span v-if="publishedCount"> · {{ publishedCount }} published</span><span v-if="requiresLoginCount"> · {{ requiresLoginCount }} with login</span>
     </template>
 
     <template #overlay>
@@ -125,7 +135,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CirclePause, CirclePlay, ExternalLink, Eye, Link2, Pencil, Trash2 } from 'lucide-vue-next'
+import { CirclePause, CirclePlay, ExternalLink, Eye, Link2, Lock, Pencil, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import Loading from '@/components/Loading.vue'
@@ -146,6 +156,8 @@ const copyInput = ref(null)
 
 const items = computed(() => (listing.value && listing.value.statusPages) || [])
 const publishedCount = computed(() => items.value.filter((item) => item.published).length)
+// Fork: pages with a login of their own
+const requiresLoginCount = computed(() => items.value.filter((item) => item.requiresLogin).length)
 
 const removalMessage = computed(() => (pendingRemoval.value ? `Status page ${pendingRemoval.value.slug} will be removed and ${pendingRemoval.value.path} will stop responding.` : ''))
 

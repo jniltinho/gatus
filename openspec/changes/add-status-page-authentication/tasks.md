@@ -18,11 +18,11 @@
 
 ## 3. Frontend
 
-- [ ] 3.1 `credentials: 'same-origin'` nas buscas das rotas públicas da página (`StatusPage.vue`, `StatusPageEndpoint.vue`, `ResponseTimeChart.vue`).
-- [ ] 3.2 Badges da página de detalhes apontando para as rotas com slug.
-- [ ] 3.3 Tratamento do 401 na atualização periódica: parar o ciclo e pedir recarga, sem reabrir a caixa de credencial em laço.
-- [ ] 3.4 Formulário e lista conforme D9, com o booleano `requiresLogin` na listagem da API.
-- [ ] 3.5 `npm run lint` e `npm run test:unit`.
+- [x] 3.1 `credentials: 'same-origin'` nas buscas das rotas públicas da página (`StatusPage.vue`, `StatusPageEndpoint.vue`, `ResponseTimeChart.vue`).
+- [x] 3.2 Badges da página de detalhes apontando para as rotas com slug.
+- [x] 3.3 Tratamento do 401 na atualização periódica: parar o ciclo e pedir recarga, sem reabrir a caixa de credencial em laço.
+- [x] 3.4 Formulário e lista conforme D9, com o booleano `requiresLogin` na listagem da API.
+- [x] 3.5 `npm run lint` e `npm run test:unit`.
 
 ## 4. Backup
 
@@ -31,8 +31,8 @@
 
 ## 5. Testes e entrega
 
-- [ ] 5.1 E2E em `test/e2e/status-pages.sh` conforme D10.11 a D10.15, provando o 401 com requisição direta (`curl -i`) e o 200 com `curl -u`, sem levar o navegador à caixa nativa de credencial.
-- [ ] 5.2 Rodar `status-pages.sh`, `push.sh`, `admin.sh` e `admin-backup.sh`, com prints.
+- [x] 5.1 E2E em `test/e2e/status-pages.sh` conforme D10.11 a D10.15, provando o 401 com requisição direta (`curl -i`) e o 200 com `curl -u`, sem levar o navegador à caixa nativa de credencial.
+- [x] 5.2 Rodar `status-pages.sh`, `push.sh`, `admin.sh` e `admin-backup.sh`, com prints.
 - [ ] 5.3 Conferência manual: navegador pedindo a credencial, credencial errada, página de detalhes com gráfico, eventos e badges dentro da página protegida, e a página pública de sempre intacta.
 - [ ] 5.4 Documentação: seção em `docs/status-pages.md` (como ligar, o que passa a exigir credencial, que as rotas globais por chave continuam públicas, que não há logout no HTTP Basic, a relação com `trusted-proxies` e como fazer no YAML colando o hash), nota em `docs/README.md` e seção no `AGENTS.fork.md`.
 - [ ] 5.5 `make frontend-build` com o `web/static` no commit, `make lint` e `openspec validate add-status-page-authentication --strict`.

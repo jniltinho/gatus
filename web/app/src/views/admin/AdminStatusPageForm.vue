@@ -92,10 +92,31 @@
                 <span>
                   <span class="block font-medium text-foreground dark:text-gray-200">Published</span>
                   <span class="block text-xs text-muted-foreground dark:text-gray-400">
-                    Visible without login at <span class="font-mono">{{ publicPath }}</span>. An unpublished page can still be validated and previewed here.
+                    Visible at <span class="font-mono">{{ publicPath }}</span>{{ form.requiresLogin ? ', with the login of the page' : ', without login' }}. An unpublished page can still be validated and previewed here.
                   </span>
                 </span>
               </label>
+              <!-- Fork: login of the page, asked by the browser itself -->
+              <div :class="['border px-3 py-2.5 text-sm dark:border-gray-700', form.requiresLogin ? 'border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-900/20' : '']">
+                <label class="flex items-start gap-3">
+                  <input v-model="form.requiresLogin" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-requires-login" />
+                  <span>
+                    <span class="block font-medium text-foreground dark:text-gray-200">Require login to view this page</span>
+                    <span class="block text-xs text-muted-foreground dark:text-gray-400">The browser asks for the username and the password of this page. It is not the login of the administration, and there is no way to sign out other than closing the browser.</span>
+                  </span>
+                </label>
+                <div v-if="form.requiresLogin" class="mt-2.5 space-y-2.5">
+                  <label class="block">
+                    <span class="block text-sm font-medium text-foreground dark:text-gray-200">Username</span>
+                    <Input v-model="form.authUsername" autocomplete="off" placeholder="client" class="mt-1.5 dark:border-gray-700" data-testid="status-page-field-auth-username" />
+                  </label>
+                  <label class="block">
+                    <span class="block text-sm font-medium text-foreground dark:text-gray-200">Password</span>
+                    <Input v-model="form.authPassword" type="password" autocomplete="new-password" :placeholder="savedRequiresLogin ? 'Unchanged' : 'At least 8 characters'" class="mt-1.5 dark:border-gray-700" data-testid="status-page-field-auth-password" />
+                    <span class="mt-0.5 block text-xs text-muted-foreground dark:text-gray-400">{{ savedRequiresLogin ? 'Leave it empty to keep the current password. Only the hash is stored, so it is never shown again.' : 'At least 8 characters. Only the hash is stored, so it is never shown again.' }}</span>
+                  </label>
+                </div>
+              </div>
               <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
                 <input v-model="form.showCertificateExpiration" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-show-certificate-expiration" />
                 <span>
@@ -274,6 +295,8 @@ const validation = ref(null)
 const preview = ref(null)
 // show-messages of the saved version, which the payload of the preview does not have (fork)
 const savedShowMessages = ref(false)
+// Whether the saved version already requires a login: only then an empty password means "keep the current one" (fork)
+const savedRequiresLogin = ref(false)
 const validationBand = ref(null)
 const previewButton = ref(null)
 const copied = ref(false)
@@ -282,7 +305,7 @@ let copiedTimer = null
 const MAXIMUM_FEATURED = 10
 
 // The deprecated charts are not part of the form: saving a page removes them
-const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false, showMessages: false })
+const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false, showMessages: false, requiresLogin: false, authUsername: '', authPassword: '' })
 const form = reactive(emptyForm())
 
 // Message shown after the route changes from the creation to the edition of the created page
@@ -366,6 +389,10 @@ const currentDocument = () => ({
   // Only sent when checked, like the other optional fields of the definition (fork)
   ...(form.showCertificateExpiration ? { 'show-certificate-expiration': true } : {}),
   ...(form.showMessages ? { 'show-messages': true } : {}),
+  // Fork: the password travels only here, in the submission, and the server answers with the hash masked
+  ...(form.requiresLogin
+    ? { auth: { username: form.authUsername.trim(), ...(form.authPassword ? { password: form.authPassword } : {}) } }
+    : {}),
   enabled: form.enabled
 })
 
@@ -386,10 +413,13 @@ const loadDetail = async () => {
       endpoints: definition.endpoints || [],
       featured: definition.featured || [],
       showCertificateExpiration: definition['show-certificate-expiration'] === true,
-      showMessages: definition['show-messages'] === true
+      showMessages: definition['show-messages'] === true,
+      requiresLogin: !!definition.auth,
+      authUsername: definition.auth?.username || ''
     })
   }
   savedShowMessages.value = form.showMessages
+  savedRequiresLogin.value = form.requiresLogin
 }
 
 const load = async () => {
@@ -464,6 +494,9 @@ const save = async () => {
       version.value = data.version || version.value
       savedError.value = ''
       savedShowMessages.value = form.showMessages
+      // The password was either kept or replaced: either way it is stored as a hash and never shown again (fork)
+      savedRequiresLogin.value = form.requiresLogin
+      form.authPassword = ''
       preview.value = null
       conflictError.value = ''
       toast.success(data.published ? 'Status page saved and published.' : 'Status page saved. It is not published.')

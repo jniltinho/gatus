@@ -17,6 +17,13 @@
       <p class="mt-2 text-muted-foreground">Check the address of the status page.</p>
     </section>
 
+    <!-- Fork: the page asks for a login of its own, and the browser only asks for it again on a new navigation -->
+    <section v-else-if="state === 'unauthorized'" class="py-16 text-center" data-testid="status-page-unauthorized">
+      <h1 class="text-2xl font-bold tracking-tight">Login required</h1>
+      <p class="mt-2 text-muted-foreground">This status page asks for a username and a password.</p>
+      <button type="button" class="mt-4 border px-4 py-2 text-sm font-medium hover:bg-muted dark:border-gray-700" @click="reload">Reload the page</button>
+    </section>
+
     <template v-else>
       <div
         v-if="errorMessage"
@@ -194,8 +201,9 @@ const showMessages = computed(() => details.value?.page?.showMessages === true)
 // Public route of the response time chart
 const chartUrl = computed(() => `/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}/response-time-chart`)
 
-// badgeURL returns the address of a badge of the endpoint, public in the original Gatus
-const badgeURL = (path) => `/api/v1/endpoints/${encodeURIComponent(key.value)}/${path}`
+// badgeURL returns the address of a badge of the endpoint under the page, which follows the login of the page (fork).
+// The routes by key of the original Gatus, which the dashboard uses, stay public.
+const badgeURL = (path) => `/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}/${path}`
 
 const stopRefreshing = () => {
   clearTimeout(refreshTimer)
@@ -228,6 +236,18 @@ const startLiveUpdates = () => {
   )
 }
 
+// Fork: a page with a login of its own answers 401 when the credential changes with the tab open
+const showUnauthorized = () => {
+  stopRefreshing()
+  stopLiveUpdates()
+  details.value = null
+  errorMessage.value = ''
+  state.value = 'unauthorized'
+  document.title = 'Login required'
+}
+
+const reload = () => window.location.reload()
+
 const showNotFound = () => {
   stopRefreshing()
   stopLiveUpdates()
@@ -247,12 +267,17 @@ const load = async () => {
   abortController = new AbortController()
   let retryDelayMs = REFRESH_INTERVAL_MS
   try {
-    const response = await fetch(`/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}`, { credentials: 'omit', signal: abortController.signal })
+    // Fork: the credential of a page with a login goes with every request of the page
+    const response = await fetch(`/api/v1/status-pages/${encodeURIComponent(slug.value)}/endpoints/${encodeURIComponent(key.value)}`, { credentials: 'same-origin', signal: abortController.signal })
     if (generation !== requestGeneration) {
       return
     }
     if (response.status === 404) {
       showNotFound()
+      return
+    }
+    if (response.status === 401) {
+      showUnauthorized()
       return
     }
     if (response.status === 429 || response.status === 503) {
@@ -289,7 +314,7 @@ const load = async () => {
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
     stopRefreshing()
-  } else if (state.value !== 'not-found') {
+  } else if (state.value !== 'not-found' && state.value !== 'unauthorized') {
     load()
   }
 }

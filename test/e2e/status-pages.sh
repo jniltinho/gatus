@@ -592,6 +592,78 @@ if curl -s "$BASE/api/v1/status-pages/clients" | grep -qE 'web_site|clientes_sit
   fail "the public API exposed a key"
 fi
 
+step "Administration: page with a login of its own"
+# Fork: created through the form, checked with curl only, so that the browser never opens the native credential dialog
+admin open "$BASE/admin/status-pages" >/dev/null
+admin wait "$(testid admin-new-status-page)" >/dev/null || fail "the list of status pages did not open"
+admin click "$(testid admin-new-status-page)" >/dev/null
+admin wait "$(testid status-page-field-slug)" >/dev/null || fail "the form did not open"
+admin fill "$(testid status-page-field-slug)" "private" >/dev/null
+admin fill "$(testid status-page-field-title)" "Private" >/dev/null
+admin scrollintoview "$(testid status-page-group-core)" >/dev/null
+admin click "$(testid status-page-group-core)" >/dev/null
+admin scrollintoview "$(testid status-page-field-requires-login)" >/dev/null
+admin click "$(testid status-page-field-requires-login)" >/dev/null
+admin wait "$(testid status-page-field-auth-username)" >/dev/null || fail "the credential fields did not show up"
+admin fill "$(testid status-page-field-auth-username)" "client" >/dev/null
+admin fill "$(testid status-page-field-auth-password)" "page-secret-e2e" >/dev/null
+admin click "$(testid status-page-field-enabled)" >/dev/null
+admin screenshot "$PRINTS/13-admin-page-login.png" >/dev/null
+admin click "$(testid status-page-save)" >/dev/null
+admin wait --text "created and published" >/dev/null || fail "the page with a login was not created"
+# Every route of the page answers the challenge without the credential, and 200 with it
+page_headers() {
+  local route=$1
+  shift
+  curl -s -o /dev/null -D - --max-time 10 "$@" "$BASE$route"
+}
+PROTECTED_ROUTES=(
+  "/status/private"
+  "/status/private/endpoints/core_health"
+  "/api/v1/status-pages/private"
+  "/api/v1/status-pages/private/endpoints/core_health"
+  "/api/v1/status-pages/private/endpoints/core_health/response-time-chart?period=recent"
+  "/api/v1/status-pages/private/endpoints/core_health/health/badge.svg"
+  "/api/v1/status-pages/private/endpoints/core_health/response-times/24h/badge.svg"
+  "/api/v1/status-pages/private/endpoints/core_health/events"
+)
+# With the credential first, because every failure counts towards the limit of the page
+for route in "${PROTECTED_ROUTES[@]}"; do
+  method=()
+  # The event stream only ends after minutes: HEAD answers the same headers without opening it
+  [ "${route%/events}" = "$route" ] || method=(-I)
+  allowed=$(page_headers "$route" "${method[@]}" -u "client:page-secret-e2e")
+  grep -qi '^HTTP/1.1 200' <<<"$allowed" || fail "$route did not answer 200 with the credential: $(head -1 <<<"$allowed")"
+  grep -qi '^Cache-Control: private' <<<"$allowed" || fail "$route answered without a private cache-control"
+done
+curl -s -u "client:page-secret-e2e" "$BASE/api/v1/status-pages/private" | grep -q '"title":"Private"' || fail "the payload of the page with a login is not the usual one"
+# And the challenge on every route without it
+for route in "${PROTECTED_ROUTES[@]}"; do
+  method=()
+  [ "${route%/events}" = "$route" ] || method=(-I)
+  challenge=$(page_headers "$route" "${method[@]}")
+  grep -qi '^HTTP/1.1 401' <<<"$challenge" || fail "$route answered without the challenge: $(head -1 <<<"$challenge")"
+  grep -qi '^WWW-Authenticate: Basic realm="private"' <<<"$challenge" || fail "$route did not send WWW-Authenticate"
+  grep -qi '^Cache-Control: no-store' <<<"$challenge" || fail "$route did not answer the challenge with no-store"
+done
+# The credential of the installation and a wrong password do not open the page
+[ "$(api_status -u "$USERNAME:$PASSWORD" "$BASE/api/v1/status-pages/private")" = 401 ] || fail "the credential of the installation opened the page"
+[ "$(api_status -u "client:wrong" "$BASE/api/v1/status-pages/private")" = 401 ] || fail "a wrong password opened the page"
+# Ten failures later the page waits, even for the right credential, and only that page
+blocked=$(page_headers "/api/v1/status-pages/private" -u "client:page-secret-e2e")
+grep -qi '^HTTP/1.1 429' <<<"$blocked" || fail "the failures of the page were not limited: $(head -1 <<<"$blocked")"
+grep -qi '^Retry-After:' <<<"$blocked" || fail "the 429 of the page came without Retry-After"
+# The public pages keep answering without any credential
+[ "$(api_status "$BASE/api/v1/status-pages/services")" = 200 ] || fail "the public page stopped answering without credentials"
+[ "$(api_status "$BASE/status/services")" = 200 ] || fail "the HTML of the public page stopped answering without credentials"
+# The administration never shows the hash, and the list shows the lock
+detail=$(curl -s -u "$USERNAME:$PASSWORD" "$BASE/api/v1/admin/status-pages/private")
+grep -q '\*\*\*\*\*\*\*\*' <<<"$detail" || fail "the administration did not mask the hash of the credential"
+grep -qE '\$2[aby]\$|page-secret-e2e' <<<"$detail" && fail "the administration answered with the hash or the password"
+admin open "$BASE/admin/status-pages" >/dev/null
+admin wait "$(testid status-page-requires-login-private)" >/dev/null || fail "the list did not show the lock of the page with a login"
+grep -q "with login" <<<"$(js admin "document.querySelector('[data-testid=\"admin-list-footer\"]') ? document.querySelector('[data-testid=\"admin-list-footer\"]').innerText : document.body.innerText")" || fail "the footer of the list does not count the pages with a login"
+
 step "Administration: dark mode and removal"
 set_theme admin dark
 admin open "$BASE/admin/status-pages" >/dev/null
