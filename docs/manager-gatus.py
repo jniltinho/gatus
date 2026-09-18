@@ -6,6 +6,8 @@ Subcommands:
 
     csv              rewrites an inventory of hostnames as the simple CSV, without calling Gatus
     import           registers the endpoints of a CSV, each one accepting push with a token of its own
+    endpoints        lists the endpoints, with their source, state and push
+    status-pages     lists the status pages, with their state and whether they require a login
     groups           lists the groups with the number of endpoints of each one
     rename-group     changes the group of every endpoint of a group, in one go
     export-tokens    writes host,token of every endpoint that accepts push
@@ -18,6 +20,10 @@ Examples:
     # Registers everything, with a token per endpoint (--dry-run shows without sending)
     export GATUS_URL=https://status.example.com GATUS_PASSWORD='the-password'
     python3 docs/manager-gatus.py import --csv endpoints-prod.csv
+
+    # Lists what is registered
+    python3 docs/manager-gatus.py endpoints --group analytics
+    python3 docs/manager-gatus.py status-pages
 
     # Renames a group in every endpoint that uses it
     python3 docs/manager-gatus.py rename-group --from outros-institucional --to institucional
@@ -183,6 +189,12 @@ class Gatus:
             raise GatusError(f"the endpoint {key} answered {status}: {describe(body)}")
         return body
 
+    def list_status_pages(self) -> dict:
+        status, body = self.request("GET", "/api/v1/admin/status-pages")
+        if status != 200 or not isinstance(body, dict):
+            raise GatusError(f"the list of status pages answered {status}: {describe(body)}")
+        return body
+
     def create_endpoint(self, definition: dict) -> tuple[int, object]:
         return self.request("POST", "/api/v1/admin/endpoints", definition)
 
@@ -287,6 +299,93 @@ def command_groups(arguments: argparse.Namespace) -> int:
             line += f"   ({entry['config']} of the configuration file, read-only)"
         print(line)
     print(f"{len(counts)} groups, {sum(entry['total'] for entry in counts.values())} endpoints")
+    return 0
+
+
+def print_table(headers: list[str], rows: list[list[str]], csv_path: str | None) -> None:
+    """Prints the rows in aligned columns, and writes them as a CSV when a path is given"""
+    if csv_path:
+        with open(csv_path, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle, lineterminator="\n")
+            writer.writerow(headers)
+            writer.writerows(rows)
+        print(f"{len(rows)} lines written to {csv_path}")
+        return
+    widths = [len(header) for header in headers]
+    for row in rows:
+        for index, cell in enumerate(row):
+            widths[index] = max(widths[index], len(cell))
+    # The last column is not padded, so a long URL does not drag the line
+    print("  ".join(header.upper().ljust(widths[index]) for index, header in enumerate(headers)).rstrip())
+    for row in rows:
+        print("  ".join(cell.ljust(widths[index]) for index, cell in enumerate(row)).rstrip())
+
+
+def command_endpoints(arguments: argparse.Namespace) -> int:
+    """Lists the endpoints of the configuration file and the ones managed through the web"""
+    items = Gatus(arguments).list_endpoints()
+    if arguments.group:
+        wanted = {slugify(group) for group in arguments.group}
+        items = [item for item in items if slugify(item.get("group") or "") in wanted]
+    if arguments.source:
+        items = [item for item in items if item.get("source") == arguments.source]
+    if not items:
+        print("no endpoint found")
+        return 0
+    rows = [
+        [
+            item.get("key", ""),
+            item.get("type") or "",
+            "file" if item.get("source") == SOURCE_CONFIG else "web",
+            "enabled" if item.get("enabled") else "disabled",
+            "yes" if item.get("acceptsPush") else "",
+            item.get("url") or "",
+        ]
+        for item in items
+    ]
+    print_table(["key", "type", "source", "state", "push", "url"], rows, arguments.csv)
+    if not arguments.csv:
+        from_file = sum(1 for item in items if item.get("source") == SOURCE_CONFIG)
+        disabled = sum(1 for item in items if not item.get("enabled"))
+        accepting_push = sum(1 for item in items if item.get("acceptsPush"))
+        print(f"{len(items)} endpoints · {from_file} of the configuration file · {disabled} disabled · {accepting_push} accepting push")
+    return 0
+
+
+def command_status_pages(arguments: argparse.Namespace) -> int:
+    """Lists the status pages of the configuration file and the ones managed through the web"""
+    listing = Gatus(arguments).list_status_pages()
+    pages = listing.get("statusPages") or []
+    if not pages:
+        print("no status page registered")
+        return 0
+    rows = []
+    for page in pages:
+        state = "published" if page.get("published") else ("enabled" if page.get("enabled") else "disabled")
+        if page.get("conflict"):
+            state = "conflict"
+        elif page.get("error"):
+            state = "invalid"
+        rows.append([
+            page.get("slug", ""),
+            page.get("title") or "",
+            "file" if page.get("origin") == "config" else "web",
+            state,
+            str(page.get("endpoints", 0)),
+            "yes" if page.get("requiresLogin") else "",
+            page.get("path") or "",
+        ])
+    print_table(["slug", "title", "source", "state", "endpoints", "login", "path"], rows, arguments.csv)
+    if not arguments.csv:
+        published = sum(1 for page in pages if page.get("published"))
+        with_login = sum(1 for page in pages if page.get("requiresLogin"))
+        print(f"{len(pages)} status pages · {published} published · {with_login} with a login of their own")
+        if not listing.get("publicationEnabled"):
+            print("status-pages.enabled is false: no page is published", file=sys.stderr)
+        if listing.get("managedUnavailable"):
+            print("the managed status pages could not be loaded: only the ones of the configuration file are listed", file=sys.stderr)
+        if warning := listing.get("sharedRateLimitWarning"):
+            print(f"every visitor seems to come from {warning}: set status-pages.trusted-proxies", file=sys.stderr)
     return 0
 
 
@@ -423,6 +522,18 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     import_parser.add_argument("--no-push", action="store_true", help="registers without push: no token is generated")
     import_parser.add_argument("--dry-run", action="store_true", help="shows what would be registered, without calling Gatus")
     import_parser.set_defaults(handler=command_import)
+
+    endpoints_parser = subcommands.add_parser("endpoints", help="lists the endpoints, with their source, state and push")
+    add_connection_arguments(endpoints_parser)
+    endpoints_parser.add_argument("--group", action="append", metavar="GROUP", help="only these groups (can be repeated)")
+    endpoints_parser.add_argument("--source", choices=["config", "admin"], help="only the endpoints of the configuration file or the ones managed through the web")
+    endpoints_parser.add_argument("--csv", metavar="PATH", help="writes the listing as a CSV instead of printing it")
+    endpoints_parser.set_defaults(handler=command_endpoints)
+
+    status_pages_parser = subcommands.add_parser("status-pages", help="lists the status pages, with their state and whether they require a login")
+    add_connection_arguments(status_pages_parser)
+    status_pages_parser.add_argument("--csv", metavar="PATH", help="writes the listing as a CSV instead of printing it")
+    status_pages_parser.set_defaults(handler=command_status_pages)
 
     groups_parser = subcommands.add_parser("groups", help="lists the groups with the number of endpoints of each one")
     add_connection_arguments(groups_parser)
