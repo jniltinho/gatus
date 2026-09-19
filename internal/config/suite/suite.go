@@ -1,3 +1,6 @@
+// Package suite models the suites section of the YAML configuration: groups of endpoints executed one after the
+// other with a shared context. It validates a suite and applies its defaults, executes it, and defines the Status and
+// Result objects that the storage keeps and the HTTP API serializes.
 package suite
 
 import (
@@ -69,7 +72,9 @@ func (s *Suite) Key() string {
 	return key.ConvertGroupAndNameToKey(s.Group, s.Name)
 }
 
-// ValidateAndSetDefaults validates the suite configuration and sets default values
+// ValidateAndSetDefaults validates the suite configuration and sets default values: Interval defaults to
+// DefaultInterval, Timeout to DefaultTimeout, the context to an empty map, and every endpoint inherits the group of
+// the suite before being validated itself. It returns one of the ErrSuite errors or the wrapped endpoint error.
 func (s *Suite) ValidateAndSetDefaults() error {
 	// Validate name
 	if len(s.Name) == 0 {
@@ -112,7 +117,8 @@ func (s *Suite) ValidateAndSetDefaults() error {
 	return nil
 }
 
-// Execute executes all endpoints in the suite sequentially with context sharing
+// Execute executes all endpoints in the suite sequentially with context sharing. After the first failure only the
+// endpoints marked always-run are still executed; the others are left out of the result.
 func (s *Suite) Execute() *Result {
 	start := time.Now()
 	// Initialize context from suite configuration
@@ -170,7 +176,9 @@ func (s *Suite) Execute() *Result {
 	return result
 }
 
-// StoreResultValues extracts values from an endpoint result and stores them in the gontext
+// StoreResultValues extracts values from an endpoint result and stores them in the gontext. mappings associates a
+// context key with a placeholder such as [BODY].token. It returns the stored values, in which a value that could not
+// be extracted is replaced by an "ERROR: ..." string, along with an error listing the failed extractions.
 func StoreResultValues(ctx *gontext.Gontext, mappings map[string]string, result *endpoint.Result) (map[string]interface{}, error) {
 	if mappings == nil || len(mappings) == 0 {
 		return nil, nil

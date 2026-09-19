@@ -1,3 +1,5 @@
+// Package plivo implements the alerting provider that sends alerts as SMS through the Plivo Message REST API,
+// one request for each recipient, using basic authentication.
 package plivo
 
 import (
@@ -15,6 +17,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrAuthIDNotSet is returned by Config.Validate when auth-id is empty.
+// ErrAuthTokenNotSet is returned by Config.Validate when auth-token is empty.
+// ErrFromNotSet is returned by Config.Validate when the sender number, from, is empty.
+// ErrToNotSet is returned by Config.Validate when the list of recipients, to, is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrAuthIDNotSet           = errors.New("auth-id not set")
 	ErrAuthTokenNotSet        = errors.New("auth-token not set")
@@ -23,6 +31,8 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Plivo provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	AuthID    string   `yaml:"auth-id"`
 	AuthToken string   `yaml:"auth-token"`
@@ -30,6 +40,8 @@ type Config struct {
 	To        []string `yaml:"to"`
 }
 
+// Validate returns ErrAuthIDNotSet, ErrAuthTokenNotSet, ErrFromNotSet or ErrToNotSet for the first of these
+// fields that is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.AuthID) == 0 {
 		return ErrAuthIDNotSet
@@ -46,6 +58,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty. The list of recipients
+// is replaced as a whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.AuthID) > 0 {
 		cfg.AuthID = override.AuthID
@@ -63,6 +77,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Plivo
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type

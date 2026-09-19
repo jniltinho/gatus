@@ -1,3 +1,7 @@
+// Package endpoint models the endpoints and external-endpoints sections of the YAML configuration. It validates
+// them and applies their defaults, performs the health check of an endpoint (HTTP, DNS, TCP, UDP, SCTP, ICMP, TLS,
+// STARTTLS, gRPC, WebSocket and SSH) and evaluates its conditions, and defines the Status, Result, Event and
+// ConditionResult objects that the storage keeps and the HTTP API serializes.
 package endpoint
 
 import (
@@ -28,6 +32,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// Type is the kind of check made for an Endpoint. It is never configured: Endpoint.Type derives it from the scheme of
+// the URL, or from the presence of a DNS configuration.
 type Type string
 
 const (
@@ -43,18 +49,31 @@ const (
 	// GatusUserAgent is the default user agent that Gatus uses to send requests.
 	GatusUserAgent = "Gatus/1.0"
 
-	TypeDNS      Type = "DNS"
-	TypeTCP      Type = "TCP"
-	TypeSCTP     Type = "SCTP"
-	TypeUDP      Type = "UDP"
-	TypeICMP     Type = "ICMP"
+	// TypeDNS is the Type of an endpoint that has a DNS configuration, whatever its URL.
+	TypeDNS Type = "DNS"
+	// TypeTCP is the Type of an endpoint whose URL starts with tcp://.
+	TypeTCP Type = "TCP"
+	// TypeSCTP is the Type of an endpoint whose URL starts with sctp://.
+	TypeSCTP Type = "SCTP"
+	// TypeUDP is the Type of an endpoint whose URL starts with udp://.
+	TypeUDP Type = "UDP"
+	// TypeICMP is the Type of an endpoint whose URL starts with icmp://.
+	TypeICMP Type = "ICMP"
+	// TypeSTARTTLS is the Type of an endpoint whose URL starts with starttls://.
 	TypeSTARTTLS Type = "STARTTLS"
-	TypeTLS      Type = "TLS"
-	TypeHTTP     Type = "HTTP"
-	TypeGRPC     Type = "GRPC"
-	TypeWS       Type = "WEBSOCKET"
-	TypeSSH      Type = "SSH"
-	TypeUNKNOWN  Type = "UNKNOWN"
+	// TypeTLS is the Type of an endpoint whose URL starts with tls://.
+	TypeTLS Type = "TLS"
+	// TypeHTTP is the Type of an endpoint whose URL starts with http:// or https://.
+	TypeHTTP Type = "HTTP"
+	// TypeGRPC is the Type of an endpoint whose URL starts with grpc:// or grpcs://.
+	TypeGRPC Type = "GRPC"
+	// TypeWS is the Type of an endpoint whose URL starts with ws:// or wss://.
+	TypeWS Type = "WEBSOCKET"
+	// TypeSSH is the Type of an endpoint whose URL starts with ssh://.
+	TypeSSH Type = "SSH"
+	// TypeUNKNOWN is the Type of an endpoint whose URL has none of the supported schemes, which
+	// Endpoint.ValidateAndSetDefaults reports as ErrUnknownEndpointType.
+	TypeUNKNOWN Type = "UNKNOWN"
 )
 
 var (
@@ -190,7 +209,10 @@ func (e *Endpoint) Type() Type {
 	}
 }
 
-// ValidateAndSetDefaults validates the endpoint's configuration and sets the default value of args that have one
+// ValidateAndSetDefaults validates the endpoint's configuration and sets the default value of args that have one:
+// the interval defaults to 1 minute, the method to GET, the client and UI configurations to their defaults, and the
+// User-Agent header (plus a JSON Content-Type for GraphQL) is added when missing. It returns one of the ErrEndpoint
+// errors, ErrInvalidConditionFormat, ErrUnknownEndpointType or the error of the invalid section.
 func (e *Endpoint) ValidateAndSetDefaults() error {
 	if err := validateEndpointNameGroupAndAlerts(e.Name, e.Group, e.Alerts); err != nil {
 		return err

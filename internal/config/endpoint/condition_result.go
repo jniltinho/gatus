@@ -1,8 +1,10 @@
 package endpoint
 
-// ConditionResult result of a Condition
+// ConditionResult result of a Condition: the outcome of one condition of an endpoint for a given Result, as
+// serialized in the status API.
 type ConditionResult struct {
-	// Condition that was evaluated
+	// Condition that was evaluated. When it failed (or when ui.resolve-successful-conditions is set), the placeholders
+	// are followed by their resolved value, e.g. "[STATUS] (502) == 200".
 	Condition string `json:"condition"`
 
 	// Success whether the condition was met (successful) or not (failed)

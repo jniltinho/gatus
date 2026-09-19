@@ -15,6 +15,17 @@ import (
 
 // renderSPA returns a handler that always renders the single page application with status 200, from a template parsed
 // once when the router is created (once per start or reload), and sets headers on every response
+//
+// It is the handler of GET and HEAD /status/:slug and /status/*, the HTML of the public status pages, registered behind
+// statusPageHTMLAuth.
+//
+// Authentication: none, or HTTP Basic with the login of the page when the slug is a published page that requires one.
+// Request: the path parameter slug is only read by the frontend and by statusPageHTMLAuth; the optional cookie theme
+// (dark or light) picks the theme.
+// Responses: 200 with the rendered index.html as text/html, Cache-Control: no-cache (private, no-store and Vary:
+// Authorization for a page with a login), X-Robots-Tag: noindex, nofollow, X-Content-Type-Options: nosniff and
+// Referrer-Policy: strict-origin-when-cross-origin, whether or not the page exists; 401 with WWW-Authenticate: Basic
+// and 429 with Retry-After from statusPageHTMLAuth; 500 as text/plain when the template cannot be parsed or executed.
 func renderSPA(uiConfig *ui.Config, headers func(c *echo.Context)) echo.HandlerFunc {
 	indexTemplate, parseErr := template.ParseFS(static.FileSystem, static.IndexPath)
 	return func(c *echo.Context) error {

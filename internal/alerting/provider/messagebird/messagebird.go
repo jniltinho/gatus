@@ -1,3 +1,5 @@
+// Package messagebird implements the alerting provider that sends alerts by SMS through the MessageBird
+// REST API.
 package messagebird
 
 import (
@@ -16,18 +18,23 @@ import (
 
 const restAPIURL = "https://rest.messagebird.com/messages"
 
+// Errors returned by the validation of the configuration, each one when the field it names is empty:
+// ErrorAccessKeyNotSet, ErrorOriginatorNotSet and ErrorRecipientsNotSet.
 var (
 	ErrorAccessKeyNotSet  = errors.New("access-key not set")
 	ErrorOriginatorNotSet = errors.New("originator not set")
 	ErrorRecipientsNotSet = errors.New("recipients not set")
 )
 
+// Config holds the access key, the sender shown on the SMS (Originator) and the phone numbers that receive it
+// (Recipients, separated by commas).
 type Config struct {
 	AccessKey  string `yaml:"access-key"`
 	Originator string `yaml:"originator"`
 	Recipients string `yaml:"recipients"`
 }
 
+// Validate checks that AccessKey, Originator and Recipients are set.
 func (cfg *Config) Validate() error {
 	if len(cfg.AccessKey) == 0 {
 		return ErrorAccessKeyNotSet
@@ -41,6 +48,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.AccessKey) > 0 {
 		cfg.AccessKey = override.AccessKey
@@ -92,6 +100,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the messages endpoint of MessageBird; Body is the text of the SMS.
 type Body struct {
 	Originator string `json:"originator"`
 	Recipients string `json:"recipients"`

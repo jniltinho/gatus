@@ -1,3 +1,5 @@
+// Package sendgrid implements the alerting provider that sends alerts by email through the SendGrid v3 Mail
+// Send REST API, authenticated with a bearer API key.
 package sendgrid
 
 import (
@@ -15,10 +17,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ApiURL is the SendGrid endpoint that emails are posted to.
 const (
 	ApiURL = "https://api.sendgrid.com/v3/mail/send"
 )
 
+// ErrAPIKeyNotSet is returned by Config.Validate when api-key is empty.
+// ErrFromNotSet is returned by Config.Validate when the sender address, from, is empty.
+// ErrToNotSet is returned by Config.Validate when the recipients, to, are empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrAPIKeyNotSet           = errors.New("api-key not set")
 	ErrFromNotSet             = errors.New("from not set")
@@ -26,6 +34,8 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the SendGrid provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override. To may hold several addresses separated by commas.
 type Config struct {
 	APIKey string `yaml:"api-key"`
 	From   string `yaml:"from"`
@@ -35,6 +45,7 @@ type Config struct {
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate returns ErrAPIKeyNotSet, ErrFromNotSet or ErrToNotSet for the first of these fields that is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.APIKey) == 0 {
 		return ErrAPIKeyNotSet
@@ -48,6 +59,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites APIKey, From and To with the values of override that are not empty, and ClientConfig when
+// override has one.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -65,6 +78,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using SendGrid
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -124,6 +138,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// SendGridPayload is the JSON payload posted to the SendGrid Mail Send API.
 type SendGridPayload struct {
 	Personalizations []Personalization `json:"personalizations"`
 	From             Email             `json:"from"`
@@ -131,14 +146,18 @@ type SendGridPayload struct {
 	Content          []Content         `json:"content"`
 }
 
+// Personalization lists the recipients of the email; the provider sends a single one with every address of
+// Config.To.
 type Personalization struct {
 	To []Email `json:"to"`
 }
 
+// Email wraps an email address in the object form that the SendGrid API expects.
 type Email struct {
 	Email string `json:"email"`
 }
 
+// Content is one representation of the email body; the provider sends a text/plain and a text/html one.
 type Content struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`

@@ -1,3 +1,5 @@
+// Package ntfy implements the alerting provider that publishes alerts to a ntfy topic by posting a JSON
+// message to the ntfy server, optionally authenticated with an access token.
 package ntfy
 
 import (
@@ -16,12 +18,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultURL is the ntfy server used when Config.URL is empty.
+// DefaultPriority is the message priority used when Config.Priority is 0.
+// TokenPrefix is the prefix that every ntfy access token starts with.
 const (
 	DefaultURL      = "https://ntfy.sh"
 	DefaultPriority = 3
 	TokenPrefix     = "tk_"
 )
 
+// ErrInvalidToken is returned by Config.Validate when a token is set but does not start with TokenPrefix.
+// ErrTopicNotSet is returned by Config.Validate when topic is empty.
+// ErrInvalidPriority is returned by Config.Validate when the priority is outside the range 1 to 5.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when an override has no group, repeats a
+// group, has a token without TokenPrefix or has a priority outside the range 0 to 5.
 var (
 	ErrInvalidToken           = errors.New("invalid token")
 	ErrTopicNotSet            = errors.New("topic not set")
@@ -29,6 +39,8 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the ntfy provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	Topic           string `yaml:"topic"`
 	URL             string `yaml:"url,omitempty"`              // Defaults to DefaultURL
@@ -40,6 +52,8 @@ type Config struct {
 	DisableCache    bool   `yaml:"disable-cache,omitempty"`    // Defaults to false
 }
 
+// Validate fills in DefaultURL and DefaultPriority where they are unset, then returns ErrInvalidToken,
+// ErrTopicNotSet or ErrInvalidPriority for the first rule that fails.
 func (cfg *Config) Validate() error {
 	if len(cfg.URL) == 0 {
 		cfg.URL = DefaultURL
@@ -59,6 +73,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are set. DisableFirebase and
+// DisableCache can only be turned on by an override, never off.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.Topic) > 0 {
 		cfg.Topic = override.Topic
@@ -86,8 +102,9 @@ func (cfg *Config) Merge(override *Config) {
 	}
 }
 
-// AlertProvider is the configuration necessary for sending an alert using Slack
+// AlertProvider is the configuration necessary for sending an alert using ntfy
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -161,6 +178,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON message published to the ntfy server.
 type Body struct {
 	Topic    string   `json:"topic"`
 	Title    string   `json:"title"`

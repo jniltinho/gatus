@@ -1,3 +1,5 @@
+// Package gotify implements the alerting provider that sends alerts as messages to a Gotify server through
+// its REST API, authenticated with an application token.
 package gotify
 
 import (
@@ -14,13 +16,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultPriority is the priority given to the messages when the configuration sets none.
 const DefaultPriority = 5
 
+// Errors returned by the validation of the configuration: ErrServerURLNotSet when the URL of the Gotify
+// server is missing and ErrTokenNotSet when the application token is missing.
 var (
 	ErrServerURLNotSet = errors.New("server URL not set")
 	ErrTokenNotSet     = errors.New("token not set")
 )
 
+// Config holds the address and the application token of the Gotify server and the priority and title of the
+// messages. An empty Title means Gatus followed by the display name of the endpoint.
 type Config struct {
 	ServerURL string `yaml:"server-url"`         // URL of the Gotify server
 	Token     string `yaml:"token"`              // Token to use when sending a message to the Gotify server
@@ -28,6 +35,7 @@ type Config struct {
 	Title     string `yaml:"title,omitempty"`    // Title of the message that will be sent
 }
 
+// Validate sets Priority to DefaultPriority when it is zero and checks that ServerURL and Token are set.
 func (cfg *Config) Validate() error {
 	if cfg.Priority == 0 {
 		cfg.Priority = DefaultPriority
@@ -41,6 +49,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; a Priority of zero leaves cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.ServerURL) > 0 {
 		cfg.ServerURL = override.ServerURL
@@ -93,6 +102,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the message endpoint of the Gotify server.
 type Body struct {
 	Message  string `json:"message"`
 	Title    string `json:"title"`

@@ -1,3 +1,5 @@
+// Package gitea implements the alerting provider that opens an issue in a Gitea repository when an alert is
+// triggered and closes it when the alert is resolved, through the Gitea API.
 package gitea
 
 import (
@@ -15,12 +17,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrRepositoryURLNotSet and ErrTokenNotSet when the
+// matching field is empty, and ErrInvalidRepositoryURL when the URL path is not of the form /owner/repository.
 var (
 	ErrRepositoryURLNotSet  = errors.New("repository-url not set")
 	ErrInvalidRepositoryURL = errors.New("invalid repository-url")
 	ErrTokenNotSet          = errors.New("token not set")
 )
 
+// Config holds the repository, the token and the assignees of the issues, plus the API client and the
+// repository coordinates resolved by Validate.
 type Config struct {
 	RepositoryURL string   `yaml:"repository-url"`      // The URL of the Gitea repository to create issues in
 	Token         string   `yaml:"token"`               // Token requires at least RW on issues and RO on metadata
@@ -35,6 +41,9 @@ type Config struct {
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate checks the required fields and the format of the repository URL, then creates the API client and
+// calls the API to fetch the user of the token, which also proves the token works. The API call is skipped when
+// the same repository was already validated.
 func (cfg *Config) Validate() error {
 	if len(cfg.RepositoryURL) == 0 {
 		return ErrRepositoryURLNotSet
@@ -82,6 +91,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every field set in override over cfg; Assignees are replaced as a whole and empty fields of
+// override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -97,7 +108,7 @@ func (cfg *Config) Merge(override *Config) {
 	}
 }
 
-// AlertProvider is the configuration necessary for sending an alert using Discord
+// AlertProvider is the configuration necessary for sending an alert using Gitea
 type AlertProvider struct {
 	DefaultConfig Config `yaml:",inline"`
 

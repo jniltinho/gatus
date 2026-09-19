@@ -1,3 +1,5 @@
+// Package announcement models the announcements section of the YAML configuration: the messages shown at the top
+// of the dashboard and of the status pages. It validates them, defaults their type and sorts them.
 package announcement
 
 import (
@@ -43,23 +45,27 @@ var (
 	}
 )
 
-// Announcement represents a system-wide announcement
+// Announcement represents a system-wide announcement: a dated message (incident, maintenance notice, resolution)
+// displayed on the dashboard and on the status pages, and serialized as is by the API.
 type Announcement struct {
-	// Timestamp is the UTC timestamp when the announcement was made
+	// Timestamp is the UTC timestamp when the announcement was made, serialized in RFC 3339 format. It is mandatory:
+	// validation fails with ErrMissingTimestamp when it is the zero time.
 	Timestamp time.Time `yaml:"timestamp" json:"timestamp"`
 
-	// Type is the type of announcement (outage, warning, information, operational, none)
+	// Type is the type of announcement (outage, warning, information, operational, none), which drives its color and
+	// icon. An empty value becomes "none" during validation.
 	Type string `yaml:"type" json:"type"`
 
-	// Message is the user-facing text describing the announcement
+	// Message is the user-facing text describing the announcement. It cannot be empty.
 	Message string `yaml:"message" json:"message"`
 
 	// Archived indicates whether the announcement should be displayed in the historical section
-	// instead of at the top of the status page
+	// instead of at the top of the status page. Omitted from the JSON when false.
 	Archived bool `yaml:"archived,omitempty" json:"archived,omitempty"`
 }
 
-// ValidateAndSetDefaults validates the announcement and sets default values if necessary
+// ValidateAndSetDefaults validates the announcement and sets default values if necessary: an empty Type becomes
+// TypeNone. It returns ErrEmptyMessage, ErrInvalidAnnouncementType or ErrMissingTimestamp.
 func (a *Announcement) ValidateAndSetDefaults() error {
 	// Validate message
 	if a.Message == "" {
@@ -87,7 +93,8 @@ func SortByTimestamp(announcements []*Announcement) {
 	})
 }
 
-// ValidateAndSetDefaults validates a slice of announcements and sets defaults
+// ValidateAndSetDefaults validates a slice of announcements and sets defaults, returning the error of the first
+// invalid announcement.
 func ValidateAndSetDefaults(announcements []*Announcement) error {
 	for _, announcement := range announcements {
 		if err := announcement.ValidateAndSetDefaults(); err != nil {

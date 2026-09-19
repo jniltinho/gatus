@@ -44,6 +44,11 @@ const (
 )
 
 // statusPageAuth returns the middleware of the routes of a status page
+//
+// It answers 404 (or 429 above the rate limit, see statusPageNotFound) when the slug is not a published page. For a
+// page that requires a login, it reads Authorization: Basic and answers 401 with WWW-Authenticate: Basic
+// realm="<slug>", charset="UTF-8" and {"error": "authentication required"} when the credential is missing or wrong, and
+// 429 with Retry-After (seconds) and {"error": "too many requests"} after too many failures of the client.
 func statusPageAuth(notFound echo.HandlerFunc, trustedProxies []netip.Prefix) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -119,6 +124,17 @@ func basicCredentials(c *echo.Context) (string, string, bool) {
 
 // statusPageBadgeHandler serves a badge of an endpoint of a page, with the same rules of the other routes of the page:
 // the key that does not belong to the page answers 404 only after the challenge of the middleware
+//
+// It returns the handler of GET and HEAD /api/v1/status-pages/:slug/endpoints/:key/health/badge.svg (badge is
+// HealthBadge) and of GET and HEAD /api/v1/status-pages/:slug/endpoints/:key/response-times/:duration/badge.svg (badge
+// is the handler of ResponseTimeBadge, duration being 1h, 24h, 7d or 30d).
+//
+// Authentication: none, or HTTP Basic with the login of the page when the page requires one (statusPageAuth).
+// Request: path parameters slug and key; the key is unescaped once with url.QueryUnescape and not lower-cased.
+// Responses: those of the badge handler (200 as image/svg+xml, 400, 404 and 500 as text/plain), with X-Robots-Tag,
+// X-Content-Type-Options and Referrer-Policy, and with Cache-Control: private, no-store and Vary: Authorization for a
+// page with a login; 401 and 429 from statusPageAuth; 404 with {"error": "status page not found"} (or 429 above the rate
+// limit) when the page is not published, the key cannot be unescaped or the page does not show the endpoint.
 func statusPageBadgeHandler(notFound echo.HandlerFunc, badge echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		published, captured := publishedStatusPage(c)
@@ -146,6 +162,10 @@ func statusPageBadgeHandler(notFound echo.HandlerFunc, badge echo.HandlerFunc) e
 
 // statusPageHTMLAuth challenges the HTML routes of a page that requires a login. Every other path under /status/ keeps
 // answering 200 with the HTML of the SPA, revealing nothing.
+//
+// For a published page that requires a login it answers, as JSON: 401 with WWW-Authenticate: Basic realm="<slug>",
+// charset="UTF-8" when the credential of Authorization: Basic is missing or wrong, and 429 with Retry-After (seconds)
+// after too many failures of the client.
 func statusPageHTMLAuth(trustedProxies []netip.Prefix) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {

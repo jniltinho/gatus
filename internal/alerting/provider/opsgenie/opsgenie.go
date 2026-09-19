@@ -1,3 +1,5 @@
+// Package opsgenie implements the alerting provider that creates alerts in Opsgenie and closes them once
+// resolved, through the REST Alert API authenticated with a GenieKey API key.
 package opsgenie
 
 import (
@@ -21,11 +23,14 @@ const (
 )
 
 var (
+	// ErrAPIKeyNotSet is returned by Config.Validate when api-key is empty.
 	ErrAPIKeyNotSet = errors.New("api-key not set")
 )
 
+// Config is the configuration of the Opsgenie provider. The provider has no group overrides: only an alert's
+// provider-override can change it.
 type Config struct {
-	// APIKey to use for
+	// APIKey is the Opsgenie API key, sent as a GenieKey in the Authorization header of every request
 	APIKey string `yaml:"api-key"`
 
 	// Priority to be used in Opsgenie alert payload
@@ -54,6 +59,8 @@ type Config struct {
 	Tags []string `yaml:"tags"`
 }
 
+// Validate returns ErrAPIKeyNotSet when the API key is empty, and otherwise fills in the default values of
+// Source, EntityPrefix, AliasPrefix and Priority.
 func (cfg *Config) Validate() error {
 	if len(cfg.APIKey) == 0 {
 		return ErrAPIKeyNotSet
@@ -73,6 +80,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty. Tags are replaced as a
+// whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.APIKey) > 0 {
 		cfg.APIKey = override.APIKey
@@ -94,7 +103,9 @@ func (cfg *Config) Merge(override *Config) {
 	}
 }
 
+// AlertProvider is the configuration necessary for sending an alert using Opsgenie.
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type

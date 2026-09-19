@@ -1,3 +1,5 @@
+// Package splunk implements the alerting provider that sends alerts to Splunk as events through the HTTP
+// Event Collector (HEC), authenticated with a HEC token.
 package splunk
 
 import (
@@ -15,12 +17,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrHecURLNotSet is returned by Config.Validate when hec-url is empty.
+// ErrHecTokenNotSet is returned by Config.Validate when hec-token is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrHecURLNotSet           = errors.New("hec-url not set")
 	ErrHecTokenNotSet         = errors.New("hec-token not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Splunk provider. HecURL is the base URL of the collector, without the
+// /services/collector/event path. Config is both the default configuration and the shape of the group overrides
+// and of an alert's provider-override.
 type Config struct {
 	HecURL     string `yaml:"hec-url"`              // Splunk HEC (HTTP Event Collector) URL
 	HecToken   string `yaml:"hec-token"`            // Splunk HEC token
@@ -29,6 +38,7 @@ type Config struct {
 	Index      string `yaml:"index,omitempty"`      // Splunk index
 }
 
+// Validate returns ErrHecURLNotSet or ErrHecTokenNotSet when the corresponding field is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.HecURL) == 0 {
 		return ErrHecURLNotSet
@@ -39,6 +49,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.HecURL) > 0 {
 		cfg.HecURL = override.HecURL
@@ -59,6 +70,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Splunk
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -117,6 +129,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the HEC. Source defaults to "gatus" and SourceType to "gatus:alert";
+// Index is omitted when not configured, which leaves the choice to the token's default index.
 type Body struct {
 	Time       int64  `json:"time"`
 	Source     string `json:"source,omitempty"`
@@ -125,6 +139,8 @@ type Body struct {
 	Event      Event  `json:"event"`
 }
 
+// Event is the alert as indexed by Splunk. AlertType is "triggered" or "resolved" and Status is "critical"
+// or "ok".
 type Event struct {
 	AlertType   string                      `json:"alert_type"`
 	Endpoint    string                      `json:"endpoint"`

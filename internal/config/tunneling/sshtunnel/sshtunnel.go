@@ -1,3 +1,5 @@
+// Package sshtunnel holds the configuration of one SSH tunnel of the tunneling section of the YAML configuration and
+// implements the tunnel itself: a lazily established SSH connection through which the checks dial their target.
 package sshtunnel
 
 import (
@@ -11,15 +13,17 @@ import (
 
 // Config represents the configuration for an SSH tunnel
 type Config struct {
-	Type       string `yaml:"type"`
-	Host       string `yaml:"host"`
-	Port       int    `yaml:"port,omitempty"`
-	Username   string `yaml:"username"`
-	PrivateKey string `yaml:"private-key,omitempty"`
-	Password   string `yaml:"password,omitempty"`
+	Type       string `yaml:"type"`                  // Type of the tunnel; only "SSH" is supported
+	Host       string `yaml:"host"`                  // Host is the address of the SSH server; required
+	Port       int    `yaml:"port,omitempty"`        // Port of the SSH server; defaults to 22
+	Username   string `yaml:"username"`              // Username to log in with; required
+	PrivateKey string `yaml:"private-key,omitempty"` // PrivateKey in PEM format; used instead of Password when both are set
+	Password   string `yaml:"password,omitempty"`    // Password of the user; required when there is no PrivateKey
 }
 
-// ValidateAndSetDefaults validates the SSH tunnel configuration and sets defaults
+// ValidateAndSetDefaults validates the SSH tunnel configuration and sets defaults: the port defaults to 22. It returns
+// an error if the type is not "SSH", if the host or the username is missing, or if there is neither a private key nor
+// a password.
 func (c *Config) ValidateAndSetDefaults() error {
 	if c.Type != "SSH" {
 		return fmt.Errorf("unsupported tunnel type: %s", c.Type)
@@ -49,7 +53,8 @@ type SSHTunnel struct {
 	authMethods []ssh.AuthMethod
 }
 
-// New creates a new SSH tunnel with the given configuration
+// New creates a new SSH tunnel with the given configuration, without connecting. A private key that cannot be parsed
+// is not reported here: it makes the first connection attempt fail.
 func New(config *Config) *SSHTunnel {
 	tunnel := &SSHTunnel{
 		config: config,
@@ -68,7 +73,8 @@ func New(config *Config) *SSHTunnel {
 	return tunnel
 }
 
-// Connect establishes the SSH connection
+// Connect establishes the SSH connection, with a timeout of 30 seconds and without verifying the host key. It
+// returns an error if no authentication method is available or if the connection fails.
 func (t *SSHTunnel) Connect() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -98,7 +104,7 @@ func (t *SSHTunnel) connectUnsafe() error {
 	return nil
 }
 
-// Close closes the SSH connection
+// Close closes the SSH connection, if there is one. The tunnel can be used again: Dial reconnects.
 func (t *SSHTunnel) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -110,7 +116,8 @@ func (t *SSHTunnel) Close() error {
 	return nil
 }
 
-// Dial creates a connection through the SSH tunnel
+// Dial creates a connection through the SSH tunnel, connecting the tunnel first if needed. A failed dial is retried up
+// to 3 times in total, reconnecting the tunnel after a backoff of 500ms and then 1s.
 func (t *SSHTunnel) Dial(network, addr string) (net.Conn, error) {
 	t.mu.RLock()
 	client := t.client

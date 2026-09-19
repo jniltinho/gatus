@@ -1,3 +1,5 @@
+// Package n8n implements the alerting provider that sends alerts to an n8n workflow by posting a JSON payload
+// to the workflow's webhook URL.
 package n8n
 
 import (
@@ -14,16 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrWebhookURLNotSet is returned by Config.Validate when webhook-url is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the n8n provider. It is both the default configuration and the shape of the group
+// overrides and of an alert's provider-override.
 type Config struct {
 	WebhookURL string `yaml:"webhook-url"`
 	Title      string `yaml:"title,omitempty"` // Title of the message that will be sent
 }
 
+// Validate returns ErrWebhookURLNotSet when the webhook URL is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -31,6 +39,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites WebhookURL and Title with the values of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -42,6 +51,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using n8n
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
 	DefaultAlert *alert.Alert `yaml:"default-alert,omitempty"`
@@ -93,6 +103,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the n8n webhook. Title is "Gatus" unless the configuration sets one.
 type Body struct {
 	Title            string            `json:"title"`
 	EndpointName     string            `json:"endpoint_name"`
@@ -104,6 +115,7 @@ type Body struct {
 	ConditionResults []ConditionResult `json:"condition_results,omitempty"`
 }
 
+// ConditionResult is the outcome of one condition of the endpoint, as reported in Body.
 type ConditionResult struct {
 	Condition string `json:"condition"`
 	Success   bool   `json:"success"`

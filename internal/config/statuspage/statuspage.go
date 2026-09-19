@@ -1,4 +1,7 @@
-// Package statuspage contains the configuration of the public status pages
+// Package statuspage contains the configuration of the public status pages, i.e. the status-pages section of the
+// YAML configuration. It validates and normalizes the pages (slug, title, selection of groups and endpoints, login)
+// and the trusted proxies and rate limit that protect them. Page is also the JSON object exchanged with the
+// administration API.
 package statuspage
 
 import (
@@ -139,7 +142,9 @@ func (c *Config) TrustedProxyPrefixes() []netip.Prefix {
 	return c.trustedProxyPrefixes
 }
 
-// ValidateAndSetDefaults validates the configuration and normalizes its values
+// ValidateAndSetDefaults validates the configuration and normalizes its values: the trusted proxies are parsed into
+// prefixes and every page is validated. It returns ErrInvalidRateLimit, ErrInvalidTrustedProxy, ErrDuplicateSlug or the
+// wrapped error of the first invalid page.
 func (c *Config) ValidateAndSetDefaults() error {
 	if c.RateLimit != nil && *c.RateLimit < 0 {
 		return ErrInvalidRateLimit
@@ -169,21 +174,26 @@ func (c *Config) ValidateAndSetDefaults() error {
 	return nil
 }
 
-// Page is the definition of a public status page
+// Page is the definition of a public status page: its address, its texts, the endpoints it shows and how it shows
+// them. It is read from the configuration file and is also the JSON object that the administration API receives and
+// returns for a managed page.
 type Page struct {
-	// Slug identifies the page in its public path (/status/<slug>). It cannot be changed.
+	// Slug identifies the page in its public path (/status/<slug>). It cannot be changed. It has 1 to 64 lowercase
+	// letters, digits or hyphens and neither starts nor ends with a hyphen.
 	Slug string `yaml:"slug" json:"slug"`
 
-	// Title is shown at the top of the page
+	// Title is shown at the top of the page. It has 1 to MaximumTitleLength characters.
 	Title string `yaml:"title" json:"title"`
 
-	// Description is shown below the title, as plain text
+	// Description is shown below the title, as plain text, with at most MaximumDescriptionLength characters. Omitted
+	// when empty.
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
-	// Groups selects every enabled endpoint whose group is in the list, including the ones created later
+	// Groups selects every enabled endpoint whose group is in the list, including the ones created later. At least one
+	// of Groups, Endpoints and Featured must not be empty.
 	Groups []string `yaml:"groups,omitempty" json:"groups,omitempty"`
 
-	// Endpoints selects endpoints by key
+	// Endpoints selects endpoints by key (the lowercase <group>_<name> key of the status API)
 	Endpoints []string `yaml:"endpoints,omitempty" json:"endpoints,omitempty"`
 
 	// Featured selects endpoints by key and shows them at the top of the page, with more details, instead of in their
@@ -208,7 +218,8 @@ type Page struct {
 	// the credential of this page (fork). Without it, the page stays public.
 	Auth *PageAuth `yaml:"auth,omitempty" json:"auth,omitempty"`
 
-	// Enabled is whether the page is published. Pages of the configuration file default to true.
+	// Enabled is whether the page is published. Pages of the configuration file default to true. A null or omitted
+	// value means true.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }
 
@@ -261,9 +272,10 @@ func (p *Page) ValidateAndSetDefaults() error {
 	return nil
 }
 
-// PageAuth is the credential required to view a page, in the same shape as security.basic (fork)
+// PageAuth is the credential required to view a page, in the same shape as security.basic (fork). The username is
+// trimmed during validation, which returns ErrInvalidAuthUsername or ErrInvalidAuthPasswordHash.
 type PageAuth struct {
-	// Username is the username of the HTTP Basic credential of the page
+	// Username is the username of the HTTP Basic credential of the page, with 1 to MaximumAuthUsernameLength characters
 	Username string `yaml:"username" json:"username"`
 
 	// PasswordBcryptHashBase64Encoded is the bcrypt hash of the password, encoded in base64 with the URL alphabet. The
@@ -271,7 +283,7 @@ type PageAuth struct {
 	PasswordBcryptHashBase64Encoded string `yaml:"password-bcrypt-base64" json:"password-bcrypt-base64"`
 }
 
-// RequiresLogin returns whether the page requires a credential to be viewed
+// RequiresLogin returns whether the page requires a credential to be viewed. It is safe to call on a nil Page.
 func (p *Page) RequiresLogin() bool {
 	return p != nil && p.Auth != nil
 }

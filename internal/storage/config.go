@@ -1,3 +1,5 @@
+// Package storage holds the storage section of the configuration: the type of the store (memory, sqlite, postgres or
+// mysql), its path or DSN, caching and how many results and events are kept per endpoint.
 package storage
 
 import (
@@ -7,6 +9,8 @@ import (
 )
 
 const (
+	// DefaultMaximumNumberOfResults and DefaultMaximumNumberOfEvents are how many results and events are kept per
+	// endpoint when the storage configuration does not set maximum-number-of-results and maximum-number-of-events.
 	DefaultMaximumNumberOfResults = 100
 	DefaultMaximumNumberOfEvents  = 50
 
@@ -16,7 +20,9 @@ const (
 )
 
 var (
-	ErrSQLStorageRequiresPath          = errors.New("sql storage requires a non-empty path to be defined")
+	// ErrSQLStorageRequiresPath is returned when the type is sqlite, postgres or mysql and path is empty.
+	ErrSQLStorageRequiresPath = errors.New("sql storage requires a non-empty path to be defined")
+	// ErrMemoryStorageDoesNotSupportPath is returned when the type is memory and path is set.
 	ErrMemoryStorageDoesNotSupportPath = errors.New("memory storage does not support persistence, use sqlite if you want persistence on file")
 
 	// ErrMySQLStorageInvalidPath is returned when the path of a mysql storage is not a valid DSN. It never includes the

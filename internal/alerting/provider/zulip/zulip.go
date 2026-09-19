@@ -1,3 +1,5 @@
+// Package zulip implements the alerting provider that posts alerts to a Zulip channel through the messages
+// REST API, authenticated as a bot with basic authentication.
 package zulip
 
 import (
@@ -15,6 +17,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrBotEmailNotSet is returned by Config.Validate when bot-email is empty.
+// ErrBotAPIKeyNotSet is returned by Config.Validate when bot-api-key is empty.
+// ErrDomainNotSet is returned by Config.Validate when domain is empty.
+// ErrChannelIDNotSet is returned by Config.Validate when channel-id is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrBotEmailNotSet         = errors.New("bot-email not set")
 	ErrBotAPIKeyNotSet        = errors.New("bot-api-key not set")
@@ -23,6 +31,8 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Zulip provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	BotEmail  string `yaml:"bot-email"`       // Email of the bot user
 	BotAPIKey string `yaml:"bot-api-key"`     // API key of the bot user
@@ -34,6 +44,8 @@ type Config struct {
 	//   [ENDPOINT_NAME], [ENDPOINT_GROUP], [ALERT_DESCRIPTION]
 }
 
+// Validate returns ErrBotEmailNotSet, ErrBotAPIKeyNotSet, ErrDomainNotSet or ErrChannelIDNotSet for the first
+// of these fields that is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.BotEmail) == 0 {
 		return ErrBotEmailNotSet
@@ -50,6 +62,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.BotEmail) > 0 {
 		cfg.BotEmail = override.BotEmail
@@ -70,6 +83,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Zulip
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type

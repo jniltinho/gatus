@@ -21,6 +21,18 @@ import (
 
 // EndpointStatuses handles requests to retrieve all EndpointStatus
 // Due to how intensive this operation can be on the storage, this function leverages a cache.
+//
+// It returns the handler of GET and HEAD /api/v1/endpoints/statuses: the status of every endpoint with a page of its
+// results, followed by the statuses of the remote instances (remote.instances), when configured. Each page is cached
+// for 10 seconds.
+//
+// Authentication: protected group (security middleware, when security is configured).
+// Request: query parameters page (default 1; an invalid value or a value below 1 is 1) and pageSize (default 50; an
+// invalid value or a value below 1 is 50; on page 1 it is capped at storage.maximum-number-of-results). They page the
+// results of each endpoint, not the endpoints.
+// Responses: 200 with a JSON array of endpoint.Status, without events; 401 without a valid authentication (and 429 with
+// security.basic while the client is blocked), see createRouter; 500 as text/plain when the storage fails (with the
+// text of the error) or the statuses cannot be encoded. A failure of the remote instances is only logged.
 func EndpointStatuses(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, cfg.Storage.MaximumNumberOfResults)
@@ -53,6 +65,9 @@ func EndpointStatuses(cfg *config.Config) echo.HandlerFunc {
 	}
 }
 
+// getEndpointStatusesFromRemoteInstances fetches the endpoint statuses of every remote instance and prefixes their
+// names with the prefix of the instance. An instance that fails is logged and skipped; it returns nil without remote
+// instances, and an error only when none of them returned a status.
 func getEndpointStatusesFromRemoteInstances(remoteConfig *remote.Config) ([]*endpoint.Status, error) {
 	if remoteConfig == nil || len(remoteConfig.Instances) == 0 {
 		return nil, nil
@@ -86,6 +101,18 @@ func getEndpointStatusesFromRemoteInstances(remoteConfig *remote.Config) ([]*end
 }
 
 // EndpointStatus retrieves a single endpoint.Status by group and endpoint name
+//
+// It returns the handler of GET and HEAD /api/v1/endpoints/:key/statuses: the status of one endpoint with a page of its
+// results, its events, and the fields of the details page of the dashboard.
+//
+// Authentication: protected group (security middleware, when security is configured).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; query parameters page and pageSize as in EndpointStatuses. The events are always the first page, of at
+// most storage.maximum-number-of-events events.
+// Responses: 200 with endpointStatusResponse (endpoint.Status plus push, uptime, responseTime and
+// currentResponseTime); 400 when the key cannot be unescaped; 401 without a valid authentication (and 429 with
+// security.basic while the client is blocked); 404 when no endpoint has the key; 500 when the storage fails (with the
+// text of the error) or the status cannot be encoded. Errors are text/plain.
 func EndpointStatus(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, cfg.Storage.MaximumNumberOfResults)

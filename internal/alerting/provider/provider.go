@@ -1,3 +1,6 @@
+// Package provider defines the AlertProvider interface implemented by every alerting provider and the Config
+// contract of their configurations, checks both at compile time for each provider, and merges a provider's
+// default alert into an endpoint alert.
 package provider
 
 import (
@@ -60,8 +63,12 @@ type AlertProvider interface {
 	ValidateOverrides(group string, alert *alert.Alert) error
 }
 
+// Config is the contract of a provider's configuration type T: it validates itself and absorbs an override of
+// its own type. It exists so that the compiler checks the Config of every provider.
 type Config[T any] interface {
+	// Validate checks that the configuration is usable; some providers also fill in default values here.
 	Validate() error
+	// Merge overwrites the fields of the configuration with the ones that are set in override.
 	Merge(override *T)
 }
 

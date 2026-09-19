@@ -1,3 +1,5 @@
+// Package github implements the alerting provider that opens an issue in a GitHub repository when an alert
+// is triggered and closes it when the alert is resolved, through the GitHub REST API.
 package github
 
 import (
@@ -15,12 +17,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrRepositoryURLNotSet and ErrTokenNotSet when the
+// matching field is empty, and ErrInvalidRepositoryURL when the URL path is not of the form /owner/repository.
 var (
 	ErrRepositoryURLNotSet  = errors.New("repository-url not set")
 	ErrInvalidRepositoryURL = errors.New("invalid repository-url")
 	ErrTokenNotSet          = errors.New("token not set")
 )
 
+// Config holds the repository and the token used to manage the issues, plus the API client and the repository
+// coordinates resolved by Validate.
 type Config struct {
 	RepositoryURL string `yaml:"repository-url"` // The URL of the GitHub repository to create issues in
 	Token         string `yaml:"token"`          // Token requires at least RW on issues and RO on metadata
@@ -31,6 +37,9 @@ type Config struct {
 	githubClient    *github.Client
 }
 
+// Validate checks the required fields and the format of the repository URL, then creates the API client (an
+// enterprise client when the host is not github.com) and fetches the user of the token, which also proves the
+// token works. The API call is skipped when the same repository was already validated.
 func (cfg *Config) Validate() error {
 	if len(cfg.RepositoryURL) == 0 {
 		return ErrRepositoryURLNotSet
@@ -78,6 +87,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.RepositoryURL) > 0 {
 		cfg.RepositoryURL = override.RepositoryURL
@@ -87,7 +97,7 @@ func (cfg *Config) Merge(override *Config) {
 	}
 }
 
-// AlertProvider is the configuration necessary for sending an alert using Discord
+// AlertProvider is the configuration necessary for sending an alert using GitHub
 type AlertProvider struct {
 	DefaultConfig Config `yaml:",inline"`
 

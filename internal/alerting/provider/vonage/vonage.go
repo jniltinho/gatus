@@ -1,3 +1,5 @@
+// Package vonage implements the alerting provider that sends alerts as SMS through the Vonage (formerly
+// Nexmo) SMS REST API, one request for each recipient.
 package vonage
 
 import (
@@ -15,8 +17,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ApiURL is the Vonage SMS endpoint that messages are posted to.
 const ApiURL = "https://rest.nexmo.com/sms/json"
 
+// ErrAPIKeyNotSet is returned by Config.Validate when api-key is empty.
+// ErrAPISecretNotSet is returned by Config.Validate when api-secret is empty.
+// ErrFromNotSet is returned by Config.Validate when the sender, from, is empty.
+// ErrToNotSet is returned by Config.Validate when the list of recipients, to, is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrAPIKeyNotSet           = errors.New("api-key not set")
 	ErrAPISecretNotSet        = errors.New("api-secret not set")
@@ -25,6 +34,8 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Vonage provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	APIKey    string   `yaml:"api-key"`
 	APISecret string   `yaml:"api-secret"`
@@ -32,6 +43,8 @@ type Config struct {
 	To        []string `yaml:"to"`
 }
 
+// Validate returns ErrAPIKeyNotSet, ErrAPISecretNotSet, ErrFromNotSet or ErrToNotSet for the first of these
+// fields that is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.APIKey) == 0 {
 		return ErrAPIKeyNotSet
@@ -48,6 +61,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty. The list of recipients
+// is replaced as a whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.APIKey) > 0 {
 		cfg.APIKey = override.APIKey
@@ -65,6 +80,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Vonage
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -151,11 +167,14 @@ func (provider *AlertProvider) sendSMS(cfg *Config, to, message string) error {
 	return nil
 }
 
+// Response is the body returned by the Vonage SMS API. The API answers 200 even when a message is rejected,
+// so Send fails when any Message has a Status other than "0".
 type Response struct {
 	MessageCount string    `json:"message-count"`
 	Messages     []Message `json:"messages"`
 }
 
+// Message is the delivery report of one SMS inside Response; Status "0" means success.
 type Message struct {
 	To               string `json:"to"`
 	MessageID        string `json:"message-id"`

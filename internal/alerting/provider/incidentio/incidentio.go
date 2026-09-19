@@ -1,3 +1,5 @@
+// Package incidentio implements the alerting provider that sends alert events to incident.io through the
+// HTTP alert source of its REST API.
 package incidentio
 
 import (
@@ -22,6 +24,10 @@ const (
 	restAPIUrl = "https://api.incident.io/v2/alert_events/http/"
 )
 
+// Errors returned by the validation of the configuration: ErrURLNotSet when the URL is missing,
+// ErrURLNotPrefixedWithRestAPIURL when it does not start with the address of the alert events API,
+// ErrAuthTokenNotSet when the token is missing, and ErrDuplicateGroupOverride when an override has an empty or
+// already used group.
 var (
 	ErrURLNotSet                    = errors.New("url not set")
 	ErrURLNotPrefixedWithRestAPIURL = fmt.Errorf("url must be prefixed with %s", restAPIUrl)
@@ -29,6 +35,8 @@ var (
 	ErrAuthTokenNotSet              = errors.New("auth-token not set")
 )
 
+// Config holds the URL of the alert source, whose last segment is the alert source config ID, the bearer
+// token, and the optional source URL and metadata attached to each event.
 type Config struct {
 	URL       string                 `yaml:"url,omitempty"`
 	AuthToken string                 `yaml:"auth-token,omitempty"`
@@ -36,6 +44,7 @@ type Config struct {
 	Metadata  map[string]interface{} `yaml:"metadata,omitempty"`
 }
 
+// Validate checks that URL and AuthToken are set and that URL points to the incident.io alert events API.
 func (cfg *Config) Validate() error {
 	if len(cfg.URL) == 0 {
 		return ErrURLNotSet
@@ -49,6 +58,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; Metadata is replaced as a whole, not merged key
+// by key.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.URL) > 0 {
 		cfg.URL = override.URL
@@ -75,11 +86,14 @@ type AlertProvider struct {
 	Overrides []Override `yaml:"overrides,omitempty"`
 }
 
+// Override is a case under which the default configuration is overridden for the endpoints of a group.
 type Override struct {
 	Group  string `yaml:"group"`
 	Config `yaml:",inline"`
 }
 
+// Validate checks that every override has a non-empty group used only once, then validates the default
+// configuration.
 func (provider *AlertProvider) Validate() error {
 	registeredGroups := make(map[string]bool)
 	if provider.Overrides != nil {
@@ -93,6 +107,9 @@ func (provider *AlertProvider) Validate() error {
 	return provider.DefaultConfig.Validate()
 }
 
+// Send posts the alert event and stores the deduplication key of the response as the resolve key of the alert,
+// so that the resolved event targets the same incident.io alert. An error is returned when the status code is
+// 400 or above or when the response cannot be decoded.
 func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) error {
 	cfg, err := provider.GetConfig(ep.Group, alert)
 	if err != nil {
@@ -124,6 +141,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the alert events API. Status is firing or resolved, and Metadata is the
+// configured metadata plus the extra labels of the endpoint.
 type Body struct {
 	AlertSourceConfigID string                 `json:"alert_source_config_id"`
 	Status              string                 `json:"status"`
@@ -134,6 +153,7 @@ type Body struct {
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// Response is the part of the API answer the provider reads: the deduplication key of the alert.
 type Response struct {
 	DeduplicationKey string `json:"deduplication_key"`
 }
@@ -191,6 +211,9 @@ func (provider *AlertProvider) buildRequestBody(cfg *Config, ep *endpoint.Endpoi
 	fmt.Printf("%v", string(body))
 	return body
 }
+
+// GetConfig returns the default configuration with the group override and then the alert's provider override
+// merged into it. The merged configuration is validated and returned along with the validation error, if any.
 func (provider *AlertProvider) GetConfig(group string, alert *alert.Alert) (*Config, error) {
 	cfg := provider.DefaultConfig
 	// Handle group overrides
@@ -220,6 +243,7 @@ func (provider *AlertProvider) GetDefaultAlert() *alert.Alert {
 	return provider.DefaultAlert
 }
 
+// ValidateOverrides validates the alert's provider override and, if present, the group override.
 func (provider *AlertProvider) ValidateOverrides(group string, alert *alert.Alert) error {
 	_, err := provider.GetConfig(group, alert)
 	return err

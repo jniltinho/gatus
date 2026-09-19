@@ -53,37 +53,77 @@ type Options struct {
 	DisableEndpoints bool
 }
 
-// Plan is what a restore would do, without effects
+// Plan is what a restore would do, without effects. It is the response of POST /api/v1/admin/restore/preview and is
+// output-only, except for Fingerprint, which the client sends back to apply the restore.
 type Plan struct {
-	Summary     Summary `json:"summary"`
-	Notices     Notices `json:"notices"`
-	Fingerprint string  `json:"fingerprint"`
-	Items       []*Item `json:"items"`
+	// Summary counts the items by action.
+	Summary Summary `json:"summary"`
+
+	// Notices tell what applying the restore will start.
+	Notices Notices `json:"notices"`
+
+	// Fingerprint is the SHA-256 hash, as 64 lowercase hexadecimal characters, of the decrypted backup file, the
+	// overwrite and disableEndpoints options, the generation of the loaded status pages and, for every item, its type,
+	// identifier, action and the version and hash of the definition it would replace. It must be sent as the fingerprint
+	// of POST /api/v1/admin/restore with the same file and options: when the plan computed then has another fingerprint,
+	// nothing is applied and the route answers 409.
+	Fingerprint string `json:"fingerprint"`
+
+	// Items are the items of the backup in the order in which they are applied: push keys by name, endpoints by key,
+	// then status pages by slug. It is an empty list, never null, for an empty backup.
+	Items []*Item `json:"items"`
 }
 
-// Summary counts the items of a plan by action
+// Summary counts the items of a plan by action. It travels in Plan.Summary and the four counts add up to the number of
+// items.
 type Summary struct {
-	Create    int `json:"create"`
-	Update    int `json:"update"`
+	// Create is the number of items with the "create" action.
+	Create int `json:"create"`
+
+	// Update is the number of items with the "update" action, which is only planned with the overwrite option.
+	Update int `json:"update"`
+
+	// Unchanged is the number of items with the "unchanged" action.
 	Unchanged int `json:"unchanged"`
-	Skip      int `json:"skip"`
+
+	// Skip is the number of items with the "skip" action.
+	Skip int `json:"skip"`
 }
 
-// Notices tell what the restore will start
+// Notices tell what the restore will start. It travels in Plan.Notices.
 type Notices struct {
-	// MonitoringStarts is the number of enabled endpoints that will be created or updated, and so monitored
+	// MonitoringStarts is the number of enabled endpoints that will be created or updated, and so monitored. It is 0 with
+	// the disableEndpoints option.
 	MonitoringStarts int `json:"monitoringStarts"`
 
-	// WithAlerts is the number of those endpoints with alerts
+	// WithAlerts is the number of the endpoints counted in MonitoringStarts that have at least one alert, and so may
+	// notify as soon as they are restored.
 	WithAlerts int `json:"withAlerts"`
 }
 
-// Item is an item of a plan
+// Item is an item of a plan: what the restore would do with one push key, endpoint or status page of the backup. It is
+// an element of Plan.Items and is output-only.
 type Item struct {
-	Type     string   `json:"type"`
-	ID       string   `json:"id"`
-	Action   string   `json:"action"`
-	Reason   string   `json:"reason"`
+	// Type is the kind of item: "pushKey", "endpoint" or "statusPage".
+	Type string `json:"type"`
+
+	// ID identifies the item within its type: the name of a push key, the key of an endpoint in the group_name form or
+	// the slug of a status page.
+	ID string `json:"id"`
+
+	// Action is what the restore would do: "create" when the item does not exist, "update" when it exists with another
+	// definition and the overwrite option is set, "unchanged" when it exists with the same definition (or, for a push
+	// key, the same name and token hash) and "skip" when it is left out. A push key is never updated.
+	Action string `json:"action"`
+
+	// Reason explains, in English, a "skip" action: "already exists" without the overwrite option, or the validation
+	// error. For an "update" of an endpoint it may be "name or group changes", which warns that the display name or the
+	// group changes while the key stays the same. It is empty otherwise.
+	Reason string `json:"reason"`
+
+	// Warnings are the selections of a status page (group, endpoint, featured or charts) that match nothing among the
+	// current endpoints and the enabled endpoints the restore would create or update, as English sentences ending in
+	// "selects nothing". It is an empty list, never null, for the other types and when every selection matches.
 	Warnings []string `json:"warnings"`
 
 	// What is applied, as previewed
@@ -94,27 +134,57 @@ type Item struct {
 	hint          string
 }
 
-// Result is the result of an applied restore
+// Result is the result of an applied restore. It is the response of POST /api/v1/admin/restore, answered with 200 even
+// when items failed: the restore is not atomic and the failure of an item does not undo or stop the others. It is
+// output-only.
 type Result struct {
+	// Summary counts the items by result.
 	Summary ResultSummary `json:"summary"`
+
+	// Results are the results of the items, in the order of Plan.Items. It is an empty list, never null, for an empty
+	// backup.
 	Results []*ItemResult `json:"results"`
 }
 
-// ResultSummary counts the items of an applied restore by result
+// ResultSummary counts the items of an applied restore by result. It travels in Result.Summary and the five counts add
+// up to the number of items.
 type ResultSummary struct {
-	Created   int `json:"created"`
-	Updated   int `json:"updated"`
+	// Created is the number of items with the "created" result.
+	Created int `json:"created"`
+
+	// Updated is the number of items with the "updated" result.
+	Updated int `json:"updated"`
+
+	// Unchanged is the number of items with the "unchanged" result.
 	Unchanged int `json:"unchanged"`
-	Skipped   int `json:"skipped"`
-	Failed    int `json:"failed"`
+
+	// Skipped is the number of items with the "skipped" result, whether planned as "skip" or skipped because a reload of
+	// the configuration started during the restore.
+	Skipped int `json:"skipped"`
+
+	// Failed is the number of items with the "failed" result.
+	Failed int `json:"failed"`
 }
 
-// ItemResult is the result of an item of an applied restore
+// ItemResult is the result of an item of an applied restore. It is an element of Result.Results and is output-only.
 type ItemResult struct {
-	Type     string   `json:"type"`
-	ID       string   `json:"id"`
-	Result   string   `json:"result"`
-	Message  string   `json:"message"`
+	// Type is the kind of item: "pushKey", "endpoint" or "statusPage".
+	Type string `json:"type"`
+
+	// ID identifies the item within its type: the name of a push key, the key of an endpoint in the group_name form or
+	// the slug of a status page.
+	ID string `json:"id"`
+
+	// Result is what happened to the item: "created", "updated", "unchanged", "skipped" or "failed".
+	Result string `json:"result"`
+
+	// Message explains the result, in English: the reason of the plan for a skipped or updated item, "configuration
+	// reload in progress" for an item skipped because a reload started, and for a failed item the error or "changed
+	// during the restore" when its version changed since the plan. It is empty otherwise.
+	Message string `json:"message"`
+
+	// Warnings are the selections of a status page that match nothing, in English, computed again once the page is
+	// created or updated. It is an empty list, never null, for the other types and when every selection matches.
 	Warnings []string `json:"warnings"`
 }
 
@@ -124,20 +194,42 @@ type Restorer struct {
 	StatusPages *statuspage.Service
 }
 
-// fingerprintInput is encoded with its fields in this order to compute the fingerprint of a plan
+// fingerprintInput is encoded with its fields in this order to compute the fingerprint of a plan. It never travels:
+// only the SHA-256 hash of its JSON encoding does, as Plan.Fingerprint.
 type fingerprintInput struct {
-	PlaintextSHA256  string             `json:"plaintextSHA256"`
-	Overwrite        bool               `json:"overwrite"`
-	DisableEndpoints bool               `json:"disableEndpoints"`
-	Generation       uint64             `json:"generation"`
-	Items            []fingerprintEntry `json:"items"`
+	// PlaintextSHA256 is the SHA-256 hash of the backup file once decrypted, in lowercase hexadecimal.
+	PlaintextSHA256 string `json:"plaintextSHA256"`
+
+	// Overwrite is the overwrite option of the restore.
+	Overwrite bool `json:"overwrite"`
+
+	// DisableEndpoints is the disableEndpoints option of the restore.
+	DisableEndpoints bool `json:"disableEndpoints"`
+
+	// Generation is the generation of the loaded status pages, 0 before their first load.
+	Generation uint64 `json:"generation"`
+
+	// Items are the items of the plan, in the order of Plan.Items.
+	Items []fingerprintEntry `json:"items"`
 }
 
+// fingerprintEntry is what an item of a plan contributes to the fingerprint
 type fingerprintEntry struct {
-	Type          string `json:"type"`
-	ID            string `json:"id"`
-	Action        string `json:"action"`
-	Version       int64  `json:"version"`
+	// Type is the kind of item: "pushKey", "endpoint" or "statusPage".
+	Type string `json:"type"`
+
+	// ID is the name of the push key, the key of the endpoint or the slug of the status page.
+	ID string `json:"id"`
+
+	// Action is the planned action: "create", "update", "unchanged" or "skip".
+	Action string `json:"action"`
+
+	// Version is the current version of the existing endpoint or status page with that identifier. It is 0 for a push
+	// key and when the item does not exist.
+	Version int64 `json:"version"`
+
+	// CurrentSHA256 is the SHA-256 hash, in lowercase hexadecimal, of the stored definition of the existing endpoint or
+	// status page, or the token hash of another push key that already uses the name. It is empty otherwise.
 	CurrentSHA256 string `json:"currentSHA256"`
 }
 

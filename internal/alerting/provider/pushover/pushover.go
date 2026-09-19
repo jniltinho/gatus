@@ -1,3 +1,5 @@
+// Package pushover implements the alerting provider that sends push notifications through the Pushover
+// Messages REST API.
 package pushover
 
 import (
@@ -14,11 +16,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ApiURL is the Pushover endpoint that messages are posted to.
 const (
 	ApiURL          = "https://api.pushover.net/1/messages.json"
 	defaultPriority = 0
 )
 
+// ErrInvalidApplicationToken is returned by Config.Validate when application-token is not exactly 30
+// characters long, which includes not being set.
+// ErrInvalidUserKey is returned by Config.Validate when user-key is not exactly 30 characters long, which
+// includes not being set.
+// ErrInvalidPriority is returned by Config.Validate when priority or resolved-priority is outside the range
+// -2 to 2.
+// ErrInvalidDevice is returned by Config.Validate when the device name is longer than 25 characters.
 var (
 	ErrInvalidApplicationToken = errors.New("application-token must be 30 characters long")
 	ErrInvalidUserKey          = errors.New("user-key must be 30 characters long")
@@ -26,6 +36,8 @@ var (
 	ErrInvalidDevice           = errors.New("device name must have 25 characters or less")
 )
 
+// Config is the configuration of the Pushover provider. The provider has no group overrides: only an alert's
+// provider-override can change it.
 type Config struct {
 	// Key used to authenticate the application sending
 	// See "Your Applications" on the dashboard, or add a new one: https://pushover.net/apps/build
@@ -60,6 +72,8 @@ type Config struct {
 	Device string `yaml:"device,omitempty"`
 }
 
+// Validate returns ErrInvalidApplicationToken, ErrInvalidUserKey, ErrInvalidPriority or ErrInvalidDevice for
+// the first rule that fails.
 func (cfg *Config) Validate() error {
 	if cfg.Priority == 0 {
 		cfg.Priority = defaultPriority
@@ -82,6 +96,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are set. A priority of 0 counts as
+// unset, so an override cannot bring Priority or ResolvedPriority back to 0.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.ApplicationToken) > 0 {
 		cfg.ApplicationToken = override.ApplicationToken
@@ -111,6 +127,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Pushover
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -147,6 +164,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON message posted to Pushover. Html is always 1 because the message uses HTML formatting, and
+// Priority is the resolved priority when the alert is resolved.
 type Body struct {
 	Token    string `json:"token"`
 	User     string `json:"user"`

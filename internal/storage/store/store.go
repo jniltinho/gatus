@@ -1,3 +1,6 @@
+// Package store defines the Store interface, implemented by the memory and sql packages, and holds the store in use
+// by the process. Besides the results, events and uptime of the endpoints and suites, a store keeps what is managed
+// from the administration: endpoints, status pages, push keys and login sessions.
 package store
 
 import (
@@ -104,6 +107,7 @@ var (
 	cancelFunc context.CancelFunc
 )
 
+// Get returns the store set by Initialize. Only in tests, where nothing initialized it, it falls back to a memory store.
 func Get() Store {
 	if !initialized {
 		// This only happens in tests

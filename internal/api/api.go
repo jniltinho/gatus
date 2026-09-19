@@ -1,3 +1,13 @@
+// Package api is the HTTP layer of Gatus, built on Echo v5: the JSON API under /api/v1, the badges and charts in SVG,
+// the event streams (text/event-stream) of the live updates, the push routes compatible with the Uptime Kuma, the
+// health and metrics routes, the rendered single page application and the embedded static files.
+//
+// There are two route groups under /api. The public one has no authentication of its own: its routes are either open
+// (badges, raw numbers, public status pages, push, login) or check a credential themselves (bearer token of an external
+// endpoint, push token, login of a status page). The protected one carries the security middleware (security.basic or
+// OIDC, when configured) and holds the statuses of the dashboard and, under /api/v1/admin, the administration, which
+// also requires administrator permission and applies the request protection against CSRF. Protection comes from the
+// group a route is registered on, never from the order of the registrations.
 package api
 
 import (
@@ -25,10 +35,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// API is the HTTP API of Gatus: it owns the Echo router with every route of the package registered on it.
 type API struct {
 	router *echo.Echo
 }
 
+// New returns the API of the given configuration, with its router created. A nil web or ui configuration, which only
+// happens in tests, is replaced with the default one.
 func New(cfg *config.Config) *API {
 	api := &API{}
 	if cfg.Web == nil {
@@ -48,6 +61,17 @@ func (a *API) Router() *echo.Echo {
 	return a.router
 }
 
+// createRouter creates the Echo application and registers every route of the package: the global middlewares (path
+// normalization, CORS in development, Recover, a body read ahead and refused with 413 above 4 MiB, gzip except on the
+// event streams), /metrics when enabled, the public group under /api, the SPA, /health, the custom CSS and the static
+// files, then the protected group under /api with the security middleware and, when the administration is enabled,
+// /api/v1/admin. With OIDC, security.Config.RegisterHandlers also registers /oidc/login and
+// /authorization-code/callback on the application.
+//
+// Every route of the protected group answers 401 without a valid authentication when security is configured (with
+// security.basic, also 429 with Retry-After while the client is blocked by the failure limiter), and an unknown path
+// under /api answers 401 as well. Every route can answer 413 when the body exceeds 4 MiB and 400 when the body cannot
+// be read, see httpx.BufferBody.
 func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 	app := echo.NewWithConfig(echo.Config{
 		HTTPErrorHandler: httpErrorHandler,
@@ -83,6 +107,11 @@ func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 		metricsHandler := promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{
 			DisableCompression: true,
 		}))
+		// GET and HEAD /metrics: the Prometheus metrics of the default registry, in the text exposition format and never
+		// compressed by the handler. Only registered when metrics is enabled.
+		//
+		// Authentication: none.
+		// Responses: 200 with the metrics; the statuses of promhttp otherwise (500 when the metrics cannot be gathered).
 		httpx.GetAndHead(app, "/metrics", echo.WrapHandler(metricsHandler))
 	}
 	////////////////////////
@@ -129,6 +158,12 @@ func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 	}
 	// Health endpoint
 	healthHandler := health.Handler().WithJSON(true)
+	// GET and HEAD /health: the health of the Gatus process itself, from github.com/TwiN/health.
+	//
+	// Authentication: none.
+	// Responses: 200 with the body {"status":"UP"} while the process is healthy; 500 with {"status":"DOWN"} otherwise. The
+	// body is JSON, with a "reason" field when a reason was set, but no content type is set for it, so it is sent as
+	// text/plain (see httpx.Send).
 	httpx.GetAndHead(app, "/health", func(c *echo.Context) error {
 		statusCode, body := healthHandler.GetResponseStatusCodeAndBody()
 		return httpx.Send(c, statusCode, body)
@@ -136,6 +171,11 @@ func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 	// Custom CSS
 	httpx.GetAndHead(app, "/css/custom.css", CustomCSSHandler{customCSS: cfg.UI.CustomCSS}.GetCustomCSS)
 	// Everything else falls back on static content
+	// GET and HEAD /index.html: redirects to the single page application at /.
+	//
+	// Authentication: none.
+	// Request: the query string, if any, is kept in the target of the redirect.
+	// Responses: 301 with Location set to / followed by the query string of the request.
 	httpx.GetAndHead(app, "/index.html", func(c *echo.Context) error {
 		// With its query, as the redirect of Fiber did
 		target := "/"
@@ -186,9 +226,16 @@ func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 	return app
 }
 
-// staticFileHandler serves a file of the embedded file system, and answers 404 for anything else. A directory is not
-// found: echo's own handler redirects it to the same path with a trailing slash, which RemoveTrailingSlash takes away
-// again, and the browser would go round in circles.
+// staticFileHandler handles GET and HEAD /*, the last resort of the router: it serves a file of the embedded file
+// system, and answers 404 for anything else. A directory is not found: echo's own handler redirects it to the same path
+// with a trailing slash, which RemoveTrailingSlash takes away again, and the browser would go round in circles.
+//
+// Authentication: none.
+// Request: the wildcard is the escaped path of the file, unescaped once.
+// Responses: 200 with the file and the content type of its extension (echo.Context.FileFS, which also answers 206 and
+// 304 for range and conditional requests); 404 with the text "Cannot METHOD path" (see httpErrorHandler) when the path
+// cannot be unescaped, contains a backslash or a ".." segment, is empty or index.html, is a directory or does not
+// exist.
 func staticFileHandler(fileSystem fs.FS) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		// The wildcard is the escaped path, because the router matches the path as it was sent

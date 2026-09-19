@@ -1,3 +1,4 @@
+// Package pattern matches strings against the glob patterns of the conditions, e.g. pat(*ok*).
 package pattern
 
 import (

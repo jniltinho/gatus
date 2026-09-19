@@ -1,3 +1,7 @@
+// Package config loads the YAML configuration of the application, from a single file or from a directory whose files
+// are merged, expands the environment variables it references, and validates every section while applying its
+// defaults. The Config it returns is the root object from which the rest of the application reads its settings; each
+// section is modeled by a sub-package.
 package config
 
 import (
@@ -82,8 +86,9 @@ type Config struct {
 	// Deprecated: Use Concurrency instead TODO: REMOVE THIS IN v6.0.0
 	DisableMonitoringLock bool `yaml:"disable-monitoring-lock,omitempty"`
 
-	// Concurrency is the maximum number of endpoints/suites that can be monitored concurrently
-	// Defaults to DefaultConcurrency. Set to 0 for unlimited concurrency.
+	// Concurrency is the maximum number of endpoints/suites that can be monitored concurrently.
+	// Unset, zero or negative means DefaultConcurrency. Only the deprecated disable-monitoring-lock makes it
+	// unlimited, which ValidateAndSetConcurrencyDefaults records here as 0.
 	Concurrency int `yaml:"concurrency,omitempty"`
 
 	// Admin is the configuration of the web administration of endpoints
@@ -161,6 +166,8 @@ func (config *Config) GetUniqueExtraMetricLabels() []string {
 	return labels
 }
 
+// GetEndpointByKey returns the endpoint of the configuration file with the given key, compared in lowercase, or nil
+// if there is none. Endpoints of suites and endpoints managed through the administration are not searched.
 func (config *Config) GetEndpointByKey(key string) *endpoint.Endpoint {
 	for i := 0; i < len(config.Endpoints); i++ {
 		ep := config.Endpoints[i]
@@ -171,6 +178,8 @@ func (config *Config) GetEndpointByKey(key string) *endpoint.Endpoint {
 	return nil
 }
 
+// GetExternalEndpointByKey returns the external endpoint of the configuration file with the given key, compared in
+// lowercase, or nil if there is none.
 func (config *Config) GetExternalEndpointByKey(key string) *endpoint.ExternalEndpoint {
 	for i := 0; i < len(config.ExternalEndpoints); i++ {
 		ee := config.ExternalEndpoints[i]
@@ -208,6 +217,9 @@ func (config *Config) UpdateLastFileModTime() {
 
 // LoadConfiguration loads the full configuration composed of the main configuration file
 // and all composed configuration files
+//
+// configPath may be a file or a directory of .yaml/.yml files; when it is empty or missing, the default paths are
+// tried. It returns ErrConfigFileNotFound when nothing could be read, or the parsing or validation error wrapped.
 func LoadConfiguration(configPath string) (*Config, error) {
 	var configBytes []byte
 	var fileInfo os.FileInfo
@@ -370,6 +382,7 @@ func parseAndValidateConfigBytes(yamlBytes []byte) (config *Config, err error) {
 	return
 }
 
+// ValidateConnectivityConfig validates the connectivity section, if there is one, and sets its defaults.
 func ValidateConnectivityConfig(config *Config) error {
 	if config.Connectivity != nil {
 		return config.Connectivity.ValidateAndSetDefaults()
@@ -430,6 +443,8 @@ func resolveTunnelForClientConfig(config *Config, clientConfig *client.Config) e
 	return nil
 }
 
+// ValidateAnnouncementsConfig validates the announcements, sets their defaults and sorts them from the newest to the
+// oldest, which is the order in which the API returns them.
 func ValidateAnnouncementsConfig(config *Config) error {
 	if config.Announcements != nil {
 		if err := announcement.ValidateAndSetDefaults(config.Announcements); err != nil {
@@ -441,6 +456,7 @@ func ValidateAnnouncementsConfig(config *Config) error {
 	return nil
 }
 
+// ValidateRemoteConfig validates the remote section, if there is one, and sets its defaults.
 func ValidateRemoteConfig(config *Config) error {
 	if config.Remote != nil {
 		if err := config.Remote.ValidateAndSetDefaults(); err != nil {
@@ -450,6 +466,8 @@ func ValidateRemoteConfig(config *Config) error {
 	return nil
 }
 
+// ValidateStorageConfig validates the storage section and sets its defaults. Without a storage section, the memory
+// storage is used with the default maximum number of results and events.
 func ValidateStorageConfig(config *Config) error {
 	if config.Storage == nil {
 		config.Storage = &storage.Config{
@@ -465,6 +483,8 @@ func ValidateStorageConfig(config *Config) error {
 	return nil
 }
 
+// ValidateMaintenanceConfig validates the global maintenance section and sets its defaults. Without a maintenance
+// section, a disabled maintenance window is used.
 func ValidateMaintenanceConfig(config *Config) error {
 	if config.Maintenance == nil {
 		config.Maintenance = maintenance.GetDefaultConfig()
@@ -476,6 +496,8 @@ func ValidateMaintenanceConfig(config *Config) error {
 	return nil
 }
 
+// ValidateUIConfig validates the ui section and sets its defaults. Without a ui section, the default UI configuration
+// is used.
 func ValidateUIConfig(config *Config) error {
 	if config.UI == nil {
 		config.UI = ui.GetDefaultConfig()
@@ -487,6 +509,8 @@ func ValidateUIConfig(config *Config) error {
 	return nil
 }
 
+// ValidateWebConfig validates the web section and sets its defaults. Without a web section, the server listens on
+// web.DefaultAddress and web.DefaultPort, without TLS.
 func ValidateWebConfig(config *Config) error {
 	if config.Web == nil {
 		config.Web = web.GetDefaultConfig()
@@ -496,6 +520,9 @@ func ValidateWebConfig(config *Config) error {
 	return nil
 }
 
+// ValidateEndpointsConfig validates every endpoint and external endpoint and sets their defaults. It returns an error
+// naming the first invalid one, or the first whose group and name combination is already used by another endpoint or
+// external endpoint.
 func ValidateEndpointsConfig(config *Config) error {
 	duplicateValidationMap := make(map[string]bool)
 	// Validate endpoints
@@ -527,6 +554,8 @@ func ValidateEndpointsConfig(config *Config) error {
 	return nil
 }
 
+// ValidateSuitesConfig validates every suite and sets their defaults. It returns an error for a duplicate suite name,
+// for an invalid suite or for a store mapping with an empty context key or placeholder.
 func ValidateSuitesConfig(config *Config) error {
 	if config.Suites == nil || len(config.Suites) == 0 {
 		logr.Info("[config.ValidateSuitesConfig] No suites configured")
@@ -562,6 +591,9 @@ func ValidateSuitesConfig(config *Config) error {
 	return nil
 }
 
+// ValidateUniqueKeys makes sure that no key is shared between the endpoints, the external endpoints, the suites and
+// the endpoints of the suites, since they all live in the same key space of the storage. The error names both
+// conflicting entries.
 func ValidateUniqueKeys(config *Config) error {
 	keyMap := make(map[string]string) // key -> description for error messages
 	// Check all endpoints
@@ -599,6 +631,8 @@ func ValidateUniqueKeys(config *Config) error {
 	return nil
 }
 
+// ValidateSecurityConfig validates the security section, if there is one, and returns ErrInvalidSecurityConfig when
+// it is invalid.
 func ValidateSecurityConfig(config *Config) error {
 	if config.Security != nil {
 		if !config.Security.ValidateAndSetDefaults() {
@@ -710,6 +744,9 @@ func ValidateAlertingConfig(alertingConfig *alerting.Config, endpoints []*endpoi
 	logr.Infof("[config.ValidateAlertingConfig] configuredProviders=%s; ignoredProviders=%s", validProviders, invalidProviders)
 }
 
+// ValidateAndSetConcurrencyDefaults sets the effective concurrency: 0 (unlimited) when the deprecated
+// disable-monitoring-lock is set, DefaultConcurrency when concurrency is unset, zero or negative, and the configured
+// value otherwise.
 func ValidateAndSetConcurrencyDefaults(config *Config) {
 	if config.DisableMonitoringLock {
 		config.Concurrency = 0

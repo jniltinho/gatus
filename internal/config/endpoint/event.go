@@ -4,16 +4,19 @@ import (
 	"time"
 )
 
-// Event is something that happens at a specific time
+// Event is something that happens at a specific time: the start of the monitoring of an endpoint or a change of its
+// health. It is serialized as part of Status.
 type Event struct {
-	// Type is the kind of event
+	// Type is the kind of event: START, HEALTHY or UNHEALTHY
 	Type EventType `json:"type"`
 
-	// Timestamp is the moment at which the event happened
+	// Timestamp is the moment at which the event happened, serialized in RFC 3339 format. For HEALTHY and UNHEALTHY
+	// events it is the timestamp of the result that changed the health of the endpoint.
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// EventType is, uh, the types of events?
+// EventType is the kind of an Event, serialized as an upper case string (one of EventStart, EventHealthy and
+// EventUnhealthy).
 type EventType string
 
 var (
@@ -27,7 +30,8 @@ var (
 	EventUnhealthy EventType = "UNHEALTHY"
 )
 
-// NewEventFromResult creates an Event from a Result
+// NewEventFromResult creates an Event from a Result, with the timestamp of the result and the type EventHealthy if
+// the result is successful, EventUnhealthy otherwise.
 func NewEventFromResult(result *Result) *Event {
 	event := &Event{Timestamp: result.Timestamp}
 	if result.Success {

@@ -15,6 +15,17 @@ import (
 
 // SinglePageApplication serves the single page application of the dashboard. The template is parsed once, when the
 // router is created, and not on every request as it used to be.
+//
+// It returns the handler of GET and HEAD /, /endpoints/:key and /suites/:key, of /login when security.basic is used
+// without OIDC, and, when the administration is enabled, of /admin, /admin/endpoints/new,
+// /admin/endpoints/:endpointKey/edit, /admin/status-pages, /admin/status-pages/new, /admin/status-pages/:slug/edit,
+// /admin/push-keys and /admin/backup. The path parameters are only read by the frontend.
+//
+// Authentication: none: the HTML is public, and the frontend asks the API.
+// Request: the optional cookie theme (dark or light) picks the theme rendered in the page; without a valid one, the
+// theme is the one of ui.dark-mode.
+// Responses: 200 with the rendered index.html as text/html; 500 as text/plain when the template cannot be parsed or
+// executed, which the validation of the configuration prevents.
 func SinglePageApplication(uiConfig *ui.Config) echo.HandlerFunc {
 	t, parseErr := template.ParseFS(static.FileSystem, static.IndexPath)
 	return func(c *echo.Context) error {

@@ -13,8 +13,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// adminStatusPageError maps the errors of the administration of the status pages to their HTTP status. Unexpected
-// errors are logged and answered without their text.
+// adminStatusPageError maps the errors of the administration of the status pages to their HTTP status and answers
+// {"error": "..."}: 501 storage not supported; 404 page not found; 409 read-only page or slug in use; 412 version
+// mismatch; 428 missing If-Match; 503 start or reload in progress, or page unavailable; 400 empty or invalid definition,
+// changed slug, missing exposure query or invalid login of the page; 500 for anything else. Unexpected errors are
+// logged and answered without their text.
 func adminStatusPageError(c *echo.Context, err error) error {
 	status := http.StatusInternalServerError
 	switch {

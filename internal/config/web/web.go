@@ -1,3 +1,5 @@
+// Package web models the web section of the YAML configuration: the address, port, read buffer size and optional TLS
+// certificate of the HTTP server. It validates the section, loading the certificate, and applies its defaults.
 package web
 
 import (
@@ -42,6 +44,8 @@ type Config struct {
 	TLS *TLSConfig `yaml:"tls,omitempty"`
 }
 
+// TLSConfig is the configuration of the certificate with which the server listens over HTTPS. Both files are
+// required: validation fails if one is missing or if the pair cannot be loaded.
 type TLSConfig struct {
 	// CertificateFile is the public certificate for TLS in PEM format.
 	CertificateFile string `yaml:"certificate-file,omitempty"`
@@ -59,7 +63,9 @@ func GetDefaultConfig() *Config {
 	}
 }
 
-// ValidateAndSetDefaults validates the web configuration and sets the default values if necessary.
+// ValidateAndSetDefaults validates the web configuration and sets the default values if necessary: the address, the
+// port and the read buffer size get their defaults when unset, and a read buffer size below MinimumReadBufferSize is
+// raised to it. It returns an error if the port is not between 0 and 65535 or if the TLS configuration is invalid.
 func (web *Config) ValidateAndSetDefaults() error {
 	// Validate the Address
 	if len(web.Address) == 0 {
@@ -86,6 +92,8 @@ func (web *Config) ValidateAndSetDefaults() error {
 	return nil
 }
 
+// HasTLS returns whether the server must listen over HTTPS, i.e. whether both the certificate file and the private
+// key file are configured.
 func (web *Config) HasTLS() bool {
 	return web.TLS != nil && len(web.TLS.CertificateFile) > 0 && len(web.TLS.PrivateKeyFile) > 0
 }

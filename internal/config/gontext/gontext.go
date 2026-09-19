@@ -1,3 +1,6 @@
+// Package gontext implements the context shared by the endpoints of a suite: a concurrency-safe tree of values,
+// seeded by the context section of the suite, that endpoints read through [CONTEXT].path placeholders and write
+// through their store mappings.
 package gontext
 
 import (
@@ -18,7 +21,8 @@ type Gontext struct {
 	values map[string]interface{}
 }
 
-// New creates a new gontext with initial values
+// New creates a new gontext with initial values, which are deep copied so that later changes to the map given do not
+// affect the gontext. A nil map gives an empty gontext.
 func New(initial map[string]interface{}) *Gontext {
 	if initial == nil {
 		initial = make(map[string]interface{})
@@ -33,7 +37,8 @@ func New(initial map[string]interface{}) *Gontext {
 	}
 }
 
-// Get retrieves a value from the gontext using dot notation
+// Get retrieves a value from the gontext using dot notation (e.g. "user.id"). It returns an error wrapping
+// ErrGontextPathNotFound if a segment of the path does not exist or is not a map.
 func (g *Gontext) Get(path string) (interface{}, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -54,7 +59,8 @@ func (g *Gontext) Get(path string) (interface{}, error) {
 	return current, nil
 }
 
-// Set stores a value in the gontext using dot notation
+// Set stores a value in the gontext using dot notation, creating the intermediate maps and replacing any
+// intermediate value that is not a map.
 func (g *Gontext) Set(path string, value interface{}) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()

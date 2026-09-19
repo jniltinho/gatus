@@ -1,3 +1,5 @@
+// Package twilio implements the alerting provider that sends alerts as SMS through the Twilio Messages REST
+// API, using basic authentication with the account SID and the token.
 package twilio
 
 import (
@@ -16,6 +18,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrSIDNotSet is returned by Config.Validate when the account SID is empty.
+// ErrTokenNotSet is returned by Config.Validate when the auth token is empty.
+// ErrFromNotSet is returned by Config.Validate when the sender number, from, is empty.
+// ErrToNotSet is returned by Config.Validate when the recipient number, to, is empty.
 var (
 	ErrSIDNotSet   = errors.New("sid not set")
 	ErrTokenNotSet = errors.New("token not set")
@@ -23,6 +29,8 @@ var (
 	ErrToNotSet    = errors.New("to not set")
 )
 
+// Config is the configuration of the Twilio provider. The provider has no group overrides: only an alert's
+// provider-override can change it.
 type Config struct {
 	SID   string `yaml:"sid"`
 	Token string `yaml:"token"`
@@ -35,6 +43,8 @@ type Config struct {
 	TextTwilioResolved string `yaml:"text-twilio-resolved,omitempty"` // String used in the SMS body and subject (optional)
 }
 
+// Validate returns ErrSIDNotSet, ErrTokenNotSet, ErrFromNotSet or ErrToNotSet for the first of these fields
+// that is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.SID) == 0 {
 		return ErrSIDNotSet
@@ -51,6 +61,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites the fields of cfg with the fields of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.SID) > 0 {
 		cfg.SID = override.SID
@@ -74,6 +85,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Twilio
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type

@@ -15,6 +15,9 @@ const (
 	DefaultPageSize = 50
 )
 
+// extractPageAndPageSizeFromRequest reads the query parameters page and pageSize. A missing, invalid or lower than 1
+// page is DefaultPage, and a missing, invalid or lower than 1 pageSize is DefaultPageSize. The page size is only capped
+// at maximumNumberOfResults on page 1; on the other pages it is used as it was sent.
 func extractPageAndPageSizeFromRequest(c *echo.Context, maximumNumberOfResults int) (page, pageSize int) {
 	var err error
 	if pageParameter := httpx.Query(c, "page"); len(pageParameter) == 0 {

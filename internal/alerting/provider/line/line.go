@@ -1,3 +1,5 @@
+// Package line implements the alerting provider that sends alerts as push messages to LINE users through the
+// LINE Messaging API.
 package line
 
 import (
@@ -14,17 +16,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrChannelAccessTokenNotSet when the channel access
+// token is missing, ErrUserIDsNotSet when no recipient is listed, and ErrDuplicateGroupOverride when an override
+// has an empty or already used group.
 var (
 	ErrChannelAccessTokenNotSet = errors.New("channel-access-token not set")
 	ErrUserIDsNotSet            = errors.New("user-ids not set")
 	ErrDuplicateGroupOverride   = errors.New("duplicate group override")
 )
 
+// Config holds the channel access token of the LINE bot and the users who receive the alerts; one push
+// message is sent per user ID.
 type Config struct {
 	ChannelAccessToken string   `yaml:"channel-access-token"` // Line Messaging API channel access token
 	UserIDs            []string `yaml:"user-ids"`             // List of Line user IDs to send messages to
 }
 
+// Validate checks that the channel access token is set and that at least one user ID is listed.
 func (cfg *Config) Validate() error {
 	if len(cfg.ChannelAccessToken) == 0 {
 		return ErrChannelAccessTokenNotSet
@@ -35,6 +43,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; UserIDs are replaced as a whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.ChannelAccessToken) > 0 {
 		cfg.ChannelAccessToken = override.ChannelAccessToken
@@ -107,11 +116,13 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload of a push message: the recipient and the messages sent to it.
 type Body struct {
 	To       string    `json:"to"`
 	Messages []Message `json:"messages"`
 }
 
+// Message is a message of a push request; the provider only sends messages of type text.
 type Message struct {
 	Type string `json:"type"`
 	Text string `json:"text"`

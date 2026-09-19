@@ -1,3 +1,5 @@
+// Package signal implements the alerting provider that sends Signal messages through the REST API of a
+// signal-cli-rest-api instance, one request for each recipient.
 package signal
 
 import (
@@ -15,6 +17,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrApiURLNotSet is returned by Config.Validate when api-url is empty.
+// ErrNumberNotSet is returned by Config.Validate when the sender number is empty.
+// ErrRecipientsNotSet is returned by Config.Validate when there is no recipient.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrApiURLNotSet           = errors.New("api-url not set")
 	ErrNumberNotSet           = errors.New("number not set")
@@ -22,12 +29,16 @@ var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Signal provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	ApiURL     string   `yaml:"api-url"`    // Signal API URL (e.g., signal-cli-rest-api instance)
 	Number     string   `yaml:"number"`     // Sender phone number
 	Recipients []string `yaml:"recipients"` // List of recipient phone numbers
 }
 
+// Validate returns ErrApiURLNotSet, ErrNumberNotSet or ErrRecipientsNotSet for the first of these fields that
+// is empty. It also appends "/v2/send" to ApiURL when the URL does not end with it.
 func (cfg *Config) Validate() error {
 	if len(cfg.ApiURL) == 0 {
 		return ErrApiURLNotSet
@@ -44,6 +55,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites ApiURL, Number and Recipients with the values of override that are not empty. The list of
+// recipients is replaced as a whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.ApiURL) > 0 {
 		cfg.ApiURL = override.ApiURL
@@ -58,6 +71,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Signal
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -118,6 +132,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the send endpoint. Recipients holds a single number on each request.
 type Body struct {
 	Message    string   `json:"message"`
 	Number     string   `json:"number"`

@@ -1,3 +1,5 @@
+// Package newrelic implements the alerting provider that records alerts in New Relic as custom GatusAlert
+// events through the Event API of the Insights collector, authenticated with an insert key.
 package newrelic
 
 import (
@@ -15,18 +17,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrInsertKeyNotSet is returned by Config.Validate when insert-key is empty.
+// ErrAccountIDNotSet is returned by Config.Validate when account-id is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrInsertKeyNotSet        = errors.New("insert-key not set")
 	ErrAccountIDNotSet        = errors.New("account-id not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the New Relic provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	InsertKey string `yaml:"insert-key"`       // New Relic Insert key
 	AccountID string `yaml:"account-id"`       // New Relic account ID
 	Region    string `yaml:"region,omitempty"` // Region (US or EU, defaults to US)
 }
 
+// Validate returns ErrInsertKeyNotSet or ErrAccountIDNotSet when the corresponding field is empty. Region is
+// not checked: any value other than "EU" selects the US collector.
 func (cfg *Config) Validate() error {
 	if len(cfg.InsertKey) == 0 {
 		return ErrInsertKeyNotSet
@@ -37,6 +47,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites InsertKey, AccountID and Region with the values of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.InsertKey) > 0 {
 		cfg.InsertKey = override.InsertKey
@@ -51,6 +62,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using New Relic
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -117,6 +129,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Event is the custom event sent to New Relic; Send posts it inside a one-element JSON array. SuccessRate is
+// the percentage of conditions that passed and Timestamp is in milliseconds.
 type Event struct {
 	EventType   string  `json:"eventType"`
 	Timestamp   int64   `json:"timestamp"`

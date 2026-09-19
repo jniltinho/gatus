@@ -1,3 +1,5 @@
+// Package discord implements the alerting provider that sends alerts to a Discord channel through an
+// incoming webhook.
 package discord
 
 import (
@@ -14,17 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrWebhookURLNotSet when the webhook URL is missing
+// and ErrDuplicateGroupOverride when an override has no webhook URL or an empty or already used group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the webhook URL and the optional title and content of the message. An empty Title means
+// the default Gatus title.
 type Config struct {
 	WebhookURL     string `yaml:"webhook-url"`
 	Title          string `yaml:"title,omitempty"`           // Title of the message that will be sent
 	MessageContent string `yaml:"message-content,omitempty"` // Message content for pinging users or groups (e.g. "<@123456789>" or "<@&987654321>")
 }
 
+// Validate checks that the webhook URL is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -32,6 +39,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -55,6 +63,7 @@ type AlertProvider struct {
 	Overrides []Override `yaml:"overrides,omitempty"`
 }
 
+// Override is a case under which the default configuration is overridden for the endpoints of a group.
 type Override struct {
 	Group  string `yaml:"group"`
 	Config `yaml:",inline"`
@@ -98,11 +107,14 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the Discord webhook.
 type Body struct {
 	Content string  `json:"content"`
 	Embeds  []Embed `json:"embeds"`
 }
 
+// Embed is the coloured block of a Discord message that carries the alert text; Color is green for a resolved
+// alert and red for a triggered one.
 type Embed struct {
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
@@ -110,6 +122,7 @@ type Embed struct {
 	Fields      []Field `json:"fields,omitempty"`
 }
 
+// Field is a titled entry of an Embed, used to list the condition results.
 type Field struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`

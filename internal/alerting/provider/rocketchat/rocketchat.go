@@ -1,3 +1,5 @@
+// Package rocketchat implements the alerting provider that sends alerts to Rocket.Chat through an incoming
+// webhook.
 package rocketchat
 
 import (
@@ -14,16 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrWebhookURLNotSet is returned by Config.Validate when webhook-url is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Rocket.Chat provider. It is both the default configuration and the shape of
+// the group overrides and of an alert's provider-override.
 type Config struct {
 	WebhookURL string `yaml:"webhook-url"`       // Rocket.Chat incoming webhook URL
 	Channel    string `yaml:"channel,omitempty"` // Optional channel override
 }
 
+// Validate returns ErrWebhookURLNotSet when the webhook URL is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -31,6 +39,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites WebhookURL and Channel with the values of override that are not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -42,6 +51,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Rocket.Chat
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -99,6 +109,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the Rocket.Chat webhook. Channel is omitted unless the configuration
+// sets one, in which case the webhook's own channel applies.
 type Body struct {
 	Text        string       `json:"text"`
 	Channel     string       `json:"channel,omitempty"`
@@ -106,6 +118,8 @@ type Body struct {
 	Attachments []Attachment `json:"attachments"`
 }
 
+// Attachment is the coloured block of the message that carries the alert text: green when resolved, red when
+// triggered.
 type Attachment struct {
 	Title      string  `json:"title"`
 	Text       string  `json:"text"`
@@ -115,6 +129,7 @@ type Attachment struct {
 	AuthorIcon string  `json:"author_icon"`
 }
 
+// Field is a titled value inside an Attachment; the provider uses one to list the condition results.
 type Field struct {
 	Title string `json:"title"`
 	Value string `json:"value"`

@@ -1,3 +1,5 @@
+// Package homeassistant implements the alerting provider that fires a gatus_alert event in Home Assistant
+// through its REST API, authenticated with a long-lived access token.
 package homeassistant
 
 import (
@@ -14,17 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrURLNotSet when the URL of the Home Assistant
+// instance is missing, ErrTokenNotSet when the access token is missing, and ErrDuplicateGroupOverride
+// when an override has an empty or already used group.
 var (
 	ErrURLNotSet              = errors.New("url not set")
 	ErrTokenNotSet            = errors.New("token not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the base URL of the Home Assistant instance and the access token sent as a bearer token.
 type Config struct {
 	URL   string `yaml:"url"`
 	Token string `yaml:"token"`
 }
 
+// Validate checks that URL and Token are set.
 func (cfg *Config) Validate() error {
 	if len(cfg.URL) == 0 {
 		return ErrURLNotSet
@@ -35,6 +42,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.URL) > 0 {
 		cfg.URL = override.URL
@@ -100,6 +108,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the events endpoint of Home Assistant. EventData carries the state of the
+// alert, with FailureCount set for a triggered alert and SuccessCount for a resolved one.
 type Body struct {
 	EventType string `json:"event_type"`
 	EventData struct {

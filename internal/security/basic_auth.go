@@ -54,6 +54,7 @@ type TooManyFailuresError struct {
 	RetryAfter time.Duration
 }
 
+// Error returns a constant message: neither the client nor RetryAfter is part of it.
 func (e *TooManyFailuresError) Error() string {
 	return "too many failed authentication attempts"
 }

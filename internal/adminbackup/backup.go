@@ -24,11 +24,20 @@ var (
 	ErrStorageNotSupported = errors.New("the storage does not support the administration")
 )
 
-// Backup is a backup file ready to be downloaded
+// Backup is a backup file ready to be downloaded. It is not encoded in JSON itself: POST /api/v1/admin/backup sends
+// Body as the response, with Filename in the Content-Disposition header.
 type Backup struct {
-	Body        []byte
-	Filename    string
-	Encrypted   bool
+	// Body is the content of the file: a File encoded in indented JSON or, when Encrypted, the envelope that seals it.
+	Body []byte
+
+	// Filename is the suggested name of the file, gatus-backup-YYYYMMDD-HHMMSS.json with the UTC time of the backup, or
+	// the same name ending in .enc.json when Encrypted.
+	Filename string
+
+	// Encrypted is whether Body was encrypted with a password.
+	Encrypted bool
+
+	// Endpoints, StatusPages and PushKeys are the numbers of items of each type in the backup.
 	Endpoints   int
 	StatusPages int
 	PushKeys    int
