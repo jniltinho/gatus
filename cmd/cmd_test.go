@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"gatus/v5/config"
-	"gatus/v5/security"
+	"gatus/v5/internal/config"
+	"gatus/v5/internal/security"
 	"github.com/TwiN/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -71,12 +71,12 @@ func TestHelpDoesNotStartTheServer(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	previous := Version
-	Version = "5.36.0-fork.28"
+	Version = "6.0.0"
 	defer func() { Version = previous }()
 	// Without any configuration: the command does not depend on it
 	t.Setenv(GatusConfigPathEnvVar, filepath.Join(t.TempDir(), "missing.yaml"))
 	output, err := execute(t, "", "version")
-	if err != nil || !strings.Contains(output, "5.36.0-fork.28") {
+	if err != nil || !strings.Contains(output, "6.0.0") {
 		t.Errorf("expected the version, got %q and %v", output, err)
 	}
 }

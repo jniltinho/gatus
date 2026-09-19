@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"gatus/v5/config"
+	"gatus/v5/internal/config"
 )
 
 const validReloadTestConfig = `

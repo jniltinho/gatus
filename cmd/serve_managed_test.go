@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"gatus/v5/config"
-	"gatus/v5/config/endpoint"
-	"gatus/v5/managedendpoint"
-	"gatus/v5/storage"
-	"gatus/v5/storage/store"
-	"gatus/v5/storage/store/common"
-	"gatus/v5/storage/store/common/paging"
+	"gatus/v5/internal/config"
+	"gatus/v5/internal/config/endpoint"
+	"gatus/v5/internal/managedendpoint"
+	"gatus/v5/internal/storage"
+	"gatus/v5/internal/storage/store"
+	"gatus/v5/internal/storage/store/common"
+	"gatus/v5/internal/storage/store/common/paging"
 )
 
 // The history of managed endpoints must be preserved on startup and reload, even without admin.enabled

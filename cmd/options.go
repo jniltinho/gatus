@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"gatus/v5/config"
+	"gatus/v5/internal/config"
 	"github.com/TwiN/logr"
 	"github.com/spf13/cobra"
 )
