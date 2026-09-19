@@ -157,19 +157,54 @@ wait_for login-card
 [ "$(js 'document.querySelector("meta[name=theme-color]").content')" = "#030712" ] || fail "the theme color should follow the dark theme"
 browser screenshot "$PRINTS/01-login-dark.png" >/dev/null
 
-step "Theme toggle: light login screen, kept after a reload"
-browser click "$(testid login-theme-toggle)" >/dev/null
-[ "$(js 'document.documentElement.classList.contains("dark")')" = false ] || fail "the theme toggle did not switch to the light theme"
-[ "$(js 'document.querySelector("meta[name=theme-color]").content')" = "#f7f9fb" ] || fail "the theme color should follow the light theme"
-# Waits for the color transitions and moves the mouse away from the toggle before the screenshot
+step "Theme selector: light login screen, kept after a reload"
+theme_classes() { js 'Array.from(document.documentElement.classList).filter((name) => name === "dark" || name === "theme-bio").join(" ")'; }
+theme_color() { js 'document.querySelector("meta[name=theme-color]").content'; }
+choose_theme() {
+  browser click "$(testid login-theme-toggle)" >/dev/null
+  browser wait "$(testid "login-theme-toggle-option-$1")" >/dev/null || fail "the theme menu did not open"
+  browser click "$(testid "login-theme-toggle-option-$1")" >/dev/null
+}
+[ "$(js "document.querySelector('[data-testid=\"login-theme-toggle-option-dark\"]').getAttribute('aria-checked')")" = true ] || fail "the theme in use should be the checked option"
+choose_theme light
+[ -z "$(theme_classes)" ] || fail "the theme selector did not switch to the light theme: $(theme_classes)"
+[ "$(theme_color)" = "#f7f9fb" ] || fail "the theme color should follow the light theme"
+[ "$(js "document.querySelector('[data-testid=\"login-theme-toggle\"]').getAttribute('aria-expanded')")" = false ] || fail "the menu should close after a choice"
+# Waits for the color transitions and moves the mouse away from the selector before the screenshot
 browser mouse move 0 450 >/dev/null 2>&1 || true
 browser wait 500 >/dev/null
 browser screenshot "$PRINTS/02-login-light.png" >/dev/null
 browser reload >/dev/null
 wait_for login-card
-[ "$(js 'document.documentElement.classList.contains("dark")')" = false ] || fail "the light theme chosen with the toggle should be kept after a reload"
-browser click "$(testid login-theme-toggle)" >/dev/null
-[ "$(js 'document.documentElement.classList.contains("dark")')" = true ] || fail "the theme toggle did not switch back to the dark theme"
+[ -z "$(theme_classes)" ] || fail "the light theme chosen with the selector should be kept after a reload"
+
+step "Theme selector with the keyboard: the bio theme, one theme class at a time, kept after a reload"
+browser focus "$(testid login-theme-toggle)" >/dev/null
+browser press Enter >/dev/null
+browser wait "$(testid login-theme-toggle-option-bio)" >/dev/null || fail "Enter did not open the theme menu"
+[ "$(js 'document.activeElement.getAttribute("data-testid")')" = login-theme-toggle-option-light ] || fail "the menu should open on the theme in use, got $(js 'document.activeElement.getAttribute("data-testid")')"
+browser press Escape >/dev/null
+[ "$(js 'document.activeElement.getAttribute("data-testid")')" = login-theme-toggle ] || fail "Escape should close the menu and give the focus back to the selector"
+[ -z "$(theme_classes)" ] || fail "Escape should not change the theme"
+browser press Enter >/dev/null
+browser press End >/dev/null
+[ "$(js 'document.activeElement.getAttribute("data-testid")')" = login-theme-toggle-option-bio ] || fail "End should go to the last theme"
+browser press Enter >/dev/null
+[ "$(theme_classes)" = theme-bio ] || fail "the bio theme should be the only theme class, got: $(theme_classes)"
+[ "$(theme_color)" = "#f2f8fa" ] || fail "the theme color should follow the bio theme"
+browser mouse move 0 450 >/dev/null 2>&1 || true
+browser wait 500 >/dev/null
+browser screenshot "$PRINTS/02b-login-bio.png" >/dev/null
+browser reload >/dev/null
+wait_for login-card
+[ "$(theme_classes)" = theme-bio ] || fail "the bio theme should be kept after a reload, got: $(theme_classes)"
+# The HTML already comes with the theme, before any script runs
+RAW=$(curl -s -H 'Cookie: theme=bio' "$BASE/login" | grep -o '<html[^>]*>')
+case "$RAW" in *'class="theme-bio"'*) ;; *) fail "the HTML of the server should already have the bio theme: $RAW" ;; esac
+RAW=$(curl -s -H 'Cookie: theme=blue' "$BASE/login" | grep -o '<html[^>]*>')
+case "$RAW" in *'class="dark"'*) ;; *) fail "an invalid theme cookie should fall back to the default theme: $RAW" ;; esac
+choose_theme dark
+[ "$(theme_classes)" = dark ] || fail "from bio to dark, dark should be the only theme class, got: $(theme_classes)"
 
 step "Wrong password: generic message and still on the login screen"
 sign_in "wrong-password"

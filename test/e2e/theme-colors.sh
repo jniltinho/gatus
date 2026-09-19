@@ -6,6 +6,13 @@
 #   make build && test/e2e/theme-colors.sh /tmp/after         # on the changed version
 #   test/e2e/theme-colors.sh --compare /tmp/before /tmp/after
 #
+# It also measures the contrast of every text of the bio theme, on the same screens and states:
+#
+#   test/e2e/theme-colors.sh --contrast /tmp/contrast && test/e2e/theme-colors.sh --contrast-report /tmp/contrast
+#
+# A text passes with 4.5:1 (3:1 when large), or when the same element has no better contrast in the light theme: the
+# status colours are the same in every theme, and the bio theme must not make them worse.
+#
 # It is what proves that a change of the colour plumbing (the Tailwind gray scale going through CSS variables, for
 # example) leaves the existing themes untouched. Comparing screenshots is not deterministic; this is, under these
 # conditions: fixed data (Push endpoints with seeded results, one check of the own /health, no external host), fixed
@@ -36,7 +43,45 @@ PY
   exit $?
 fi
 
-OUT=${1:?usage: theme-colors.sh <output directory> | --compare <before> <after>}
+if [ "${1:-}" = "--contrast-report" ]; then
+  python3 - "$2" <<'REPORT'
+import json, os, sys
+directory = sys.argv[1]
+failures = debts = checked = 0
+for name in sorted(os.listdir(directory)):
+    if not name.startswith("bio-"):
+        continue
+    bio = json.load(open(os.path.join(directory, name)))
+    light_path = os.path.join(directory, "light-" + name[len("bio-"):])
+    light = json.load(open(light_path)) if os.path.exists(light_path) else {}
+    for key, item in bio.items():
+        checked += 1
+        minimum = 3.0 if item["large"] else 4.5
+        if item["ratio"] >= minimum:
+            continue
+        reference = light.get(key)
+        # A text that misses the minimum is accepted only when the light theme is not better for the same element:
+        # the status colours are the same in every theme, and the bio theme must not make them worse
+        if reference and reference["ratio"] <= item["ratio"] + 0.01:
+            debts += 1
+            continue
+        failures += 1
+        was = f'{reference["ratio"]} in the light theme' if reference else "absent in the light theme"
+        print(f'{name}: {key} "{item["text"]}": {item["ratio"]} ({item["foreground"]} on {item["background"]}), {was}')
+print(f"{checked} texts checked in the bio theme, {failures} below the minimum and worse than in the light theme, {debts} below the minimum but not worse than in the light theme")
+sys.exit(1 if failures else 0)
+REPORT
+  exit $?
+fi
+
+COLLECTOR_FILE=test/e2e/lib/computed-colors.js
+if [ "${1:-}" = "--contrast" ]; then
+  # Same screens and states, in the light and in the bio themes, with the contrast of every text instead of the colours
+  shift
+  COLLECTOR_FILE=test/e2e/lib/contrast.js
+  THEMES="light bio"
+fi
+OUT=${1:?usage: theme-colors.sh <output directory> | --compare <before> <after> | --contrast <output directory> | --contrast-report <directory>}
 THEMES=${THEMES:-"light dark"}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
@@ -144,7 +189,7 @@ for _ in $(seq 1 40); do
 done
 
 STILL="* , *::before, *::after { transition: none !important; animation: none !important; caret-color: transparent !important; }"
-COLLECTOR=$(cat test/e2e/lib/computed-colors.js)
+COLLECTOR=$(cat "$COLLECTOR_FILE")
 set_theme() {
   browser cookies set theme "$1" --url "$BASE" >/dev/null
 }
