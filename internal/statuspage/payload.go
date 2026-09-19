@@ -93,6 +93,10 @@ type Payload struct {
 	// endpoints are kept first, then the groups in display order.
 	Truncated bool `json:"truncated"`
 
+	// GroupsCollapsed is the groups-collapsed option of the page: whether its groups start collapsed for a visitor who
+	// made no choice of their own. A group whose status is not "operational" is shown expanded whatever this says.
+	GroupsCollapsed bool `json:"groupsCollapsed"`
+
 	// Summary counts the endpoints of the page by status, so that the page does not have to be counted in the browser
 	// (fork)
 	Summary SummaryPayload `json:"summary"`
@@ -137,6 +141,11 @@ type GroupPayload struct {
 	// are up, "down" when all are down, "degraded" otherwise (including when some are pending) and "unknown" when no
 	// endpoint has a result.
 	Status string `json:"status"`
+
+	// Summary counts the endpoints listed in the group by status, with the rules of the summary of the page. Featured
+	// endpoints are not listed in any group and are counted in none, only in the summary of the page. It is what the
+	// header of a collapsed group shows.
+	Summary SummaryPayload `json:"summary"`
 
 	// Endpoints are the endpoints of the group that are not featured, ordered by name ignoring case. It is never empty.
 	Endpoints []EndpointPayload `json:"endpoints"`
@@ -300,13 +309,14 @@ type EventPayload struct {
 // endpoint without summary (not in the store yet) is unknown.
 func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[string]*common.EndpointSummary, now time.Time) *Payload {
 	payload := &Payload{
-		Slug:        page.Slug,
-		Title:       page.Title,
-		Description: page.Description,
-		UpdatedAt:   now.UTC(),
-		Truncated:   selection.Truncated,
-		Featured:    make([]FeaturedEndpointPayload, 0, len(selection.Featured)),
-		Groups:      make([]GroupPayload, 0, len(selection.Sections)),
+		Slug:            page.Slug,
+		Title:           page.Title,
+		Description:     page.Description,
+		UpdatedAt:       now.UTC(),
+		Truncated:       selection.Truncated,
+		GroupsCollapsed: page.GroupsCollapsed,
+		Featured:        make([]FeaturedEndpointPayload, 0, len(selection.Featured)),
+		Groups:          make([]GroupPayload, 0, len(selection.Sections)),
 	}
 	var pageStatuses []string
 	for _, ref := range selection.Featured {
@@ -323,6 +333,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 			groupStatuses = append(groupStatuses, endpointPayload.Status)
 		}
 		group.Status = aggregateStatus(groupStatuses)
+		group.Summary = summaryOf(groupStatuses)
 		payload.Groups = append(payload.Groups, group)
 		pageStatuses = append(pageStatuses, groupStatuses...)
 	}
@@ -331,7 +342,7 @@ func BuildPayload(page *pageconfig.Page, selection Selection, summaries map[stri
 	return payload
 }
 
-// summaryOf counts the endpoints of a page by status (fork)
+// summaryOf counts the endpoints of a page, or of one of its groups, by status (fork)
 func summaryOf(endpointStatuses []string) SummaryPayload {
 	summary := SummaryPayload{Total: len(endpointStatuses)}
 	for _, status := range endpointStatuses {

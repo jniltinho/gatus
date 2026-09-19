@@ -106,6 +106,15 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/
 - In the frontend, routes with `meta.public` do not show the login screen nor fetch `/api/v1/config`. The Tailwind version of the project (3.1.8) has no 950 shade: use `dark:bg-*-900/30`.
 - The interface texts are in English, like the rest of the Gatus UI.
 
+## Collapsible groups of a status page
+
+- The rule lives in `web/app/src/utils/statusPageGroups.js` (`isCollapsed`), a pure module with unit tests (`npm run test:unit`): not operational → expanded; else the choice of the visit, then the remembered one; else `groupsCollapsed` of the payload. `StatusPage.vue` and the preview of `AdminStatusPageForm.vue` both call it; the preview passes no remembered choice and stores nothing.
+- The public page has **no real time**: it polls every 60 s and on `visibilitychange`, over a payload cached for 30 s. The SSE stream is per endpoint and belongs to the details page. "Reopening a group" therefore happens on the next payload.
+- A collapsed group does not render its rows (`v-if`), which also removes the accessible summary and the `aria-live` region of each `EndpointRow`: the text of the header button (name, status, counts) is what a screen reader gets instead. Keep the header a `<button>` with `aria-expanded` and `aria-controls`; the panel `aria-controls` points to always exists.
+- The choices are resolved **before** a payload is published to the reactive state, and `requestGeneration` is checked after every `await` (`response.json()`, the key derivation): a fetch that is not the current one anymore publishes nothing. Checking only the slug is not enough, because the same slug can be fetched again and answer 401 or 404.
+- Storage: one `localStorage` item, `gatus:status-page-groups`, whose keys are SHA-256 of `slug + "\n" + raw group name` (the group without name is `""`, never its label). Never store a group name or a slug: a page can require a login. Render keys also use the raw name.
+- The `summary` of a group is computed by the server (`summaryOf`) from the endpoints listed in the group; featured endpoints are listed in no group. `test/e2e/status-page-groups.sh` uses Push endpoints to fail a group on demand and waits out the 30 s cache twice.
+
 ## Login of a status page
 
 Change: `openspec/changes/add-status-page-authentication/` (documentation in `docs/status-pages.md#login-of-a-page`).

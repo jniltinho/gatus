@@ -131,6 +131,13 @@
                   <span class="block text-xs text-muted-foreground dark:text-gray-400">Messages of pushes and HTTP status are public; errors of checks are never published.</span>
                 </span>
               </label>
+              <label class="flex items-start gap-3 border px-3 py-2.5 text-sm dark:border-gray-700">
+                <input v-model="form.groupsCollapsed" type="checkbox" class="mt-0.5 h-4 w-4 accent-gray-900 dark:accent-gray-100" data-testid="status-page-field-groups-collapsed" />
+                <span>
+                  <span class="block font-medium text-foreground dark:text-gray-200">Start with the groups collapsed</span>
+                  <span class="block text-xs text-muted-foreground dark:text-gray-400">Visitors expand the groups they want. A group with a problem always appears expanded.</span>
+                </span>
+              </label>
             </div>
           </section>
 
@@ -244,14 +251,30 @@
             </li>
           </ul>
         </div>
-        <div v-for="group in preview.groups" :key="group.name || '__without-group__'" class="mb-4 last:mb-0">
-          <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">{{ group.name || 'Other services' }}</h3>
-          <ul class="mt-1 space-y-1 text-sm">
+        <!-- The groups follow the default of the page and what is clicked here. The choices that the public page keeps
+             in the browser are neither read nor written: the preview shows what a new visitor sees. -->
+        <div v-for="(group, groupIndex) in preview.groups" :key="`group:${group.name || ''}`" class="mb-4 last:mb-0" :data-testid="`status-page-preview-group-${group.name || 'outros'}`">
+          <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">
+            <button
+              type="button"
+              class="flex w-full items-baseline gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
+              :aria-expanded="!previewCollapsedGroups.has(group.name || '')"
+              :aria-controls="`status-page-preview-panel-${groupIndex}`"
+              @click="togglePreviewGroup(group)"
+            >
+              <component :is="previewCollapsedGroups.has(group.name || '') ? ChevronRight : ChevronDown" class="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" aria-hidden="true" />
+              <span>{{ group.name || 'Other services' }}</span>
+              <span class="text-xs font-normal text-muted-foreground dark:text-gray-400">{{ groupCounts(group.summary) }}</span>
+            </button>
+          </h3>
+          <div :id="`status-page-preview-panel-${groupIndex}`">
+          <ul v-if="!previewCollapsedGroups.has(group.name || '')" class="mt-1 space-y-1 text-sm">
             <li v-for="endpoint in group.endpoints" :key="endpoint.name" class="flex justify-between gap-4">
               <span class="text-foreground dark:text-gray-200">{{ endpoint.name }}</span>
               <span class="text-muted-foreground dark:text-gray-400">{{ endpointStatusLabel(endpoint.status) }} · 24h {{ formatUptime(endpoint.uptime['24h']) }}</span>
             </li>
           </ul>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -271,6 +294,8 @@ import Loading from '@/components/Loading.vue'
 import { describeStatusPageError, statusPagesApi } from '@/utils/adminApi'
 import { formatUptime, SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
 import { toast } from '@/utils/toast'
+import { ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { COLLAPSED, EXPANDED, groupCounts, isCollapsed } from '@/utils/statusPageGroups'
 
 const props = defineProps({
   slug: { type: String, default: '' }
@@ -293,6 +318,25 @@ const endpointSearch = ref('')
 const onlySelected = ref(false)
 const validation = ref(null)
 const preview = ref(null)
+
+// Groups of the preview: the rule of the public page (utils/statusPageGroups.js) with the default of the page and the
+// clicks made in this dialog, which are forgotten when it closes. Nothing is read from nor written to the browser.
+const previewGroupChoices = ref(new Map())
+const previewCollapsedGroups = computed(() => {
+  const collapsed = new Set()
+  for (const group of preview.value?.groups || []) {
+    const name = group.name || ''
+    if (isCollapsed({ status: group.status, visitChoice: previewGroupChoices.value.get(name), pageDefault: preview.value.groupsCollapsed === true })) {
+      collapsed.add(name)
+    }
+  }
+  return collapsed
+})
+const togglePreviewGroup = (group) => {
+  const name = group.name || ''
+  previewGroupChoices.value = new Map(previewGroupChoices.value).set(name, previewCollapsedGroups.value.has(name) ? EXPANDED : COLLAPSED)
+}
+watch(preview, () => { previewGroupChoices.value = new Map() })
 // show-messages of the saved version, which the payload of the preview does not have (fork)
 const savedShowMessages = ref(false)
 // Whether the saved version already requires a login: only then an empty password means "keep the current one" (fork)
@@ -305,7 +349,7 @@ let copiedTimer = null
 const MAXIMUM_FEATURED = 10
 
 // The deprecated charts are not part of the form: saving a page removes them
-const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false, showMessages: false, requiresLogin: false, authUsername: '', authPassword: '' })
+const emptyForm = () => ({ slug: '', title: '', description: '', enabled: false, groups: [], endpoints: [], featured: [], showCertificateExpiration: false, showMessages: false, groupsCollapsed: false, requiresLogin: false, authUsername: '', authPassword: '' })
 const form = reactive(emptyForm())
 
 // Message shown after the route changes from the creation to the edition of the created page
@@ -389,6 +433,7 @@ const currentDocument = () => ({
   // Only sent when checked, like the other optional fields of the definition (fork)
   ...(form.showCertificateExpiration ? { 'show-certificate-expiration': true } : {}),
   ...(form.showMessages ? { 'show-messages': true } : {}),
+  ...(form.groupsCollapsed ? { 'groups-collapsed': true } : {}),
   // Fork: the password travels only here, in the submission, and the server answers with the hash masked
   ...(form.requiresLogin
     ? { auth: { username: form.authUsername.trim(), ...(form.authPassword ? { password: form.authPassword } : {}) } }
@@ -414,6 +459,7 @@ const loadDetail = async () => {
       featured: definition.featured || [],
       showCertificateExpiration: definition['show-certificate-expiration'] === true,
       showMessages: definition['show-messages'] === true,
+      groupsCollapsed: definition['groups-collapsed'] === true,
       requiresLogin: !!definition.auth,
       authUsername: definition.auth?.username || ''
     })

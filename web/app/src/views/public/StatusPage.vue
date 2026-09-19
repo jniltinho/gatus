@@ -52,24 +52,41 @@
 
         <section
           v-for="(group, groupIndex) in page.groups"
-          :key="group.name || '__without-group__'"
+          :key="`group:${group.name || ''}`"
           class="mt-6"
           :aria-labelledby="`status-group-${groupIndex}`"
           :data-testid="`status-group-${group.name || 'outros'}`"
         >
           <div class="flex items-baseline justify-between gap-4 border-b pb-1.5 dark:border-gray-800">
-            <div class="flex min-w-0 items-baseline gap-3">
-              <h2 :id="`status-group-${groupIndex}`" class="truncate text-lg font-semibold">{{ group.name || 'Other services' }}</h2>
-              <span :class="['shrink-0 text-sm', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
-            </div>
+            <!-- The header is a real button, so that it works with a keyboard and a screen reader: its text carries the
+                 name, the status and the counts of the group, which is what is announced instead of the rows of a
+                 collapsed group -->
+            <h2 :id="`status-group-${groupIndex}`" class="min-w-0 flex-1">
+              <button
+                type="button"
+                class="flex w-full min-w-0 items-baseline gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
+                :aria-expanded="!collapsedGroups.has(group.name || '')"
+                :aria-controls="`status-group-panel-${groupIndex}`"
+                :data-testid="`status-group-toggle-${group.name || 'outros'}`"
+                @click="toggleGroup(group)"
+              >
+                <component :is="collapsedGroups.has(group.name || '') ? ChevronRight : ChevronDown" class="h-4 w-4 shrink-0 self-center text-muted-foreground" aria-hidden="true" />
+                <span class="truncate text-lg font-semibold">{{ group.name || 'Other services' }}</span>
+                <span :class="['shrink-0 text-sm font-normal', groupStatusClass(group.status)]">{{ groupStatusLabel(group.status) }}</span>
+                <span class="shrink-0 text-xs font-normal text-muted-foreground" :data-testid="`status-group-counts-${group.name || 'outros'}`">{{ groupCounts(group.summary) }}</span>
+              </button>
+            </h2>
             <!-- Fork: the labels of the periods appear once per group, aligned with the columns of each row -->
-            <dl class="hidden shrink-0 grid-cols-3 text-xs text-muted-foreground sm:grid" aria-hidden="true">
+            <dl v-if="!collapsedGroups.has(group.name || '')" class="hidden shrink-0 grid-cols-3 text-xs text-muted-foreground sm:grid" aria-hidden="true">
               <dt v-for="period in UPTIME_PERIODS" :key="period" class="w-16 text-right">{{ period }}</dt>
             </dl>
           </div>
-          <ul class="divide-y dark:divide-gray-800">
-            <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" :slug="slug" />
-          </ul>
+          <!-- The panel always exists, so that aria-controls points to something; the rows of a collapsed group do not -->
+          <div :id="`status-group-panel-${groupIndex}`">
+            <ul v-if="!collapsedGroups.has(group.name || '')" class="divide-y dark:divide-gray-800">
+              <EndpointRow v-for="endpoint in group.endpoints" :key="endpoint.name" :endpoint="endpoint" :group="group.name" :bars="bars" :slug="slug" />
+            </ul>
+          </div>
         </section>
       </template>
     </template>
@@ -81,8 +98,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Loading from '@/components/Loading.vue'
 import StatusSummary from '@/components/public/StatusSummary.vue'
+import { ChevronDown, ChevronRight } from 'lucide-vue-next'
 import EndpointRow from '@/components/public/EndpointRow.vue'
 import { SLUG_PATTERN, STATUS_LABELS } from '@/utils/statusPage'
+import { COLLAPSED, EXPANDED, groupCounts, isCollapsed, rememberedChoices, writeChoice } from '@/utils/statusPageGroups'
 
 const UPTIME_PERIODS = ['24h', '7d', '30d']
 
@@ -103,6 +122,51 @@ let refreshTimer = null
 let clockTimer = null
 let abortController = null
 let requestGeneration = 0
+
+// Collapsed groups, see utils/statusPageGroups.js. The maps are keyed by the raw name of the group, an empty string for
+// the one without name. visitChoices lives until the page is closed, with or without storage; rememberedChoices comes
+// from another visit and is resolved before each payload is shown; incidentCollapsed holds the groups that are not
+// operational and that the visitor collapsed, which only lasts until the next payload.
+const visitChoices = ref(new Map())
+const rememberedGroupChoices = ref(new Map())
+const incidentCollapsed = ref(new Set())
+let groupStorageKeys = null
+
+const collapsedGroups = computed(() => {
+  const collapsed = new Set()
+  for (const group of page.value?.groups || []) {
+    const name = group.name || ''
+    if (isCollapsed({
+      status: group.status,
+      visitChoice: visitChoices.value.get(name),
+      rememberedChoice: rememberedGroupChoices.value.get(name),
+      pageDefault: page.value.groupsCollapsed === true,
+      incidentCollapsed: incidentCollapsed.value.has(name)
+    })) {
+      collapsed.add(name)
+    }
+  }
+  return collapsed
+})
+
+const toggleGroup = (group) => {
+  const name = group.name || ''
+  if (group.status !== 'operational') {
+    // Allowed, but it does not stick: the next payload expands the group again, and nothing is remembered
+    const next = new Set(incidentCollapsed.value)
+    if (!next.delete(name)) {
+      next.add(name)
+    }
+    incidentCollapsed.value = next
+    return
+  }
+  const choice = collapsedGroups.value.has(name) ? EXPANDED : COLLAPSED
+  visitChoices.value = new Map(visitChoices.value).set(name, choice)
+  const key = groupStorageKeys?.get(name)
+  if (key) {
+    writeChoice(key, choice)
+  }
+}
 
 const slug = computed(() => (route.name === 'PublicStatusPage' ? String(route.params.slug || '') : ''))
 
@@ -181,7 +245,22 @@ const load = async () => {
     } else if (!response.ok || !(response.headers.get('Content-Type') || '').includes('application/json')) {
       errorMessage.value = 'Could not load the status page. It will refresh automatically.'
     } else {
-      page.value = await response.json()
+      // The keys and the remembered choices are resolved before the payload is shown, so that no group appears in one
+      // state and changes right after. Deriving the keys is asynchronous: after each await, a request that is not the
+      // current one anymore (another slug, another fetch of the same slug that answered 401 or 404, or the page closed)
+      // publishes nothing.
+      const payload = await response.json()
+      if (generation !== requestGeneration) {
+        return
+      }
+      const { hashes, remembered } = await rememberedChoices(currentSlug, payload.groups)
+      if (generation !== requestGeneration) {
+        return
+      }
+      groupStorageKeys = hashes
+      rememberedGroupChoices.value = remembered
+      incidentCollapsed.value = new Set()
+      page.value = payload
       errorMessage.value = ''
       document.title = page.value.title
     }
@@ -212,6 +291,10 @@ const featuredEndpoints = computed(() => (page.value && page.value.featured) || 
 
 watch(slug, () => {
   page.value = null
+  visitChoices.value = new Map()
+  rememberedGroupChoices.value = new Map()
+  incidentCollapsed.value = new Set()
+  groupStorageKeys = null
   errorMessage.value = ''
   state.value = 'loading'
   load()
@@ -225,6 +308,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // Invalidates a request that is still deriving the keys of the groups
+  requestGeneration++
   stopRefreshing()
   clearInterval(clockTimer)
   abortController?.abort()

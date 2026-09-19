@@ -37,8 +37,14 @@ admin:
 endpoints: []
 ```
 
-To generate `password-bcrypt-base64`, use [generate-admin-password.py](generate-admin-password.py), which only needs
-Python 3:
+These three blocks — a SQL storage, a login and `admin.enabled` — are the minimum. The default
+[config.yaml](../config.yaml) carries them commented out, and
+[.examples/docker-compose-admin](../.examples/docker-compose-admin) is a Docker Compose setup with nothing else.
+
+To generate `password-bcrypt-base64`, run `gatus password hash` (see [cli.md](cli.md#gatus-password-hash)). The value
+must be the base64 of a bcrypt hash: anything else — a plain password, a placeholder left in the file — makes the
+configuration invalid, which `gatus config validate` reports before the server is restarted. Without the binary at hand,
+[generate-admin-password.py](generate-admin-password.py) does the same and only needs Python 3:
 
 ```bash
 python3 docs/generate-admin-password.py --username admin   # asks for the password and prints the config.yaml block
