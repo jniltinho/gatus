@@ -67,7 +67,7 @@ Um grupo ou uma chave sem endpoint correspondente MUST NOT invalidar a página. 
 - **THEN** a configuração é inválida
 
 #### Scenario: Página sem seleção
-- **WHEN** uma página do YAML não tem `groups` nem `endpoints`
+- **WHEN** uma página do YAML não tem `groups`, nem `endpoints`, nem `featured`
 - **THEN** a configuração é inválida
 
 #### Scenario: Título com acentos
