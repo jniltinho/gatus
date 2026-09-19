@@ -129,10 +129,14 @@ OLD_IMAGE=jniltinho/gatus:$LAST_TAG NEW_IMAGE=<imagem candidata> test/e2e/upgrad
 
 ### 7. Depois da release: versões dos exemplos
 
-A versão aparece em exemplos que o usuário copia. Troque a anterior pela nova em todos e abra um PR de pós-release:
+A versão aparece em exemplos que o usuário copia. Troque só as referências de imagem e os nomes dos tarballs — frases que
+contam o que mudou numa versão ("restores on `v6.0.0`", link das notas) são história e ficam — e abra um PR de pós-release:
 
 ```bash
-grep -rln "${LAST_TAG#v}\|$LAST_TAG" README.md docs/*.md .examples   # README, docs/README.md, docs/status-pages.md e os composes
+OLD=${LAST_TAG#v}; NEW=${NEXT#v}
+grep -rlE "v$OLD|gatus_${OLD}_" README.md docs/*.md .examples | xargs sed -i -E \
+  "s#jniltinho/gatus:v$OLD#jniltinho/gatus:v$NEW#g; s#gatus_${OLD}_#gatus_${NEW}_#g; s#image\.tag=v$OLD#image.tag=v$NEW#g"
+grep -rnE "$OLD" README.md docs/*.md .examples   # o que sobrar deve ser só história
 ```
 
 Fora do repositório, o pacote `mariadb/` (`.env` e `Dockerfile`) também fixa a versão. Arquive a change do OpenSpec que
