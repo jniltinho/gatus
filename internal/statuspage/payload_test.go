@@ -64,15 +64,16 @@ func TestBuildPayload(t *testing.T) {
 
 // Mirror types of the public JSON: decoding with DisallowUnknownFields fails if any other field is published
 type allowedPayload struct {
-	Slug        string            `json:"slug"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Status      string            `json:"status"`
-	UpdatedAt   string            `json:"updatedAt"`
-	Truncated   bool              `json:"truncated"`
-	Summary     allowedSummary    `json:"summary"`
-	Featured    []allowedFeatured `json:"featured"`
-	Groups      []allowedGroup    `json:"groups"`
+	Slug            string            `json:"slug"`
+	Title           string            `json:"title"`
+	Description     string            `json:"description"`
+	Status          string            `json:"status"`
+	UpdatedAt       string            `json:"updatedAt"`
+	Truncated       bool              `json:"truncated"`
+	GroupsCollapsed bool              `json:"groupsCollapsed"`
+	Summary         allowedSummary    `json:"summary"`
+	Featured        []allowedFeatured `json:"featured"`
+	Groups          []allowedGroup    `json:"groups"`
 }
 
 // allowedSummary is the count of the endpoints of the page by status (fork)
@@ -92,6 +93,7 @@ type allowedFeatured struct {
 type allowedGroup struct {
 	Name      string            `json:"name"`
 	Status    string            `json:"status"`
+	Summary   allowedSummary    `json:"summary"`
 	Endpoints []allowedEndpoint `json:"endpoints"`
 }
 

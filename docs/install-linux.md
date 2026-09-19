@@ -13,7 +13,7 @@ Gatus is a single static binary: no runtime, no libraries, no container. This pa
 ## Install
 
 ```bash
-VERSION=6.0.2
+VERSION=6.1.0
 ARCH=amd64        # or arm64
 
 sudo useradd --system --home-dir /opt/gatus --shell /usr/sbin/nologin gatus
@@ -72,7 +72,7 @@ Copy [systemd/gatus.service](systemd/gatus.service) and start it:
 
 ```bash
 sudo curl -fsSL -o /etc/systemd/system/gatus.service \
-  https://raw.githubusercontent.com/jniltinho/gatus/v6.0.2/docs/systemd/gatus.service
+  https://raw.githubusercontent.com/jniltinho/gatus/v6.1.0/docs/systemd/gatus.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now gatus
 systemctl status gatus

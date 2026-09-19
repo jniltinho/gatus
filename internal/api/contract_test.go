@@ -111,7 +111,7 @@ func contractConfig(t *testing.T) *config.Config {
 	enabled, disabled, rateLimit := true, false, 0
 	statusPages := &pageconfig.Config{Enabled: &enabled, RateLimit: &rateLimit, Pages: []*pageconfig.Page{
 		{Slug: "infra", Title: "Infra", Description: "Public page", Groups: []string{"core"}, Featured: []string{"core_api"}, ShowMessages: true},
-		{Slug: "clients", Title: "Clients", Groups: []string{"core"}, Auth: &pageconfig.PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: hash("page-secret")}},
+		{Slug: "clients", Title: "Clients", Groups: []string{"core"}, GroupsCollapsed: true, Auth: &pageconfig.PageAuth{Username: "client", PasswordBcryptHashBase64Encoded: hash("page-secret")}},
 		{Slug: "hidden", Title: "Hidden", Groups: []string{"core"}, Enabled: &disabled},
 	}}
 	if err := statusPages.ValidateAndSetDefaults(); err != nil {

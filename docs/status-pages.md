@@ -43,6 +43,7 @@ status-pages:
 | `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
 | `show-certificate-expiration` | Optional, defaults to `false`. Shows below the name of each endpoint how many days are left until its TLS certificate expires, like the *Show Certificate Expiry* option of Uptime Kuma. |
 | `show-messages` | Optional, defaults to `false`. Shows, on the details page of each endpoint, the same table of checks as the dashboard, with the message and the origin of each result. Only the messages of pushes and heartbeats, the HTTP status of the checks (`HTTP 200`) and the [reason of a failure](#reason-of-a-failure) are published, never the errors of the checks. The message of a push is published as it was sent. |
+| `groups-collapsed` | Optional, defaults to `false`. The groups of the page start collapsed, each one showing its status and its counts; a visitor expands the ones they want. A group that is not operational always appears expanded, see [Collapsible groups](#collapsible-groups). |
 | `auth` | Optional. Requires a username and a password to see the page: `username` and `password-bcrypt-base64`. See [Login of a page](#login-of-a-page). |
 | `enabled` | Pages of the file: defaults to `true`. Pages managed through the web: defaults to `false`. |
 
@@ -100,6 +101,32 @@ Statuses:
 
 The uptime is shown as "—" when there was no check during the period. With SQLite, PostgreSQL and MySQL, the history older
 than 48 hours is aggregated per day, so the edges of the 7 and 30 day periods are approximate, as in the badges.
+
+## Collapsible groups
+
+The header of every group is a button that collapses and expands its endpoints, with the mouse, `Enter` or `Space`.
+Collapsed or not, the header shows the name of the group, its status and how many of its endpoints are in each state
+(`3 up`, `2 up · 1 down`), so a collapsed group still answers "is it fine?". The featured endpoints are not collapsible.
+
+Which state a group is shown in is decided again every time the page gets fresh data, in this order:
+
+1. **A group that is not operational is expanded.** A problem never starts hidden: not with `groups-collapsed: true`,
+   and not when the visitor had collapsed that group. A group whose endpoints have no data yet counts as not operational.
+2. Otherwise, **the choice of the visitor** for that group.
+3. Otherwise, the default of the page: collapsed with `groups-collapsed: true`, expanded without it.
+
+A visitor may collapse a group during an incident, but it does not stick: the next refresh opens it again, and it is not
+remembered. When the group recovers, the choice the visitor had made before applies again.
+
+- **The page refreshes every 60 seconds** and when its tab becomes visible again, over a payload cached for up to 30
+  seconds. A group that starts failing is opened on the next refresh, up to 90 seconds later — the same delay with which
+  the page shows any change. Meanwhile the collapsed header already shows the new status and counts of the last payload.
+- **The choice is remembered in the browser of the visitor**, per page and per group, and holds for the visit even when
+  the browser cannot store anything. What is stored is a SHA-256 of the slug and of the name of the group, never the
+  name itself, because a page can require a login and should leave no readable trace on a shared computer. The keys
+  need a secure context (HTTPS or localhost): over plain HTTP the choice lasts until the page is closed.
+- The preview of the administration shows what a new visitor sees: it ignores, and does not change, the choices stored
+  by the public page.
 
 ## Endpoint details page
 
@@ -214,7 +241,7 @@ curl -N -H 'Accept: text/event-stream' https://status.example.com/api/v1/status-
 ```json
 {
   "slug": "services", "title": "Services", "description": "External websites and APIs",
-  "status": "degraded", "updatedAt": "2026-09-14T19:30:00Z", "truncated": false,
+  "status": "degraded", "updatedAt": "2026-09-14T19:30:00Z", "truncated": false, "groupsCollapsed": false,
   "featured": [{
     "name": "github", "group": "sites", "status": "up",
     "uptime": {"24h": 1, "7d": 0.999, "30d": 0.998},
@@ -223,6 +250,7 @@ curl -N -H 'Accept: text/event-stream' https://status.example.com/api/v1/status-
   }],
   "groups": [{
     "name": "apis", "status": "degraded",
+    "summary": {"total": 3, "up": 2, "down": 1, "pending": 0, "unknown": 0},
     "endpoints": [{
       "name": "github-api", "status": "up",
       "uptime": {"24h": 0.9993, "7d": 0.998, "30d": null},
@@ -461,10 +489,16 @@ existing. Back up the database before switching versions. The `endpoint_response
 time chart is also ignored and can be dropped. Previous versions of the fork reject the pages managed through
 the web with `show-messages`: turn it off before going back.
 
+The same goes for `groups-collapsed`, from `v6.1.0`: a version before it marks a managed page that has the option as
+invalid and stops publishing it, so untick "Start with the groups collapsed" on those pages before going back, and do
+not restore on an older version a backup made with the option on. In the configuration file it is the opposite: an
+older version ignores `groups-collapsed` silently, and the page just opens expanded.
+
 ## End-to-end tests
 
 ```bash
 test/e2e/status-pages.sh
+test/e2e/status-page-groups.sh    # the collapsible groups, with Push endpoints to take a group down on demand
 ```
 
 Starts Gatus with a temporary SQLite database, basic auth and the administration, goes through the public page without

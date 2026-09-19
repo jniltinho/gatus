@@ -1,6 +1,11 @@
 package security
 
-import "time"
+import (
+	"encoding/base64"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 const (
 	// DefaultBasicSessionTTL is the default validity of the sessions of the login screen of security.basic
@@ -27,10 +32,23 @@ type BasicConfig struct {
 	SessionTTL time.Duration `yaml:"session-ttl,omitempty"`
 }
 
-// isValid returns whether the basic security configuration is valid or not
+// isValid returns whether the basic security configuration is valid or not. The password must be the base64 of a bcrypt
+// hash: a value that is not one can never match a password, and it used to be found only when the server started, as a
+// panic, after gatus config validate had called the configuration valid.
 func (c *BasicConfig) isValid() bool {
-	return len(c.Username) > 0 && len(c.PasswordBcryptHashBase64Encoded) > 0 &&
+	return len(c.Username) > 0 && isBcryptHashInBase64(c.PasswordBcryptHashBase64Encoded) &&
 		(c.SessionTTL == 0 || (c.SessionTTL >= MinimumBasicSessionTTL && c.SessionTTL <= MaximumBasicSessionTTL))
+}
+
+// isBcryptHashInBase64 returns whether the value is what gatus password hash prints: a bcrypt hash encoded in base64
+// with the URL alphabet
+func isBcryptHashInBase64(encoded string) bool {
+	hash, err := base64.URLEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+	_, err = bcrypt.Cost(hash)
+	return err == nil
 }
 
 // validateAndSetDefaults returns whether the basic security configuration is valid or not and sets default values

@@ -12,7 +12,7 @@ import (
 func TestConfig_ValidateAndSetDefaults(t *testing.T) {
 	validBasicConfig := &BasicConfig{
 		Username:                        "test",
-		PasswordBcryptHashBase64Encoded: "somevalue",
+		PasswordBcryptHashBase64Encoded: "JDJhJDA4JDFoRnpPY1hnaFl1OC9ISlFsa21VS09wOGlPU1ZOTDlHZG1qeTFvb3dIckRBUnlHUmNIRWlT",
 	}
 	validOIDCConfig := &OIDCConfig{
 		IssuerURL:    "testurl",

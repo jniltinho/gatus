@@ -353,3 +353,27 @@ func TestAdminRestorePasswordLimiter(t *testing.T) {
 	// The login is not blocked by the wrong passwords of the restores
 	env.expect(t, http.MethodGet, "/api/v1/admin/endpoints", "", "", http.StatusOK)
 }
+
+// TestAdminBackupAndRestore_GroupsCollapsed carries the groups-collapsed option of a status page through a backup and a
+// restore: the backup stores the whole definition, so the format does not change, and the restored page publishes it.
+func TestAdminBackupAndRestore_GroupsCollapsed(t *testing.T) {
+	source := newBackupTestEnvironment(t, nil)
+	source.expect(t, http.MethodPost, "/api/v1/admin/endpoints", "application/yaml", "name: site\ngroup: web\nenabled: false\ninterval: 1h\nurl: "+source.serverURL+"\nconditions:\n  - \"[STATUS] == 200\"\n", http.StatusCreated)
+	source.expect(t, http.MethodPost, "/api/v1/admin/status-pages", "application/yaml", "slug: web\ntitle: Web\ngroups: [web]\nenabled: true\ngroups-collapsed: true\n", http.StatusCreated)
+	_, plain := source.request(t, http.MethodPost, "/api/v1/admin/backup", "application/json", "{}", nil)
+	if !strings.Contains(string(plain), "groups-collapsed: true") {
+		t.Fatalf("expected the definition of the backup to carry groups-collapsed, got %s", plain)
+	}
+
+	target := newBackupTestEnvironment(t, nil)
+	plan := target.preview(t, plain, "", false, false)
+	target.expect(t, http.MethodPost, "/api/v1/admin/restore", "application/json", restoreBody(plain, "", false, false, plan.Fingerprint), http.StatusOK)
+	detail := target.expect(t, http.MethodGet, "/api/v1/admin/status-pages/web", "", "", http.StatusOK)
+	if !strings.Contains(string(detail), "groups-collapsed") {
+		t.Errorf("expected the restored definition to carry groups-collapsed, got %s", detail)
+	}
+	public := target.expect(t, http.MethodGet, "/api/v1/status-pages/web", "", "", http.StatusOK)
+	if !strings.Contains(string(public), `"groupsCollapsed":true`) {
+		t.Errorf("expected the restored page to publish groupsCollapsed, got %s", public)
+	}
+}

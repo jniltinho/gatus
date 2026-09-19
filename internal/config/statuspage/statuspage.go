@@ -214,6 +214,11 @@ type Page struct {
 	// are published, never their errors.
 	ShowMessages bool `yaml:"show-messages,omitempty" json:"show-messages,omitempty"`
 
+	// GroupsCollapsed makes the groups of the public page start collapsed. A group that is not operational is shown
+	// expanded whatever this says, so that a problem never starts hidden, and the choice of a visitor for a group is
+	// kept in their browser and wins over it. A null or omitted value means false.
+	GroupsCollapsed bool `yaml:"groups-collapsed,omitempty" json:"groups-collapsed,omitempty"`
+
 	// Auth requires a username and a password to view the page: with it, every route of the page answers 401 without
 	// the credential of this page (fork). Without it, the page stays public.
 	Auth *PageAuth `yaml:"auth,omitempty" json:"auth,omitempty"`
