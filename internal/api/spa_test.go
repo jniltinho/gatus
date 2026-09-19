@@ -109,7 +109,8 @@ func TestSinglePageApplication(t *testing.T) {
 }
 
 // The theme of the HTML follows a valid theme cookie or ui.dark-mode, dark by default, on the dashboard and on the
-// public status pages (fork)
+// public status pages (fork). data-default-theme carries the identifier of the default theme, "light" and no longer an
+// empty string for the light one; TestSPATheme covers ui.default-theme and the bio theme with the shared table.
 func TestSinglePageApplication_DefaultTheme(t *testing.T) {
 	for _, path := range []string{"/", "/login", "/status/services"} {
 		for name, scenario := range map[string]struct {
@@ -120,11 +121,11 @@ func TestSinglePageApplication_DefaultTheme(t *testing.T) {
 			expectedColor string
 		}{
 			"default":            {darkMode: nil, cookie: "", expectedClass: "dark", expectedDflt: "dark", expectedColor: "#030712"},
-			"light-config":       {darkMode: boolPointer(false), cookie: "", expectedClass: "", expectedDflt: "", expectedColor: "#f7f9fb"},
+			"light-config":       {darkMode: boolPointer(false), cookie: "", expectedClass: "", expectedDflt: "light", expectedColor: "#f7f9fb"},
 			"light-cookie":       {darkMode: nil, cookie: "theme=light", expectedClass: "", expectedDflt: "dark", expectedColor: "#f7f9fb"},
-			"dark-cookie":        {darkMode: boolPointer(false), cookie: "theme=dark", expectedClass: "dark", expectedDflt: "", expectedColor: "#030712"},
+			"dark-cookie":        {darkMode: boolPointer(false), cookie: "theme=dark", expectedClass: "dark", expectedDflt: "light", expectedColor: "#030712"},
 			"invalid-cookie":     {darkMode: nil, cookie: "theme=foo", expectedClass: "dark", expectedDflt: "dark", expectedColor: "#030712"},
-			"invalid-cookie-off": {darkMode: boolPointer(false), cookie: "theme=foo", expectedClass: "", expectedDflt: "", expectedColor: "#f7f9fb"},
+			"invalid-cookie-off": {darkMode: boolPointer(false), cookie: "theme=foo", expectedClass: "", expectedDflt: "light", expectedColor: "#f7f9fb"},
 		} {
 			t.Run(path+"/"+name, func(t *testing.T) {
 				uiConfig := ui.GetDefaultConfig()

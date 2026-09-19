@@ -299,3 +299,59 @@ func TestConfig_ValidateAndSetDefaults_DefaultFilterBy(t *testing.T) {
 		})
 	}
 }
+
+// TestConfig_DefaultTheme covers default-theme: the three themes, an invalid value, its precedence over dark-mode and
+// dark-mode alone, which keeps deciding between dark and light as before.
+func TestConfig_DefaultTheme(t *testing.T) {
+	enabled, disabled := true, false
+	for name, scenario := range map[string]struct {
+		defaultTheme string
+		darkMode     *bool
+		expected     string
+		expectedErr  error
+	}{
+		"nothing-set":           {expected: ThemeDark},
+		"dark-mode-off":         {darkMode: &disabled, expected: ThemeLight},
+		"dark-mode-on":          {darkMode: &enabled, expected: ThemeDark},
+		"bio":                   {defaultTheme: ThemeBio, expected: ThemeBio},
+		"light":                 {defaultTheme: ThemeLight, expected: ThemeLight},
+		"dark":                  {defaultTheme: ThemeDark, expected: ThemeDark},
+		"light-beats-dark-mode": {defaultTheme: ThemeLight, darkMode: &enabled, expected: ThemeLight},
+		"bio-beats-dark-mode":   {defaultTheme: ThemeBio, darkMode: &disabled, expected: ThemeBio},
+		"invalid":               {defaultTheme: "blue", expectedErr: ErrInvalidDefaultTheme},
+		"class-is-not-a-theme":  {defaultTheme: "theme-bio", expectedErr: ErrInvalidDefaultTheme},
+		"case-sensitive":        {defaultTheme: "Bio", expectedErr: ErrInvalidDefaultTheme},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := GetDefaultConfig()
+			cfg.DefaultTheme, cfg.DarkMode = scenario.defaultTheme, scenario.darkMode
+			err := cfg.ValidateAndSetDefaults()
+			if !errors.Is(err, scenario.expectedErr) {
+				t.Fatalf("expected error %v, got %v", scenario.expectedErr, err)
+			}
+			if err == nil && cfg.Theme() != scenario.expected {
+				t.Errorf("expected the default theme %s, got %s", scenario.expected, cfg.Theme())
+			}
+		})
+	}
+}
+
+// TestThemeClassAndColor keeps the classes mutually exclusive by construction: one class per theme, none for light,
+// and a value that is not a theme falls back to the light theme.
+func TestThemeClassAndColor(t *testing.T) {
+	classes := map[string]bool{}
+	for _, theme := range []string{ThemeDark, ThemeLight, ThemeBio} {
+		if !IsTheme(theme) {
+			t.Errorf("expected %s to be a theme", theme)
+		}
+		if class := ThemeClass(theme); len(class) > 0 {
+			if classes[class] {
+				t.Errorf("class %s is used by two themes", class)
+			}
+			classes[class] = true
+		}
+	}
+	if ThemeClass(ThemeLight) != "" || ThemeClass("blue") != "" || ThemeColor("blue") != ThemeColor(ThemeLight) || IsTheme("") {
+		t.Error("expected the light theme to have no class, and a value that is not a theme to fall back to it")
+	}
+}

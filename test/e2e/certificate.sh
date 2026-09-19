@@ -105,12 +105,12 @@ for _ in $(seq 1 60); do
 done
 curl -sf "$BASE/health" >/dev/null || { echo "Gatus did not start"; cat "$WORK/gatus.log"; exit 1; }
 
-# Fork: the theme is chosen by the theme cookie, like the theme button, because the operating system preference is not
+# Fork: the theme is chosen by the theme cookie, like the theme selector, because the operating system preference is not
 # followed (dark by default, see ui.dark-mode). It also applies the theme to the page that is already open.
 set_theme() {
   local session=$1 theme=$2
   "$session" cookies set theme "$theme" --url "$BASE" >/dev/null
-  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$theme' === 'dark')" >/dev/null 2>&1 || true
+  "$session" eval "document.cookie = 'theme=$theme; path=/; max-age=31536000; samesite=strict'; (() => { const themes = { dark: ['dark', '#030712'], light: ['', '#f7f9fb'], bio: ['theme-bio', '#f2f8fa'] }; const theme = themes['$theme'] ? '$theme' : 'light'; for (const name in themes) { if (themes[name][0]) { document.documentElement.classList.toggle(themes[name][0], name === theme) } } const meta = document.querySelector('meta[name=\"theme-color\"]'); if (meta) { meta.setAttribute('content', themes[theme][1]) } })()" >/dev/null 2>&1 || true
 }
 
 STEP=0

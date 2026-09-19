@@ -10,6 +10,7 @@ import (
 
 	"gatus/v5/internal/storage"
 	static "gatus/v5/web"
+	"github.com/TwiN/logr"
 )
 
 const (
@@ -35,6 +36,9 @@ var (
 	// ErrButtonValidationFailed is returned by Button.Validate when a button has no name or no link.
 	ErrButtonValidationFailed = errors.New("invalid button configuration: missing required name or link")
 
+	// ErrInvalidDefaultTheme is returned when default-theme is not one of the themes of the interface.
+	ErrInvalidDefaultTheme = errors.New("invalid default-theme value: must be 'dark', 'light', or 'bio'")
+
 	// ErrInvalidDefaultSortBy is returned by Config.ValidateAndSetDefaults when default-sort-by is set to something
 	// other than name, group or health.
 	ErrInvalidDefaultSortBy = errors.New("invalid default-sort-by value: must be 'name', 'group', or 'health'")
@@ -57,13 +61,66 @@ type Config struct {
 	Buttons             []Button `yaml:"buttons,omitempty"`              // Buttons to display below the header
 	CustomCSS           string   `yaml:"custom-css,omitempty"`           // Custom CSS to include in the page
 	DarkMode            *bool    `yaml:"dark-mode,omitempty"`            // DarkMode is a flag to enable dark mode by default
-	DefaultSortBy       string   `yaml:"default-sort-by,omitempty"`      // DefaultSortBy is the default sort option ('name', 'group', 'health')
-	DefaultFilterBy     string   `yaml:"default-filter-by,omitempty"`    // DefaultFilterBy is the default filter option ('none', 'failing', 'unstable')
-	LoginSubtitle       string   `yaml:"login-subtitle,omitempty"`       // LoginSubtitle is the subtitle displayed on the OIDC login page
+	// DefaultTheme is the theme used without a valid theme cookie: dark, light or bio. When it is not set, dark-mode
+	// decides between dark and light; when both are set, DefaultTheme wins (fork).
+	DefaultTheme    string `yaml:"default-theme,omitempty"`
+	DefaultSortBy   string `yaml:"default-sort-by,omitempty"`   // DefaultSortBy is the default sort option ('name', 'group', 'health')
+	DefaultFilterBy string `yaml:"default-filter-by,omitempty"` // DefaultFilterBy is the default filter option ('none', 'failing', 'unstable')
+	LoginSubtitle   string `yaml:"login-subtitle,omitempty"`    // LoginSubtitle is the subtitle displayed on the OIDC login page
 	//////////////////////////////////////////////
 	// Non-configurable - used for UI rendering //
 	//////////////////////////////////////////////
 	MaximumNumberOfResults int `yaml:"-"` // MaximumNumberOfResults to display on the page, it's not configurable because we're passing it from the storage config
+}
+
+// Identifiers of the themes of the interface: the values of the theme cookie and of default-theme. The same table
+// lives in web/app/public/index.html (inline script) and in web/app/src/utils/theme.js; the three are tested with
+// web/app/src/utils/theme.cases.json.
+const (
+	ThemeDark  = "dark"
+	ThemeLight = "light"
+	ThemeBio   = "bio"
+)
+
+// IsTheme returns whether the value is the identifier of a theme
+func IsTheme(value string) bool {
+	return value == ThemeDark || value == ThemeLight || value == ThemeBio
+}
+
+// ThemeClass returns the class of <html> of a theme: "dark", "theme-bio", or empty for the light theme and for a
+// value that is not a theme
+func ThemeClass(theme string) string {
+	switch theme {
+	case ThemeDark:
+		return "dark"
+	case ThemeBio:
+		return "theme-bio"
+	}
+	return ""
+}
+
+// ThemeColor returns the theme-color of the browser for a theme, the one of the light theme for a value that is not
+// a theme
+func ThemeColor(theme string) string {
+	switch theme {
+	case ThemeDark:
+		return "#030712"
+	case ThemeBio:
+		return "#f2f8fa"
+	}
+	return "#f7f9fb"
+}
+
+// Theme returns the identifier of the default theme: default-theme when it is set, otherwise the one of dark-mode,
+// which is dark when it is not configured either.
+func (cfg *Config) Theme() string {
+	if IsTheme(cfg.DefaultTheme) {
+		return cfg.DefaultTheme
+	}
+	if cfg.IsDarkMode() {
+		return ThemeDark
+	}
+	return ThemeLight
 }
 
 // IsDarkMode returns whether the dark theme is the default one. It is true when dark-mode is not configured.
@@ -148,6 +205,16 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 	if len(cfg.CustomCSS) == 0 {
 		cfg.CustomCSS = defaultCustomCSS
 	}
+	// The presence of dark-mode is looked at before its default is applied: afterwards it is always set
+	switch cfg.DefaultTheme {
+	case "":
+	case ThemeDark, ThemeLight, ThemeBio:
+		if cfg.DarkMode != nil {
+			logr.Warnf("[ui.ValidateAndSetDefaults] Both ui.default-theme and ui.dark-mode are set: ui.default-theme=%s is used", cfg.DefaultTheme)
+		}
+	default:
+		return ErrInvalidDefaultTheme
+	}
 	if cfg.DarkMode == nil {
 		cfg.DarkMode = &defaultDarkMode
 	}
@@ -184,15 +251,24 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 		return err
 	}
 	var buffer bytes.Buffer
-	return t.Execute(&buffer, ViewData{UI: cfg, Theme: "dark", DefaultTheme: "dark"})
+	return t.Execute(&buffer, NewViewData(cfg, ThemeDark))
 }
 
 // ViewData is the data handed to the index template when the HTML page of the application is rendered.
 type ViewData struct {
 	// UI is the UI configuration, from which the template takes the title, the texts, the icons and the custom CSS
 	UI *Config
-	// Theme is the theme the page is rendered with: "dark", or empty for the light theme
+	// Theme is the class of <html> of the theme the page is rendered with, see ThemeClass: "dark", "theme-bio", or
+	// empty for the light theme. The classes are mutually exclusive.
 	Theme string
-	// DefaultTheme is the theme of ui.dark-mode, used by the browser without a valid theme cookie (fork)
+	// ThemeColor is the theme-color of the browser for the theme the page is rendered with, see ThemeColor
+	ThemeColor string
+	// DefaultTheme is the identifier of the default theme (dark, light or bio), used by the browser without a valid
+	// theme cookie (fork)
 	DefaultTheme string
+}
+
+// NewViewData returns the data of the index template for a theme, which must be one of the identifiers
+func NewViewData(cfg *Config, theme string) ViewData {
+	return ViewData{UI: cfg, Theme: ThemeClass(theme), ThemeColor: ThemeColor(theme), DefaultTheme: cfg.Theme()}
 }

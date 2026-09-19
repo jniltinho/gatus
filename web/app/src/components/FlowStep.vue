@@ -84,11 +84,11 @@ const circleClasses = computed(() => {
     case 'failed':
       return `${baseClasses} bg-red-500 text-white border-red-600`
     case 'skipped':
-      return `${baseClasses} bg-gray-400 text-white border-gray-500`
+      return `${baseClasses} bg-statusgray-400 text-white border-statusgray-500`
     case 'not-started':
-      return `${baseClasses} bg-gray-200 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600`
+      return `${baseClasses} bg-statusgray-200 text-statusgray-500 border-statusgray-300 dark:bg-statusgray-700 dark:text-statusgray-400 dark:border-statusgray-600`
     default:
-      return `${baseClasses} bg-gray-200 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600`
+      return `${baseClasses} bg-statusgray-200 text-statusgray-500 border-statusgray-300 dark:bg-statusgray-700 dark:text-statusgray-400 dark:border-statusgray-600`
   }
 })
 
@@ -98,7 +98,7 @@ const incomingLineClasses = computed(() => {
   
   // If this step is skipped, the line should be dashed/gray
   if (props.step.status === 'skipped') {
-    return 'border-l-2 border-dashed border-gray-400 bg-transparent'
+    return 'border-l-2 border-dashed border-statusgray-400 bg-transparent'
   }
   
   // Otherwise, color based on previous step's status

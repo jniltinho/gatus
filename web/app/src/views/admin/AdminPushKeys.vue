@@ -17,7 +17,7 @@
           <Button variant="ghost" size="sm" class="-mt-1 shrink-0" data-testid="push-key-done" @click="created = null">Done</Button>
         </div>
         <div class="mt-2 flex gap-2">
-          <input :value="created.token" readonly class="h-10 w-full min-w-0 border border-input bg-background px-3 font-mono text-sm text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-testid="push-key-token" @focus="$event.target.select()" />
+          <input :value="created.token" readonly class="h-10 w-full min-w-0 border border-input bg-background px-3 font-mono text-sm text-foreground dark:border-gray-700 dark:text-gray-100" data-testid="push-key-token" @focus="$event.target.select()" />
           <Button variant="outline" class="w-24 shrink-0" data-testid="push-key-copy" @click="copyText(created.token)">{{ copied ? 'Copied' : 'Copy' }}</Button>
         </div>
         <p class="mt-2 break-all text-xs">Example: <span class="font-mono">{{ exampleUrl(created.token) }}</span></p>

@@ -46,6 +46,16 @@ security:
     password-bcrypt-base64: "$HASH"
 admin:
   enabled: true
+ui:
+  logo: /logo-192x192.png
+  header: "A rather long name of the monitoring service"
+  # A representative custom.css: an !important rule and the override of a variable of one theme only. custom.css is
+  # loaded before the stylesheet of the application, so a variable of a theme is overridden with !important (or with a
+  # more specific selector): with the same specificity, the rule of the application comes later and wins.
+  custom-css: |
+    .app-header { outline-color: rgb(1, 2, 3) !important; }
+    :root.theme-bio { --ring: 0 100% 50% !important; }
+    :root.dark { --e2e-plain-override: 1; --ring: 120 100% 50%; }
 external-endpoints:
 CONFIG
   push_endpoint apis gateway
@@ -65,6 +75,9 @@ status-pages:
       endpoints: [_solo]
     - slug: other
       title: "Other"
+      groups: [sites]
+    - slug: longtitle
+      title: "Availability of every service we run for our customers"
       groups: [sites]
     - slug: compact
       title: "Compact"
@@ -123,7 +136,7 @@ open_page() { # slug
 }
 set_theme() {
   browser cookies set theme "$1" --url "$BASE" >/dev/null
-  browser eval "document.cookie = 'theme=$1; path=/; max-age=31536000; samesite=strict'; document.documentElement.classList.toggle('dark', '$1' === 'dark')" >/dev/null 2>&1 || true
+  browser eval "document.cookie = 'theme=$1; path=/; max-age=31536000; samesite=strict'; (() => { const themes = { dark: ['dark', '#030712'], light: ['', '#f7f9fb'], bio: ['theme-bio', '#f2f8fa'] }; const theme = themes['$1'] ? '$1' : 'light'; for (const name in themes) { if (themes[name][0]) { document.documentElement.classList.toggle(themes[name][0], name === theme) } } const meta = document.querySelector('meta[name=\"theme-color\"]'); if (meta) { meta.setAttribute('content', themes[theme][1]) } })()" >/dev/null 2>&1 || true
 }
 
 echo "==> Starting dist/gatus"
@@ -272,6 +285,40 @@ browser wait 500 >/dev/null
 expect "no horizontal scrolling at 390 px" true "$(js "document.documentElement.scrollWidth <= window.innerWidth")"
 browser screenshot "$PRINTS/05-dark-390.png" >/dev/null
 browser set viewport 1280 900 >/dev/null
+
+step "Bio theme at 360 px: the theme selector and its open menu fit, with a logo and a long title"
+set_theme bio
+open_page longtitle
+browser set viewport 360 780 >/dev/null
+browser wait 500 >/dev/null
+expect "the bio theme is the only theme class" theme-bio "$(js 'Array.from(document.documentElement.classList).filter((name) => name === "dark" || name === "theme-bio").join(" ")')"
+expect "no horizontal scrolling at 360 px" true "$(js "document.documentElement.scrollWidth <= window.innerWidth")"
+browser click '[data-testid="public-theme-toggle"]' >/dev/null
+browser wait '[data-testid="public-theme-toggle-option-bio"]' >/dev/null || fail "the theme menu did not open"
+expect "the open menu is inside the window" true "$(js "(() => { const box = document.querySelector('[data-testid=\"public-theme-toggle-menu\"]').getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth && box.width > 0 })()")"
+expect "no horizontal scrolling with the menu open" true "$(js "document.documentElement.scrollWidth <= window.innerWidth")"
+expect "the theme in use is the checked option" true "$(js "document.querySelector('[data-testid=\"public-theme-toggle-option-bio\"]').getAttribute('aria-checked')")"
+browser screenshot "$PRINTS/05b-bio-360-menu.png" >/dev/null
+browser press Escape >/dev/null
+browser set viewport 1280 900 >/dev/null
+set_theme light
+
+step "ui.custom-css keeps working in the three themes, and can override a variable of one of them"
+for theme in light dark bio; do
+  set_theme "$theme"
+  open_page other
+  expect "the !important rule of custom.css in the $theme theme" "rgb(1, 2, 3)" "$(js "getComputedStyle(document.querySelector('.app-header')).outlineColor")"
+done
+expect "the variable overridden for the bio theme" "0 100% 50%" "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")"
+set_theme light
+open_page other
+[ "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")" != "0 100% 50%" ] || fail "the override of the bio theme leaked into the light theme"
+# The same rule as always: without !important, an override of a variable of the dark theme loses to the application
+set_theme dark
+open_page other
+expect "a custom property of custom.css that the application does not define" 1 "$(js "getComputedStyle(document.documentElement).getPropertyValue('--e2e-plain-override').trim()")"
+[ "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")" != "120 100% 50%" ] || fail "a plain override of a theme variable is not expected to win: did the order of the stylesheets change?"
+set_theme light
 
 step "Administration: the option of the form, and the preview with the default of the page"
 curl -s -o /dev/null -u "$USERNAME:$PASSWORD" -H 'Content-Type: application/json' -d '{"slug":"managed","title":"Managed","enabled":true,"groups":["apis","sites"]}' "$BASE/api/v1/admin/status-pages"

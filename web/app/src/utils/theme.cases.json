@@ -1,0 +1,262 @@
+{
+  "comment": "Cases of the theme rule, shared by the three implementations: internal/config/ui + internal/api (Go), the inline script of public/index.html and src/utils/theme.js. default is the default theme known by the page: null means that the attribute is absent.",
+  "themes": {
+    "dark": {
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    "light": {
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    "bio": {
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    }
+  },
+  "cases": [
+    {
+      "cookie": "dark",
+      "default": "dark",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "light",
+      "default": "dark",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "bio",
+      "default": "dark",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "",
+      "default": "dark",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "blue",
+      "default": "dark",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "DARK",
+      "default": "dark",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "theme-bio",
+      "default": "dark",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "dark",
+      "default": "light",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "light",
+      "default": "light",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "bio",
+      "default": "light",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "",
+      "default": "light",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "blue",
+      "default": "light",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "DARK",
+      "default": "light",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "theme-bio",
+      "default": "light",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "dark",
+      "default": "bio",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712"
+    },
+    {
+      "cookie": "light",
+      "default": "bio",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb"
+    },
+    {
+      "cookie": "bio",
+      "default": "bio",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "",
+      "default": "bio",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "blue",
+      "default": "bio",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "DARK",
+      "default": "bio",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "theme-bio",
+      "default": "bio",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa"
+    },
+    {
+      "cookie": "",
+      "default": "",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb",
+      "browserOnly": true
+    },
+    {
+      "cookie": "bio",
+      "default": "",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa",
+      "browserOnly": true
+    },
+    {
+      "cookie": "blue",
+      "default": "",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb",
+      "browserOnly": true
+    },
+    {
+      "cookie": "",
+      "default": null,
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712",
+      "browserOnly": true
+    },
+    {
+      "cookie": "bio",
+      "default": null,
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa",
+      "browserOnly": true
+    },
+    {
+      "cookie": "blue",
+      "default": null,
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712",
+      "browserOnly": true
+    },
+    {
+      "cookie": "",
+      "default": "{{ .DefaultTheme }}",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712",
+      "browserOnly": true
+    },
+    {
+      "cookie": "bio",
+      "default": "{{ .DefaultTheme }}",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa",
+      "browserOnly": true
+    },
+    {
+      "cookie": "blue",
+      "default": "{{ .DefaultTheme }}",
+      "theme": "dark",
+      "class": "dark",
+      "themeColor": "#030712",
+      "browserOnly": true
+    },
+    {
+      "cookie": "",
+      "default": "purple",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb",
+      "browserOnly": true
+    },
+    {
+      "cookie": "bio",
+      "default": "purple",
+      "theme": "bio",
+      "class": "theme-bio",
+      "themeColor": "#f2f8fa",
+      "browserOnly": true
+    },
+    {
+      "cookie": "blue",
+      "default": "purple",
+      "theme": "light",
+      "class": "",
+      "themeColor": "#f7f9fb",
+      "browserOnly": true
+    }
+  ]
+}

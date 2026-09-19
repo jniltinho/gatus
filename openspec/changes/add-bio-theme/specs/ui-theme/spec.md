@@ -53,7 +53,7 @@ A interface web MUST oferecer três temas: escuro (`dark`), claro (`light`) e Bi
 - **THEN** em cada passo o HTML tem só a classe do tema em uso, e a cor de tema do navegador acompanha
 
 ### Requirement: Cores da barra de rolagem pelo tema
-As cores da barra de rolagem MUST vir das variáveis do tema, com um tom de repouso e, onde o navegador permite estilizar o realce da barra, um tom mais forte ao passar o mouse. As cores MUST mudar junto com o tema claro e escuro, inclusive quando o visitante troca pelo botão de tema.
+As cores da barra de rolagem MUST vir das variáveis do tema, com um tom de repouso e, onde o navegador permite estilizar o realce da barra, um tom mais forte ao passar o mouse. As cores MUST mudar junto com o tema, entre quaisquer dois dos três temas, inclusive quando o visitante troca pelo seletor de tema.
 
 O tom de repouso MUST ter pelo menos 3:1 de contraste com a superfície de menor contraste de cada tema (os fundos claros das áreas com rolagem nos temas claro e Bio e o fundo das tabelas no escuro). Com `prefers-contrast: more`, o repouso e o realce MUST ficar mais fortes, com o realce acima do repouso. Com `forced-colors: active`, a barra MUST voltar às cores do sistema.
 
@@ -91,7 +91,7 @@ A troca de tema MUST ser feita por um seletor que mostra o tema em uso e oferece
 - **THEN** o menu aparece inteiro dentro da janela e a página não ganha rolagem horizontal
 
 ### Requirement: Cores do tema Bio
-O tema Bio MUST definir o texto, as superfícies, as bordas, os links, o anel de foco e os botões primários, e o texto MUST ter pelo menos 4,5:1 de contraste com a superfície do tema em que aparece, e as bordas de controles e o anel de foco pelo menos 3:1. O verde-água do tema MUST NOT ser cor de texto nem a única indicação de foco sobre superfícies claras. As cores de estado (no ar, fora, pendente, sem dados, e o passo pulado de uma suíte), inclusive as que hoje são tons de cinza, e as demais cores que não são cinza nem variável do tema MUST ser as mesmas do tema claro: para cada par de cor de estado e superfície, o contraste no tema Bio MUST ser maior ou igual ao do mesmo par no tema claro.
+O tema Bio MUST definir o texto, as superfícies, as bordas, os links, o anel de foco e os botões primários, e o texto MUST ter pelo menos 4,5:1 de contraste com a superfície do tema em que aparece, e as bordas de controles e o anel de foco pelo menos 3:1. O verde-água do tema MUST NOT ser cor de texto nem a única indicação de foco sobre superfícies claras. As cores de estado (no ar, fora, pendente, sem dados, e o passo pulado de uma suíte), inclusive as que hoje são tons de cinza, e as demais cores que não são cinza nem variável do tema MUST ser, no tema Bio, as mesmas do tema claro, e MUST continuar, nos temas claro e escuro, as que cada um tem hoje: para cada par de cor de estado e superfície, o contraste no tema Bio MUST ser maior ou igual ao do mesmo par no tema claro.
 
 #### Scenario: Medição
 - **WHEN** o contraste é medido por script sobre as telas no tema Bio
@@ -117,7 +117,7 @@ O gráfico de tempo de resposta MUST ler as cores de grade, texto e marcas das v
 - **THEN** a grade, o texto e as marcas do gráfico passam às cores do tema Bio, sem recarregar
 
 ### Requirement: HTML da interface varia com o cookie de tema
-As respostas HTML da interface, no dashboard e nas páginas públicas, em GET e em HEAD, MUST incluir `Cache-Control: no-cache` e `Vary: Cookie`, porque o tema entregue depende do cookie. As páginas protegidas por login próprio MUST manter `Cache-Control: private, no-store`.
+As respostas HTML da interface, no dashboard e nas páginas públicas, em GET e em HEAD, MUST incluir `Vary: Cookie`, porque o tema entregue depende do cookie, e `Cache-Control: no-cache` — exceto as páginas protegidas por login próprio, que MUST manter `Cache-Control: private, no-store` no lugar de `no-cache`, com o `Vary` que já têm mais `Cookie`.
 
 #### Scenario: Dois visitantes com temas diferentes
 - **WHEN** um visitante com `theme=bio` e outro com `theme=dark` pedem a mesma página através de um cache intermediário

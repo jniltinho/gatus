@@ -22,7 +22,7 @@
     <!-- Fork: the lists of the administration fill the window on larger screens and scroll inside their tables -->
     <div v-else-if="!config || !config.oidc || config.authenticated" :class="['relative', isAdminList && 'md:flex md:h-screen md:flex-col md:overflow-hidden']">
       <!-- Header -->
-      <header :class="['border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/60', isAdminList && 'md:shrink-0']">
+      <header :class="['app-header border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/60', isAdminList && 'md:shrink-0']">
         <div class="container mx-auto px-4 py-2 max-w-7xl">
           <div class="flex items-center justify-between">
             <!-- Logo and Title -->

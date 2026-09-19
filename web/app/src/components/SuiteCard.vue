@@ -203,4 +203,9 @@ onUnmounted(() => {
 .dark .suite-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* Fork: the bio theme has no dark class; its line is the navy of the theme */
+.theme-bio .suite-header {
+  border-bottom: 1px solid rgba(29, 60, 85, 0.1);
+}
 </style>

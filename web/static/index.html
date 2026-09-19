@@ -1,15 +1,24 @@
-<!doctype html><html lang="en" class="{{ .Theme }}" data-default-theme="{{ .DefaultTheme }}"><head><meta charset="utf-8"/><meta name="theme-color" content="{{ if eq .Theme `dark` }}#030712{{ else }}#f7f9fb{{ end }}"/><script>window.config = {logo: "{{ .UI.Logo }}", header: "{{ .UI.Header }}", dashboardHeading: "{{ .UI.DashboardHeading }}", dashboardSubheading: "{{ .UI.DashboardSubheading }}", link: "{{ .UI.Link }}", buttons: [], maximumNumberOfResults: "{{ .UI.MaximumNumberOfResults }}", defaultSortBy: "{{ .UI.DefaultSortBy }}", defaultFilterBy: "{{ .UI.DefaultFilterBy }}", loginSubtitle: "{{ .UI.LoginSubtitle }}"};{{- range .UI.Buttons}}window.config.buttons.push({name:"{{ .Name }}",link:"{{ .Link }}"});{{end}}
-      // Initialize theme immediately to prevent flash. Fork: same rule as utils/theme.js, a valid theme cookie or the
-      // default theme of the server (data-default-theme), dark when the template is not rendered (development server)
+<!doctype html><html lang="en" class="{{ .Theme }}" data-default-theme="{{ .DefaultTheme }}"><head><meta charset="utf-8"/><meta name="theme-color" content="{{ .ThemeColor }}"/><script>window.config = {logo: "{{ .UI.Logo }}", header: "{{ .UI.Header }}", dashboardHeading: "{{ .UI.DashboardHeading }}", dashboardSubheading: "{{ .UI.DashboardSubheading }}", link: "{{ .UI.Link }}", buttons: [], maximumNumberOfResults: "{{ .UI.MaximumNumberOfResults }}", defaultSortBy: "{{ .UI.DefaultSortBy }}", defaultFilterBy: "{{ .UI.DefaultFilterBy }}", loginSubtitle: "{{ .UI.LoginSubtitle }}"};{{- range .UI.Buttons}}window.config.buttons.push({name:"{{ .Name }}",link:"{{ .Link }}"});{{end}}
+      // Initialize theme immediately to prevent flash. Fork: same rule as utils/theme.js and as the server, tested with
+      // utils/theme.cases.json: a valid theme cookie (dark, light or bio) or the default theme of the server
+      // (data-default-theme), dark when the template is not rendered (development server) and light for a value that
+      // is not a theme, such as the empty one of the HTML of a previous version
       (function() {
+        var THEMES = {dark: ['dark', '#030712'], light: ['', '#f7f9fb'], bio: ['theme-bio', '#f2f8fa']};
         var root = document.documentElement;
         var cookie = /(?:^|;\s*)theme=([^;]*)/.exec(document.cookie || '');
         var theme = cookie ? cookie[1].trim() : '';
-        var defaultTheme = root.getAttribute('data-default-theme');
-        var dark = theme === 'dark' || theme === 'light' ? theme === 'dark' : (defaultTheme === null || defaultTheme.indexOf('{' + '{') !== -1 || defaultTheme === 'dark');
-        root.classList.toggle('dark', dark);
+        if (!THEMES.hasOwnProperty(theme)) {
+          var defaultTheme = root.getAttribute('data-default-theme');
+          theme = defaultTheme === null || defaultTheme.indexOf('{' + '{') !== -1 ? 'dark' : (THEMES.hasOwnProperty(defaultTheme) ? defaultTheme : 'light');
+        }
+        for (var name in THEMES) {
+          if (THEMES[name][0]) {
+            root.classList.toggle(THEMES[name][0], name === theme);
+          }
+        }
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) {
-          meta.setAttribute('content', dark ? '#030712' : '#f7f9fb');
+          meta.setAttribute('content', THEMES[theme][1]);
         }
       })();</script><title>{{ .UI.Title }}</title><meta http-equiv="X-UA-Compatible" content="IE=edge"/><meta name="viewport" content="width=device-width,initial-scale=1"/><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/><link rel="icon" type="image/png" sizes="32x32" href="{{ .UI.Favicon.Size32x32 }}"/><link rel="icon" type="image/png" sizes="16x16" href="{{ .UI.Favicon.Size16x16 }}"/><link rel="manifest" href="/manifest.json" crossorigin="use-credentials"/><link rel="shortcut icon" href="{{ .UI.Favicon.Default }}"/><link rel="preload" href="/fonts/inter-4-1-latin.woff2" as="font" type="font/woff2" crossorigin/><link rel="stylesheet" href="/css/custom.css"/><meta name="description" content="{{ .UI.Description }}"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/><meta name="apple-mobile-web-app-title" content="{{ .UI.Title }}"/><meta name="application-name" content="{{ .UI.Title }}"/><script defer="defer" src="/js/chunk-vendors.js"></script><script defer="defer" src="/js/app.js"></script><link href="/css/app.css" rel="stylesheet"></head><body><noscript><strong>Enable JavaScript to view this page.</strong></noscript><div id="app"></div></body></html>

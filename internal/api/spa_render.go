@@ -35,39 +35,33 @@ func renderSPA(uiConfig *ui.Config, headers func(c *echo.Context)) echo.HandlerF
 			return httpx.SendString(c, http.StatusInternalServerError, "Failed to parse template. This should never happen, because the template is validated on start.")
 		}
 		var body bytes.Buffer
-		if err := indexTemplate.Execute(&body, ui.ViewData{UI: uiConfig, Theme: themeFromRequest(c, uiConfig), DefaultTheme: defaultTheme(uiConfig)}); err != nil {
+		if err := indexTemplate.Execute(&body, ui.NewViewData(uiConfig, themeFromRequest(c, uiConfig))); err != nil {
 			logr.Errorf("[api.renderSPA] Failed to execute template: %s", err.Error())
 			return httpx.SendString(c, http.StatusInternalServerError, "Failed to execute template. This should never happen, because the template is validated on start.")
 		}
 		// The template depends on the theme cookie. The headers of the route come after, so that a page that requires a
 		// login can keep its HTML out of any shared cache (fork).
-		httpx.SetHeader(c, echo.HeaderCacheControl, "no-cache")
-		httpx.SetHeader(c, echo.HeaderContentType, "text/html")
+		setThemedHTMLHeaders(c)
 		headers(c)
 		return httpx.Send(c, http.StatusOK, body.Bytes())
 	}
 }
 
-// themeFromRequest returns the theme of a valid theme cookie (dark or light) or, without one, the theme of ui.dark-mode.
-// Fork: an invalid cookie is ignored, like in the browser (see web/app/src/utils/theme.js).
-func themeFromRequest(c *echo.Context, uiConfig *ui.Config) string {
-	var theme string
-	if cookie, err := c.Cookie("theme"); err == nil {
-		theme = cookie.Value
-	}
-	switch theme {
-	case "dark":
-		return "dark"
-	case "light":
-		return ""
-	}
-	return defaultTheme(uiConfig)
+// setThemedHTMLHeaders sets the headers of every HTML page of the interface. The HTML carries the class of the theme,
+// which comes from the theme cookie: it varies with the cookie, and a cache has to revalidate it. A page that requires
+// a login replaces no-cache with private, no-store afterwards.
+func setThemedHTMLHeaders(c *echo.Context) {
+	httpx.SetHeader(c, echo.HeaderCacheControl, "no-cache")
+	httpx.Vary(c, echo.HeaderCookie)
+	httpx.SetHeader(c, echo.HeaderContentType, "text/html")
 }
 
-// defaultTheme returns the theme configured in ui.dark-mode, dark by default
-func defaultTheme(uiConfig *ui.Config) string {
-	if uiConfig.IsDarkMode() {
-		return "dark"
+// themeFromRequest returns the identifier of the theme of a valid theme cookie (dark, light or bio) or, without one,
+// the default theme of the configuration. Fork: an invalid cookie is ignored, like in the browser (see
+// web/app/src/utils/theme.js).
+func themeFromRequest(c *echo.Context, uiConfig *ui.Config) string {
+	if cookie, err := c.Cookie("theme"); err == nil && ui.IsTheme(cookie.Value) {
+		return cookie.Value
 	}
-	return ""
+	return uiConfig.Theme()
 }

@@ -182,7 +182,7 @@ const tooltipStyle = computed(() => {
 
 const statusLabel = computed(() => STATUS_LABELS[props.endpoint.status]?.endpoint || STATUS_LABELS.unknown.endpoint)
 
-const dotClass = computed(() => ({ up: 'bg-green-500', pending: 'bg-yellow-400', down: 'bg-red-500' }[props.endpoint.status] || 'bg-gray-400'))
+const dotClass = computed(() => ({ up: 'bg-green-500', pending: 'bg-yellow-400', down: 'bg-red-500' }[props.endpoint.status] || 'bg-statusgray-400'))
 
 const statusTextClass = computed(() => ({
   up: 'text-green-700 dark:text-green-400',
