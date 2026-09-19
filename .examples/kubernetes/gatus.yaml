@@ -62,7 +62,7 @@ spec:
       serviceAccountName: gatus
       terminationGracePeriodSeconds: 5
       containers:
-        - image: jniltinho/gatus:v6.1.0
+        - image: jniltinho/gatus:v6.2.0
           imagePullPolicy: IfNotPresent
           name: gatus
           ports:

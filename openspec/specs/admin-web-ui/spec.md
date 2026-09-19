@@ -171,6 +171,10 @@ As telas de administração MUST seguir as convenções do projeto: Vue 3 com `<
 - **WHEN** o usuário usa o tema escuro
 - **THEN** as telas de administração são exibidas com as cores do tema escuro
 
+#### Scenario: Tema Bio
+- **WHEN** o usuário usa o tema Bio
+- **THEN** as telas de administração são exibidas com as cores do tema Bio, sem nenhuma variante do tema escuro aplicada
+
 ### Requirement: Testes ponta a ponta com agent-browser
 O repositório MUST ter um roteiro de testes ponta a ponta em `test/e2e/` que suba o Gatus local com SQLite temporário, `security.basic` e `admin.enabled`, e use o `agent-browser` para percorrer lista, criação, validação, teste, salvamento, edição, desabilitação, remoção e acesso sem credenciais (401), nos temas claro e escuro, salvando capturas de tela em `dist/prints/`. O diretório `dist/` MUST ser ignorado pelo git.
 

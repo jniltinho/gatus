@@ -29,4 +29,4 @@
 ## 5. Entrega
 
 - [x] 5.1 `docs/README.md` (tabela `ui`), `config.yaml` de exemplo, screenshots do tema, `AGENTS.fork.md`.
-- [ ] 5.2 PR com CI verde; release com notas em inglês, `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
+- [x] 5.2 PR com CI verde; release com notas em inglês, `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
