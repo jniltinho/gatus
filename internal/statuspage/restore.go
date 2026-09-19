@@ -42,7 +42,8 @@ func NormalizeDefinition(raw []byte) (*pageconfig.Page, []byte, error) {
 
 // ValidateRestore validates, without effects, a status page of a backup: its definition and its slug, which must not be
 // used by the configuration file, even when a managed status page already uses it. It returns the normalized page, its
-// definition and the selection warnings computed with refs.
+// definition and the selection warnings computed with refs, the one of a page truncated by
+// status-pages.maximum-endpoints-per-page included.
 func (s *Service) ValidateRestore(raw []byte, refs []EndpointRef) (*pageconfig.Page, []byte, []Warning, error) {
 	// Fork: a backup assembled from the reads of the administration carries the hash of the credential masked. The
 	// credential stored at the destination is merged before the validation, which would refuse the mask as an invalid
@@ -60,11 +61,13 @@ func (s *Service) ValidateRestore(raw []byte, refs []EndpointRef) (*pageconfig.P
 			return nil, nil, nil, fmt.Errorf("%w: %s is used by the configuration file", ErrSlugInUse, page.Slug)
 		}
 	}
-	return page, definition, selectionWarnings(page, refs), nil
+	_, limit := endpointsAndLimit()
+	return page, definition, withTruncationWarning(selectionWarnings(page, refs), Select(page, refs, limit), limit), nil
 }
 
 // SelectionWarnings returns the groups and endpoint keys selected by the page without match among the endpoints that
-// can be published
+// can be published, and the warning of a page truncated by status-pages.maximum-endpoints-per-page
 func SelectionWarnings(page *pageconfig.Page) []Warning {
-	return selectionWarnings(page, Endpoints())
+	refs, limit := endpointsAndLimit()
+	return withTruncationWarning(selectionWarnings(page, refs), Select(page, refs, limit), limit)
 }

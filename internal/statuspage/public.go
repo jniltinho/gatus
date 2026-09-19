@@ -23,6 +23,11 @@ const (
 
 	maximumConcurrentAssemblies = 4
 
+	// maximumPublicCacheEntries and maximumPublicCacheMemory bound the cache of the payloads of the pages and of the
+	// details of their endpoints
+	maximumPublicCacheEntries = 1000
+	maximumPublicCacheMemory  = 128 * 1024 * 1024
+
 	// maximumPublicEvents is the maximum number of latest events shown on the details page of an endpoint
 	maximumPublicEvents = 50
 )
@@ -60,8 +65,11 @@ var (
 	}
 
 	// publicCache holds the JSON payloads, and the unavailability of the payloads that failed to be assembled, by
-	// slug|revision|generation (and the endpoint key for the details pages)
-	publicCache = gocache.NewCache().WithMaxSize(1000).WithEvictionPolicy(gocache.LeastRecentlyUsed)
+	// slug|revision|generation (and the endpoint key for the details pages). It is bounded in entries and in bytes: a
+	// page of 1000 endpoints is a payload of about 4 MiB (TestMeasureEndpointLimit), so the number of entries alone
+	// would let a few dozen large pages hold gigabytes. Above the budget the least recently used payloads are
+	// discarded and assembled again when asked, which costs milliseconds.
+	publicCache = gocache.NewCache().WithMaxSize(maximumPublicCacheEntries).WithMaxMemoryUsage(maximumPublicCacheMemory).WithEvictionPolicy(gocache.LeastRecentlyUsed)
 
 	// assemblies deduplicates the concurrent assemblies of the same payload
 	assemblies singleflight.Group
@@ -95,7 +103,7 @@ func PublicPage(slug string) ([]byte, error) {
 func PublicPageOf(slug string, published Published) ([]byte, error) {
 	cacheKey := fmt.Sprintf("%s|%d|%d", slug, published.Revision, published.Generation)
 	return cachedAssembly(cacheKey, publicCacheTTL, slug, func() ([]byte, error) {
-		return assemble(published.Page, published.MaximumResults, time.Now())
+		return assemble(published.Page, published.MaximumResults, published.MaximumEndpoints, time.Now())
 	})
 }
 
@@ -118,7 +126,7 @@ func PublicEndpointDetailsOf(slug string, published Published, key string) ([]by
 	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return nil, ErrPageNotFound
 	}
-	ref, shown := findShownEndpoint(published.Page, key)
+	ref, shown := findShownEndpoint(published, key)
 	if !shown {
 		return nil, ErrPageNotFound
 	}
@@ -135,26 +143,14 @@ func IsEndpointShownOf(published Published, key string) bool {
 	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return false
 	}
-	_, shown := findShownEndpoint(published.Page, key)
+	_, shown := findShownEndpoint(published, key)
 	return shown
 }
 
-// IsEndpointShown returns whether the page with the given slug shows the endpoint with the given key
-func IsEndpointShown(slug, key string) bool {
-	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
-		return false
-	}
-	published, ok := Lookup(slug)
-	if !ok {
-		return false
-	}
-	_, shown := findShownEndpoint(published.Page, key)
-	return shown
-}
-
-// findShownEndpoint returns the endpoint with the given key among the endpoints shown on the page
-func findShownEndpoint(page *pageconfig.Page, key string) (EndpointRef, bool) {
-	for _, ref := range Select(page, Endpoints()).Refs() {
+// findShownEndpoint returns the endpoint with the given key among the endpoints shown on the page, with the limit
+// captured with it: an endpoint beyond the cut is not shown, and is therefore not served by any route of the page
+func findShownEndpoint(published Published, key string) (EndpointRef, bool) {
+	for _, ref := range Select(published.Page, Endpoints(), published.MaximumEndpoints).Refs() {
 		if ref.Key == key {
 			return ref, true
 		}
@@ -214,14 +210,14 @@ func cachedPayload(cache *gocache.Cache, cacheKey string) ([]byte, bool, error) 
 }
 
 // assemble reads the summaries of the endpoints selected by the page and encodes its public payload
-func assemble(page *pageconfig.Page, maximumResults int, now time.Time) ([]byte, error) {
+func assemble(page *pageconfig.Page, maximumResults, maximumEndpoints int, now time.Time) ([]byte, error) {
 	reader, ok := getSummaryReader()
 	if !ok {
 		return nil, errStorageNotSupported
 	}
-	selection := Select(page, Endpoints())
+	selection := Select(page, Endpoints(), maximumEndpoints)
 	if selection.Truncated {
-		logr.Warnf("[statuspage.assemble] Status page with slug=%s selects more than %d endpoints, only the first %d are shown", page.Slug, pageconfig.MaximumEndpoints, pageconfig.MaximumEndpoints)
+		logr.Warnf("[statuspage.assemble] Status page with slug=%s selects more than %d endpoints (status-pages.maximum-endpoints-per-page), only the first %d are shown", page.Slug, maximumEndpoints, maximumEndpoints)
 	}
 	summaries, err := reader.GetEndpointSummaries(selection.Keys(), maximumResults, now)
 	if err != nil {

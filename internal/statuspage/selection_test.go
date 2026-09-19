@@ -25,7 +25,7 @@ func TestSelect(t *testing.T) {
 		Groups:    []string{"database", "core", "spaced"},
 		Endpoints: []string{"zeta_worker", "_standalone", "alpha_cron", "core_api"},
 	}
-	selection := Select(page, refs)
+	selection := Select(page, refs, pageconfig.DefaultMaximumEndpointsPerPage)
 	var actual []string
 	for _, section := range selection.Sections {
 		var names []string
@@ -48,21 +48,21 @@ func TestSelect(t *testing.T) {
 
 func TestSelect_Truncated(t *testing.T) {
 	var refs []EndpointRef
-	for i := 0; i < pageconfig.MaximumEndpoints+5; i++ {
+	for i := 0; i < pageconfig.DefaultMaximumEndpointsPerPage+5; i++ {
 		refs = append(refs, EndpointRef{Key: fmt.Sprintf("core_ep-%03d", i), Name: fmt.Sprintf("ep-%03d", i), Group: "core"})
 	}
 	refs = append(refs, EndpointRef{Key: "database_postgres", Name: "postgres", Group: "database"})
-	selection := Select(&pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core", "database"}}, refs)
-	if !selection.Truncated || len(selection.Sections) != 1 || len(selection.Sections[0].Endpoints) != pageconfig.MaximumEndpoints {
-		t.Errorf("expected only the first %d endpoints of core, got %d sections (truncated=%v)", pageconfig.MaximumEndpoints, len(selection.Sections), selection.Truncated)
+	selection := Select(&pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core", "database"}}, refs, pageconfig.DefaultMaximumEndpointsPerPage)
+	if !selection.Truncated || len(selection.Sections) != 1 || len(selection.Sections[0].Endpoints) != pageconfig.DefaultMaximumEndpointsPerPage {
+		t.Errorf("expected only the first %d endpoints of core, got %d sections (truncated=%v)", pageconfig.DefaultMaximumEndpointsPerPage, len(selection.Sections), selection.Truncated)
 	}
-	if last := selection.Sections[0].Endpoints[pageconfig.MaximumEndpoints-1]; last.Name != "ep-199" {
+	if last := selection.Sections[0].Endpoints[pageconfig.DefaultMaximumEndpointsPerPage-1]; last.Name != "ep-399" {
 		t.Errorf("expected the endpoints to be truncated in display order, got last=%s", last.Name)
 	}
 }
 
 func TestSelect_NothingSelected(t *testing.T) {
-	selection := Select(&pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"missing"}}, []EndpointRef{{Key: "core_api", Name: "api", Group: "core"}})
+	selection := Select(&pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"missing"}}, []EndpointRef{{Key: "core_api", Name: "api", Group: "core"}}, pageconfig.DefaultMaximumEndpointsPerPage)
 	if len(selection.Sections) != 0 || selection.Truncated {
 		t.Errorf("expected an empty selection, got %+v", selection)
 	}

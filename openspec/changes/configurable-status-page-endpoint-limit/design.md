@@ -22,9 +22,9 @@ A página pública mostra "Showing the first 200 services" com `truncated: true`
 ### D1 — Dois números
 
 - `MaximumEndpointKeys = 1000`, constante: o teto de chaves que uma definição pode listar. É estrutural — limita o tamanho de uma definição — e não depende da configuração, porque `Parse` valida páginas gravadas sem ter a configuração à mão, e porque uma validação que dependesse de um valor ajustável voltaria a tirar páginas do ar quando ele baixasse.
-- `maximum-endpoints-per-page`, de 1 a 1000, padrão 200: quantos endpoints uma página mostra. O máximo do intervalo é igual ao teto para que o campo `endpoints` de uma definição válida possa ser exibido inteiro por alguma configuração. Isso **não** vale para a página toda: os grupos selecionam um inventário sem limite, e `featured` é uma lista à parte (mil chaves mais dez destaques distintos já passam de 1000). O limite de 50 é de grupos escolhidos explicitamente, não das seções que resultam.
+- `maximum-endpoints-per-page`, de 1 a 1000, padrão **400** (decisão do dono; era 200): quantos endpoints uma página mostra. Com 4,1 KB por endpoint, o padrão novo leva uma página cheia a cerca de 1,6 MB, 260 KB com gzip. O máximo do intervalo é igual ao teto para que o campo `endpoints` de uma definição válida possa ser exibido inteiro por alguma configuração. Isso **não** vale para a página toda: os grupos selecionam um inventário sem limite, e `featured` é uma lista à parte (mil chaves mais dez destaques distintos já passam de 1000). O limite de 50 é de grupos escolhidos explicitamente, não das seções que resultam.
 
-`MaximumEndpoints` continua existindo como o **padrão** do limite de exibição.
+A constante do padrão passa a se chamar `DefaultMaximumEndpointsPerPage` (400), para não ser confundida com o teto.
 
 ### D2 — O limite viaja com a captura da página
 
@@ -65,7 +65,7 @@ Como a validação usa o teto fixo (D1), uma página com 300 chaves é válida c
 
 - **Autorização divergente durante a recarga** → D2.
 - **Mais dados públicos por engano ao subir o limite** → D3, dito na documentação e nas notas.
-- **Custo de banda, de storage e de memória** → o cache de 30 s e o `singleflight` reduzem as montagens, mas não são uma garantia de "uma por página a cada 30 s": o cache de payloads guarda até 1000 entradas **sem teto de memória**, expulsa por quantidade, e os detalhes criam uma variante por sequência de resultados. Com payloads de 4 MB, 1000 entradas seriam gigabytes. A tarefa 4.3 mede memória e concorrência com várias páginas e detalhes, não só uma página, e a change só sai com uma proteção definida a partir da medição — um orçamento em bytes para o cache, um teto menor, ou os dois. A banda é de quem configura; o limitador por IP não muda.
+- **Custo de banda, de storage e de memória** → o cache de 30 s e o `singleflight` reduzem as montagens, mas não são uma garantia de "uma por página a cada 30 s": o cache de payloads guarda até 1000 entradas **sem teto de memória**, expulsa por quantidade, e os detalhes criam uma variante por sequência de resultados. Com payloads de 4 MB, 1000 entradas seriam gigabytes. A tarefa 4.3 mede memória e concorrência com várias páginas e detalhes, não só uma página, e a change só sai com uma proteção definida a partir da medição — um orçamento em bytes para o cache, um teto menor, ou os dois. A banda é de quem configura; o limitador por IP não muda. **Medido na implementação** (`TestMeasureEndpointLimit`): ~3,9 KiB por endpoint, 3,9 MiB e ~20 ms por página de 1.000 endpoints. **Proteção adotada:** orçamento de 128 MiB no cache dos payloads, com expulsão LRU (`maximumPublicCacheMemory`, ao lado das 1000 entradas); acima dele o payload menos usado é remontado quando pedido, o que custa milissegundos. O teto de 1.000 fica.
 - **Definições maiores aceitas** (até 1000 chaves) → o tamanho de uma definição continua limitado pelo corpo máximo da administração (256 KiB) e pelo comprimento máximo de cada chave.
 
 ## Migration Plan
@@ -74,4 +74,4 @@ Opção nova e opcional, com o valor de hoje como padrão. Voltar de versão: a 
 
 ## Open Questions
 
-- **O teto de 1.000** depende da medição da tarefa 4.3.
+- ~~O teto de 1.000 depende da medição da tarefa 4.3.~~ Resolvida: a medição sustenta o teto, com o orçamento em bytes do cache e a recomendação de `groups-collapsed` para páginas com muitas centenas de endpoints.

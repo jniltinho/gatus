@@ -5,7 +5,7 @@ O arquivo de configuração MUST aceitar a seção opcional `status-pages` com:
 - `enabled` (booleano, padrão `true`);
 - `trusted-proxies` (lista de IPs ou CIDRs, padrão vazia);
 - `rate-limit` (inteiro não negativo, padrão `120`, `0` desliga o limite);
-- `maximum-endpoints-per-page` (inteiro de `1` a `1000`, padrão `200`): quantos endpoints uma página mostra;
+- `maximum-endpoints-per-page` (inteiro de `1` a `1000`, padrão `400`): quantos endpoints uma página mostra;
 - `pages` (lista de páginas).
 
 Cada página MUST aceitar `slug`, `title`, `description`, `groups`, `endpoints`, `show-certificate-expiration` (booleano, padrão `false`), `show-messages` (booleano, padrão `false`) e `enabled` (padrão `true` no YAML). Com `enabled: false` na seção, nenhuma página MUST ser publicada, e as rotas públicas MUST continuar respondendo como para uma página inexistente, sem `WWW-Authenticate`, com ou sem `security`.
@@ -98,7 +98,7 @@ Um grupo ou uma chave sem endpoint correspondente MUST NOT invalidar a página. 
 - **THEN** a carga registra um aviso de que as rotas por chave continuam públicas
 
 #### Scenario: Mais chaves do que o limite de exibição
-- **WHEN** uma definição lista 300 chaves de endpoint e `maximum-endpoints-per-page` é `200`
+- **WHEN** uma definição lista 500 chaves de endpoint e `maximum-endpoints-per-page` é `400`
 - **THEN** a definição é válida, no arquivo de configuração, na administração e num restore
 
 #### Scenario: Acima do teto de chaves
@@ -130,7 +130,7 @@ Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`,
 - **THEN** `summary` é `{"total":16,"up":12,"down":2,"pending":1,"unknown":1}`
 
 #### Scenario: Contagem numa página truncada
-- **WHEN** a página `infra` seleciona 250 endpoints e os 200 publicados estão no ar
+- **WHEN** `maximum-endpoints-per-page` é `200`, a página `infra` seleciona 250 endpoints e os 200 publicados estão no ar
 - **THEN** o payload tem `truncated: true` com 200 endpoints
 - **AND** `summary.total` é 200 e `summary.up` é 200
 
@@ -148,12 +148,12 @@ Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`,
 - **THEN** o payload da primeira tem `groupsCollapsed: true` e o da segunda `groupsCollapsed: false`
 
 #### Scenario: Sem a opção
-- **WHEN** a seção `status-pages` não define `maximum-endpoints-per-page`, ou a configuração não tem a seção, e uma página seleciona 250 endpoints
-- **THEN** o payload tem 200 endpoints e `truncated: true`
+- **WHEN** a seção `status-pages` não define `maximum-endpoints-per-page`, ou a configuração não tem a seção, e uma página seleciona 450 endpoints
+- **THEN** o payload tem 400 endpoints e `truncated: true`
 
 #### Scenario: Limite maior
-- **WHEN** `maximum-endpoints-per-page` é `500` e a página `infra` seleciona 250 endpoints
-- **THEN** o payload traz os 250, com `truncated: false`
+- **WHEN** `maximum-endpoints-per-page` é `800` e a página `infra` seleciona 650 endpoints
+- **THEN** o payload traz os 650, com `truncated: false`
 
 #### Scenario: Limite menor depois de a página existir
 - **WHEN** uma página gerenciada seleciona 300 endpoints, e o limite passa de `500` a `200` numa recarga da configuração

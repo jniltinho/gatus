@@ -4,7 +4,7 @@ Uma página de status mostra no máximo 200 endpoints. O número protege uma rot
 
 ## What Changes
 
-1. **`status-pages.maximum-endpoints-per-page`**, inteiro de `1` a `1000`, padrão `200` (o comportamento de hoje). É global, porque o que ele protege é o servidor, não a página.
+1. **`status-pages.maximum-endpoints-per-page`**, inteiro de `1` a `1000`, padrão **`400`** — decisão do dono em 2026-09-19; hoje o limite é 200, fixo. É global, porque o que ele protege é o servidor, não a página.
 2. **Dois limites no lugar de um.** Hoje a mesma constante faz duas coisas: limita quantas chaves uma definição pode listar uma a uma (validação) e quantos endpoints a página mostra (exibição). Elas se separam:
    - **teto estrutural**, fixo em `1000` chaves, na validação das definições — do arquivo, gravadas, enviadas pela administração e restauradas de um backup;
    - **limite de exibição**, o configurável, aplicado na seleção dos endpoints da página.
@@ -12,7 +12,7 @@ Uma página de status mostra no máximo 200 endpoints. O número protege uma rot
 4. **Baixar o limite não tira página do ar.** Uma página que seleciona mais endpoints do que o limite em vigor continua válida e publicada, truncada, e a administração avisa.
 5. **Aviso dinâmico** na página pública: "Showing the first N services", com o N do payload, no lugar do "200" fixo.
 
-**Mudança de comportamento para quem não configurar nada:** uma definição com 201 a 1000 chaves escolhidas uma a uma, hoje recusada, passa a ser aceita e exibida truncada em 200. Nenhuma página que funciona hoje muda.
+**Mudança de comportamento para quem não configurar nada:** o limite sobe de 200 para 400. Uma página que hoje aparece truncada em 200 passa a mostrar até 400 endpoints — e esses endpoints passam a ser acessíveis nas rotas por endpoint da página. Uma definição com 201 a 1000 chaves escolhidas uma a uma, hoje recusada, passa a ser aceita. Quem quiser o comportamento antigo define `maximum-endpoints-per-page: 200`. As notas da release dizem as duas coisas.
 
 ## Capabilities
 

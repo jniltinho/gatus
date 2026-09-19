@@ -227,7 +227,6 @@ func endpointResponseTimeChartHandler(cfg *config.Config) echo.HandlerFunc {
 // no-store.
 func statusPageResponseTimeChartHandler(cfg *config.Config, notFound echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		slug := c.Param("slug")
 		published, captured := publishedStatusPage(c)
 		if !captured {
 			return notFound(c)
@@ -241,7 +240,7 @@ func statusPageResponseTimeChartHandler(cfg *config.Config, notFound echo.Handle
 			return sendStatusPageError(c, http.StatusBadRequest, responseTimeChartInvalidPeriodBody)
 		}
 		now := time.Now()
-		body, err := statuspage.PublicResponseTimeChart(slug, key, period, now, func(maximumResults int) ([]byte, error) {
+		body, err := statuspage.PublicResponseTimeChart(published, key, period, now, func(maximumResults int) ([]byte, error) {
 			return buildResponseTimeChart(cfg, key, period, maximumResults, now)
 		})
 		switch {

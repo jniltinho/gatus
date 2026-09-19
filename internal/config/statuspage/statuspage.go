@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -35,9 +36,19 @@ const (
 	// MaximumGroupLength is the maximum number of characters of a group name
 	MaximumGroupLength = 200
 
-	// MaximumEndpoints is the maximum number of endpoint keys selected by a page, and the maximum number of endpoints
-	// shown on a page
-	MaximumEndpoints = 200
+	// MaximumEndpointKeys is the maximum number of endpoint keys that a definition may list one by one. It is a
+	// structural limit of a definition and does not depend on the configuration: stored pages are validated without
+	// it at hand, and a limit that could be lowered would take them down.
+	MaximumEndpointKeys = 1000
+
+	// DefaultMaximumEndpointsPerPage is how many endpoints a page shows when status-pages.maximum-endpoints-per-page
+	// is not set
+	DefaultMaximumEndpointsPerPage = 400
+
+	// MinimumEndpointsPerPage and MaximumEndpointsPerPage bound status-pages.maximum-endpoints-per-page. The maximum is
+	// MaximumEndpointKeys, so that the endpoints field of any valid definition can be shown whole by some configuration.
+	MinimumEndpointsPerPage = 1
+	MaximumEndpointsPerPage = MaximumEndpointKeys
 
 	// MaximumEndpointKeyLength is the maximum length of an endpoint key
 	MaximumEndpointKeyLength = 400
@@ -92,6 +103,9 @@ var (
 	// ErrInvalidTrustedProxy is returned when an entry of trusted-proxies is neither an IP address nor a CIDR
 	ErrInvalidTrustedProxy = errors.New("status-pages.trusted-proxies entries must be IP addresses or CIDRs")
 
+	// ErrInvalidMaximumEndpointsPerPage is returned when maximum-endpoints-per-page is outside of its bounds
+	ErrInvalidMaximumEndpointsPerPage = fmt.Errorf("status-pages.maximum-endpoints-per-page must be between %d and %d", MinimumEndpointsPerPage, MaximumEndpointsPerPage)
+
 	// ErrInvalidRateLimit is returned when rate-limit is negative
 	ErrInvalidRateLimit = errors.New("status-pages.rate-limit must not be negative")
 
@@ -114,6 +128,12 @@ type Config struct {
 	// Defaults to DefaultRateLimit.
 	RateLimit *int `yaml:"rate-limit,omitempty"`
 
+	// MaximumEndpointsPerPage is how many endpoints a page shows, the featured ones first and then the sections in
+	// display order. The endpoints beyond it are not shown and are not reachable through the routes of the page
+	// either (details, chart, event stream, badges), so raising it publishes more endpoints. Defaults to
+	// DefaultMaximumEndpointsPerPage; between MinimumEndpointsPerPage and MaximumEndpointsPerPage.
+	MaximumEndpointsPerPage *int `yaml:"maximum-endpoints-per-page,omitempty"`
+
 	// Pages is the list of status pages defined in the configuration file
 	Pages []*Page `yaml:"pages,omitempty"`
 
@@ -134,6 +154,32 @@ func (c *Config) GetRateLimit() int {
 	return *c.RateLimit
 }
 
+// UnmarshalYAML decodes the section and refuses a maximum-endpoints-per-page that is not an integer: the YAML decoder
+// would otherwise truncate 2.5 to 2 without a word, and the limit decides what a page publishes.
+func (c *Config) UnmarshalYAML(node *yaml.Node) error {
+	type plain Config
+	if err := node.Decode((*plain)(c)); err != nil {
+		return err
+	}
+	if node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if value := node.Content[i+1]; node.Content[i].Value == "maximum-endpoints-per-page" && value.Tag != "!!int" && value.Tag != "!!null" {
+			return fmt.Errorf("%w: %q is not an integer", ErrInvalidMaximumEndpointsPerPage, value.Value)
+		}
+	}
+	return nil
+}
+
+// GetMaximumEndpointsPerPage returns how many endpoints a page shows. It is safe to call on a nil Config.
+func (c *Config) GetMaximumEndpointsPerPage() int {
+	if c == nil || c.MaximumEndpointsPerPage == nil {
+		return DefaultMaximumEndpointsPerPage
+	}
+	return *c.MaximumEndpointsPerPage
+}
+
 // TrustedProxyPrefixes returns the normalized trusted-proxies. It is safe to call on a nil Config.
 func (c *Config) TrustedProxyPrefixes() []netip.Prefix {
 	if c == nil {
@@ -148,6 +194,9 @@ func (c *Config) TrustedProxyPrefixes() []netip.Prefix {
 func (c *Config) ValidateAndSetDefaults() error {
 	if c.RateLimit != nil && *c.RateLimit < 0 {
 		return ErrInvalidRateLimit
+	}
+	if c.MaximumEndpointsPerPage != nil && (*c.MaximumEndpointsPerPage < MinimumEndpointsPerPage || *c.MaximumEndpointsPerPage > MaximumEndpointsPerPage) {
+		return ErrInvalidMaximumEndpointsPerPage
 	}
 	prefixes := make([]netip.Prefix, 0, len(c.TrustedProxies))
 	for _, trustedProxy := range c.TrustedProxies {
@@ -255,7 +304,7 @@ func (p *Page) ValidateAndSetDefaults() error {
 	normalizeKey := func(key string) string {
 		return strings.ToLower(strings.TrimSpace(key))
 	}
-	endpoints, err := normalizeList(p.Endpoints, MaximumEndpoints, MaximumEndpointKeyLength, normalizeKey)
+	endpoints, err := normalizeList(p.Endpoints, MaximumEndpointKeys, MaximumEndpointKeyLength, normalizeKey)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidEndpoints, err)
 	}

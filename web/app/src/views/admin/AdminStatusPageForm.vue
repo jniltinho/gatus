@@ -241,6 +241,7 @@
       @close="preview = null"
     >
       <div v-if="preview">
+        <p v-if="preview.truncated" class="mb-3 text-sm text-amber-800 dark:text-amber-300" data-testid="status-page-preview-truncated">Showing the first {{ preview.summary?.total ?? 0 }} services.</p>
         <p v-if="preview.groups.length === 0 && (preview.featured || []).length === 0" class="text-sm text-muted-foreground dark:text-gray-400">No endpoints selected.</p>
         <div v-if="(preview.featured || []).length" class="mb-4" data-testid="status-page-preview-featured">
           <h3 class="border-b pb-1 text-sm font-semibold text-foreground dark:border-gray-800 dark:text-gray-100">Featured</h3>
@@ -390,6 +391,7 @@ const warningMessage = (warning) => ({
   group: `Group ${warning.value} has no endpoints at the moment.`,
   endpoint: `Endpoint ${warning.value} does not exist at the moment.`,
   featured: `Featured endpoint ${warning.value} does not exist at the moment.`,
+  truncated: `The page selects more endpoints than status-pages.maximum-endpoints-per-page (${warning.value}): only the first ${warning.value} are shown, and the others cannot be opened from this page.`,
   charts: `The saved charts (${warning.value}) are no longer used: every endpoint of the page has a details page with its response time chart. Saving the page removes them.`
 }[warning.type] || `${warning.type}: ${warning.value}`)
 
