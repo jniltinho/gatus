@@ -2,7 +2,7 @@
 
 - [x] 1.1 Roteiro de cores computadas (D4): instância local com dados semeados; navegador, janela e condições de mídia fixos; transições e animações zeradas; espera por conteúdo estável; identificação estável dos elementos; lista explícita dos estados ativados (`hover`, `focus`, diálogos, menus, grupos recolhidos e expandidos, toasts, erros de formulário); cores, `opacity` e `background-image`, com `::before`/`::after`; temas claro e escuro, JSON por tela e por estado; rodar no `master` e guardar a referência.
 - [x] 1.2 `gray` por variáveis em `theme.extend.colors` (50 a 900, canais RGB, `<alpha-value>`), mesmos valores em `:root` e `:root.dark`; `make frontend-build`; rodar 1.1 de novo: nenhuma diferença, incluindo utilidades com opacidade, `hover:`, `dark:` e `@apply`. Diferença → rever D3 antes de seguir.
-- [ ] 1.3 Tokens de estado para "sem dados" e "pulado" (`EndpointRow.vue`, `Home.vue`, `FlowStep.vue`, `StepDetailsModal.vue`, `StatusBadge.vue` e os demais que a busca por estado achar), com o valor de cada tema existente e o tema `bio` usando os do claro; os 2 `bg-white`; remoção das 7 classes `gray-950` mortas (`LoginPage.vue`, `AdminEndpointForm.vue`, `AdminPushKeys.vue`). Tudo só com 1.1 sem diferença.
+- [x] 1.3 Família `statusgray` (cópia literal da escala) para "sem dados", a faixa "No data" e os passos "pulado" e "não iniciado" (`EndpointRow.vue`, `StatusSummary.vue`, `Home.vue`, `FlowStep.vue`, `StepDetailsModal.vue`), mantendo os pares `dark:`; remoção das 7 classes `dark:bg-gray-950` mortas. Os 2 `bg-white` de `AnnouncementBanner.vue` ficam literais: são etiquetas sobre a linha do tempo, brancas em qualquer tema claro. Roteiro de cores: 0 diferenças.
 
 ## 2. Três temas de ponta a ponta
 

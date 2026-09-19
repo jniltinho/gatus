@@ -193,7 +193,7 @@ const iconClasses = computed(() => {
   switch (props.step.status) {
     case 'success': return 'text-green-600 dark:text-green-400'
     case 'failed': return 'text-red-600 dark:text-red-400'
-    case 'skipped': return 'text-gray-600 dark:text-gray-400'
+    case 'skipped': return 'text-statusgray-600 dark:text-statusgray-400'
     default: return 'text-blue-600 dark:text-blue-400'
   }
 })

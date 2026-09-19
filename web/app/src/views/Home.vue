@@ -20,7 +20,7 @@
                 <span class="h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>{{ endpointSummary.pending }} pending
               </span>
               <span v-if="endpointSummary.unknown" class="inline-flex items-center gap-1.5 border px-2 py-1 text-muted-foreground dark:border-gray-700" data-testid="dashboard-summary-unknown">
-                <span class="h-2 w-2 rounded-full bg-gray-400" aria-hidden="true"></span>{{ endpointSummary.unknown }} no data
+                <span class="h-2 w-2 rounded-full bg-statusgray-400" aria-hidden="true"></span>{{ endpointSummary.unknown }} no data
               </span>
             </div>
             <Button

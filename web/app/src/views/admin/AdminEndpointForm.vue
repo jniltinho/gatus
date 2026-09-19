@@ -185,7 +185,7 @@
                   id="admin-push-url"
                   :value="pushUrl"
                   readonly
-                  class="h-10 w-full min-w-0 border border-input bg-muted/40 px-3 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  class="h-10 w-full min-w-0 border border-input bg-muted/40 px-3 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:text-gray-100"
                   data-testid="admin-push-url"
                   @focus="$event.target.select()"
                 />
@@ -200,14 +200,14 @@
             <div v-if="pushUrl">
               <span class="block text-sm font-medium text-foreground dark:text-gray-200">Example with curl</span>
               <div class="mt-1.5 flex gap-2">
-                <pre class="flex h-10 min-w-0 flex-1 items-center overflow-x-auto border bg-muted/40 px-3 font-mono text-xs text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-testid="admin-push-curl">{{ curlExample }}</pre>
+                <pre class="flex h-10 min-w-0 flex-1 items-center overflow-x-auto border bg-muted/40 px-3 font-mono text-xs text-foreground dark:border-gray-700 dark:text-gray-100" data-testid="admin-push-curl">{{ curlExample }}</pre>
                 <Button variant="outline" class="w-24 shrink-0" data-testid="admin-copy-push-curl" @click="copyText(curlExample, 'curl')">{{ copiedTarget === 'curl' ? 'Copied' : 'Copy' }}</Button>
               </div>
             </div>
 
             <div>
               <span class="block text-sm font-medium text-foreground dark:text-gray-200">With a global key</span>
-              <p class="mt-1.5 break-all border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-400" data-testid="admin-push-global-url">{{ globalKeyUrl }}</p>
+              <p class="mt-1.5 break-all border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground dark:border-gray-700 dark:text-gray-400" data-testid="admin-push-global-url">{{ globalKeyUrl }}</p>
               <p class="mt-1 text-xs text-muted-foreground dark:text-gray-400">Global keys are created in the Push keys tab of the administration.</p>
             </div>
           </div>
@@ -293,7 +293,7 @@
           :readonly="readOnly"
           spellcheck="false"
           data-testid="admin-yaml"
-          class="min-h-[24rem] w-full border border-input bg-background p-3 font-mono text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+          class="min-h-[24rem] w-full border border-input bg-background p-3 font-mono text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-gray-700 dark:text-gray-100"
         ></textarea>
       </div>
 

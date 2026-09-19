@@ -51,13 +51,13 @@ const bannerClass = computed(() => ({
   operational: 'border-green-300 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-100',
   degraded: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100',
   down: 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-900/30 dark:text-red-100'
-}[props.status] || 'border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200'))
+}[props.status] || 'border-statusgray-300 bg-statusgray-50 text-statusgray-800 dark:border-statusgray-700 dark:bg-statusgray-900 dark:text-statusgray-200'))
 
 const dotClass = computed(() => ({
   operational: 'bg-green-500',
   degraded: 'bg-amber-500',
   down: 'bg-red-500'
-}[props.status] || 'bg-gray-400'))
+}[props.status] || 'bg-statusgray-400'))
 
 const updatedLabel = computed(() => `Updated ${relativeTimeLabel(props.updatedAt, props.now)}`)
 </script>

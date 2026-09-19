@@ -45,7 +45,7 @@
               autocapitalize="none"
               spellcheck="false"
               required
-              class="h-10 w-full border border-input bg-background px-3 text-sm text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              class="h-10 w-full border border-input bg-background px-3 text-sm text-foreground dark:border-gray-700 dark:text-gray-100"
               data-testid="login-username"
             />
           </div>
@@ -58,7 +58,7 @@
               name="password"
               autocomplete="current-password"
               required
-              class="h-10 w-full border border-input bg-background px-3 text-sm text-foreground dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              class="h-10 w-full border border-input bg-background px-3 text-sm text-foreground dark:border-gray-700 dark:text-gray-100"
               data-testid="login-password"
             />
           </div>
