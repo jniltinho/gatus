@@ -1,2 +1,2 @@
-FROM jniltinho/gatus:v6.0.2
+FROM jniltinho/gatus:v6.1.0
 ADD config.yaml ./config/config.yaml
