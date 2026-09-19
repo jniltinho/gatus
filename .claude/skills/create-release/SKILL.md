@@ -1,11 +1,11 @@
 ---
 name: create-release
-description: Cria a tag de versão e a GitHub Release do fork jniltinho/gatus (tags v<versão-upstream>-fork.<N>), publica a imagem jniltinho/gatus no Docker Hub com make docker-release e ajusta as notas. Use quando pedirem para criar ou publicar uma release, gerar uma tag de versão ou publicar a imagem do fork.
+description: Cria a tag de versão e a GitHub Release de jniltinho/gatus (tags vX.Y.Z, SemVer simples), publica a imagem jniltinho/gatus no Docker Hub com make docker-release e ajusta as notas. Use quando pedirem para criar ou publicar uma release, gerar uma tag de versão ou publicar a imagem do fork.
 ---
 
-# Releases do fork jniltinho/gatus
+# Releases de jniltinho/gatus
 
-Esta skill guia o processo completo de criar a tag de versão, a GitHub Release e a imagem de container do fork.
+Esta skill guia o processo completo de criar a tag de versão, a GitHub Release e a imagem de container.
 
 ---
 
@@ -17,30 +17,24 @@ docker info | grep Username    # precisa de login no Docker Hub para publicar a 
 git status                     # precisa estar limpo
 git fetch origin --tags && git checkout master && git pull --ff-only
 
-# Última release do fork (ignora as tags do upstream, como v5.36.0)
-LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*-fork.*' 2>/dev/null || echo "none")
-echo "Última release do fork: $LAST_TAG"
+# Última release (a maior tag; até a v6.0.0 elas eram v5.36.0-fork.N)
+LAST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+echo "Última release: ${LAST_TAG:-none}"
 ```
 
 ---
 
 ## Esquema de versão
 
-`v<versão-upstream-base>-fork.<N>`: `v5.36.0-fork.1`, `v5.36.0-fork.2`, …
+SemVer simples, `vX.Y.Z`, a partir da `v6.0.0`. O projeto deixou de ser fork do TwiN/gatus, então a versão não segue mais a do upstream, e as tags `v5.36.0-fork.N` ficam só como histórico: nunca criar outra.
 
-- A base é a versão do upstream em que o fork está (o commit está em `UPSTREAM_BASE` no `Makefile`).
-- `N` começa em 1 e sobe a cada release sobre a mesma base.
-- Depois de sincronizar com uma versão nova do upstream (ex.: v5.37.0), volta a `v5.37.0-fork.1`.
-- Nunca criar tags `vX.Y.Z` sem o sufixo: elas pertencem ao upstream.
-- Pela precedência do SemVer, `v5.36.0-fork.1` ordena abaixo de `v5.36.0` (Renovate, `sort -V`).
+- **Z** (patch): correções, sem mudança de comportamento para quem opera.
+- **Y** (minor): recurso novo, compatível com a configuração e a API existentes.
+- **X** (major): mudança que exige ação de quem opera (configuração, API, linha de comando).
+- O módulo Go continua `gatus/v5`: nada fora de `internal/` é importável, então a versão maior da tag não precisa acompanhar.
 
 ```bash
-BASE=v5.36.0   # confira a base atual antes de continuar
-if [ "$LAST_TAG" = "none" ] || [ "${LAST_TAG%-fork.*}" != "$BASE" ]; then
-  NEXT="$BASE-fork.1"
-else
-  NEXT="$BASE-fork.$(( ${LAST_TAG##*-fork.} + 1 ))"
-fi
+NEXT=v6.0.1   # escolha pelo que mudou desde $LAST_TAG: git log --oneline "$LAST_TAG"..HEAD
 echo "Próxima versão: $NEXT"
 ```
 
@@ -77,7 +71,7 @@ O `release.yml` vai:
 
 1. Rodar os testes Go com race
 2. Rodar `make release-cross` → tarballs `linux/amd64` e `linux/arm64`
-3. Criar a GitHub Release com notas geradas a partir da tag anterior do fork e anexar os `.tar.gz`
+3. Criar a GitHub Release com notas geradas a partir da tag anterior e anexar os `.tar.gz`
 
 ### 4. Publicar a imagem no Docker Hub (desta máquina)
 
@@ -96,12 +90,12 @@ gh run list --workflow release.yml --limit 3
 gh release view "$NEXT"          # espere os assets aparecerem
 
 cat > "/tmp/release-notes-$NEXT.md" << 'NOTES'
-# Release vX.Y.Z-fork.N
+# Release vX.Y.Z
 
 ## ✨ Novidades
 - ...
 
-**Imagem:** `jniltinho/gatus:vX.Y.Z-fork.N` (linux/amd64, linux/arm64)
+**Imagem:** `jniltinho/gatus:vX.Y.Z` (linux/amd64, linux/arm64)
 
 **Full Changelog**: https://github.com/jniltinho/gatus/compare/vANTERIOR...vNOVA
 NOTES
@@ -117,7 +111,7 @@ docker buildx imagetools inspect "jniltinho/gatus:$NEXT"
 ```
 
 - Título igual a `$NEXT`, sem marca de pré-release
-- Assets: `gatus_X.Y.Z-fork.N_linux_amd64.tar.gz` e `gatus_X.Y.Z-fork.N_linux_arm64.tar.gz`
+- Assets: `gatus_X.Y.Z_linux_amd64.tar.gz` e `gatus_X.Y.Z_linux_arm64.tar.gz`
 - Imagem com as plataformas `linux/amd64` e `linux/arm64`; a tag `latest` não foi alterada
 - Link de Full Changelog correto
 

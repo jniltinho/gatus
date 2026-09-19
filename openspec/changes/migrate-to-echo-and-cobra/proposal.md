@@ -2,7 +2,7 @@
 
 O servidor HTTP do Gatus é o Fiber v2, que roda sobre o `fasthttp` e não sobre o `net/http` da biblioteca padrão. Isso cobra um preço em três lugares que o fork já sente:
 
-- **Tudo que é `net/http` precisa de adaptador.** O Prometheus (`promhttp`), o OIDC e o `g8` (o portão de autenticação) são `net/http`, e entram pelo `fiber/middleware/adaptor`, que converte a requisição a cada chamada (`security/config.go`, `security/admin.go`, `api/api.go`).
+- **Tudo que é `net/http` precisa de adaptador.** O Prometheus (`promhttp`), o OIDC e o `g8` (o portão de autenticação) são `net/http`, e entram pelo `fiber/middleware/adaptor`, que converte a requisição a cada chamada (`internal/security/config.go`, `internal/security/admin.go`, `internal/api/api.go`).
 - **O tempo real está amarrado ao `fasthttp`.** O canal de eventos usa `SetBodyStreamWriter`, com a regra de nunca tocar o `fiber.Ctx` dentro do escritor, e o prazo de escrita por requisição depende de um gancho do `fasthttp` (`server.HeaderReceived`) decidido **antes** do roteamento, pelo caminho cru.
 - **O `fasthttp` não fala HTTP/2** e reaproveita buffers entre requisições, o que obriga o `Immutable: true` que o próprio código explica num comentário.
 
@@ -16,7 +16,7 @@ Em três marcos, cada um entregue e publicado sozinho:
 
 1. **Linha de comando com Cobra** — o binário ganha comandos (`serve`, `version`, `config validate`, `password hash`, `healthcheck`), com `gatus` sem argumentos continuando a subir o servidor, como hoje. O `main.go` **continua na raiz do projeto**, fino, chamando `cmd.Execute()`, e os comandos ficam no pacote `cmd/`, um arquivo por comando — o layout que o próprio gerador do Cobra produz.
 2. **Echo v5 no lugar do Fiber** — mesmas rotas, mesmos corpos, mesmos cabeçalhos e mesmos códigos de status, sem `adaptor` e sem `fasthttp`.
-3. **Pacotes próprios do fork em `internal/`** — só os que o Gatus original não tem (`adminbackup`, `lifecycle`, `liveupdates`, `managedendpoint`, `push`, `pushkey`, `statuspage`), para não transformar cada sincronização com o upstream num conflito de caminho.
+3. **Todo o código Go em `internal/`** — o projeto deixou de ser fork (decisão do dono em 2026-09-19), então não há sincronização a proteger: todos os pacotes vão para `internal/`, e ficam fora só `main.go`, `cmd/`, `web/` (o `embed`) e `third_party/` (D7). A release que junta os três marcos é a `v6.0.0`, sem o sufixo `-fork.N`.
 
 Nada muda para quem usa: mesmas URLs, mesmo `config.yaml`, mesmas variáveis de ambiente, mesma imagem Docker com `ENTRYPOINT ["/gatus"]`.
 
@@ -27,5 +27,5 @@ Nada muda para quem usa: mesmas URLs, mesmo `config.yaml`, mesmas variáveis de 
 - **Specs novas:** `http-server` (o contrato que a troca não pode quebrar) e `command-line-interface`.
 - **Código:** `api/` (24 arquivos e 118 manipuladores), `security/` (4), `controller/` (1), 18 arquivos de teste com 56 requisições via `app.Test`, `main.go` e o pacote novo `cmd/`. `Makefile`, `Dockerfile`, `Dockerfile.release` e `.github/workflows` continuam construindo a raiz (`.`); só ganham os `-ldflags` da versão.
 - **Dependências:** entram `github.com/labstack/echo/v5` e `github.com/spf13/cobra`; saem `github.com/gofiber/fiber/v2` e `github.com/valyala/fasthttp`.
-- **Sincronização com o upstream:** é o custo real desta change. O Gatus original continua no Fiber, então toda mudança dele em `api/`, `security/` e `controller/` passa a ser portada à mão em vez de mesclada. Ver Risks no design.
+- **Sincronização com o upstream:** deixou de existir. Quando a change foi proposta este era o custo real dela; com a decisão de o projeto seguir por conta própria, o roteiro de sincronização sai do `AGENTS.fork.md` e o `make lint` passa a cobrir todo o código.
 - **Documentação:** `docs/README.md` (`web.read-buffer-size`), `AGENTS.fork.md` (as quatro notas que citam o Fiber), `README.md` e um `docs/cli.md` novo.

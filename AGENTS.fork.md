@@ -1,21 +1,19 @@
 # AGENTS.fork.md
 
-Rules for agents in the **jniltinho/gatus** fork. They complement the upstream [AGENTS.md](AGENTS.md); in case of conflict, these rules prevail.
+Rules for agents in **jniltinho/gatus**. The project started as a fork of TwiN/gatus and is now developed on its own: nothing is synced from or sent to the original repository. These rules complement [AGENTS.md](AGENTS.md); in case of conflict, these rules prevail.
 
 ## Required skills
 
 For any Go task, load `golang-how-to`, which selects the other `golang-*` skills in `.claude/skills/` (code style, naming, error handling, concurrency, database, testing, security, lint, among others). For releases, use `create-release`. To test the interface through the browser, use `agent-browser`.
 
-## Fork commands
+## Commands
 
-- `make lint` — `go vet ./...` and `gofmt` only on the Go files added or changed since `UPSTREAM_BASE` (do not reformat upstream code)
+- `make lint` — `go vet ./...` and `gofmt` on every Go file of the project (`third_party/` excluded)
 - `make fmt` — applies `gofmt` to those same files
 - `make build` — static binary in `dist/gatus`
-- `make release-cross VERSION=5.36.0-fork.1` — `linux/amd64` and `linux/arm64` tarballs in `dist/`
-- `make docker-release VERSION=5.36.0-fork.1` — publishes `jniltinho/gatus:v5.36.0-fork.1` (amd64 and arm64) to Docker Hub from the local machine; never publishes `latest`
+- `make release-cross VERSION=6.0.0` — `linux/amd64` and `linux/arm64` tarballs in `dist/`
+- `make docker-release VERSION=6.0.0` — publishes `jniltinho/gatus:v6.0.0` (amd64 and arm64) to Docker Hub from the local machine; never publishes `latest`
 - `make test` and the other targets of `AGENTS.md` still apply
-
-`UPSTREAM_BASE` (in the `Makefile`) is the upstream commit the fork is based on.
 
 ## Go module
 
@@ -29,10 +27,10 @@ The module path of the fork is `gatus/v5` (upstream: `github.com/TwiN/gatus/v5`)
 ## CI and releases
 
 - `.github/workflows/ci.yml`: `make lint`, `make build` and `go test ./... -race` (with `sudo`, because of the ICMP test).
-- `.github/workflows/release.yml`: triggered by `v*-fork.*` tags; builds the tarballs and the GitHub Release. It does not publish images.
+- `.github/workflows/release.yml`: triggered by `vX.Y.Z` tags; builds the tarballs and the GitHub Release. It does not publish images.
 - **Every release carries the two tarballs** (`gatus_<version>_linux_amd64.tar.gz` and `..._arm64.tar.gz`), like every release up to `fork.20`. The workflow uploads them to a release that already exists instead of failing, and the last step of the workflow fails if a package is missing. If a release is ever published without them, build with `make release-cross VERSION=<version>` from the tag and send them with `gh release upload <tag> dist/gatus_<version>_linux_amd64.tar.gz dist/gatus_<version>_linux_arm64.tar.gz --clobber`.
 - Order of a release: push the tag, let the workflow build and publish, then replace the generated notes with the handwritten ones (`gh release edit <tag> --notes-file <file>`). Writing the notes before the workflow finishes used to break it: `gh release create` refused an existing tag and the release ended up with no binary, which is what happened in `fork.21`, `fork.22` and `fork.23` (fixed afterwards).
-- Fork tags: `v<upstream-version>-fork.<N>`. Never create `vX.Y.Z` tags without the suffix.
+- Tags: plain SemVer, `vX.Y.Z`, starting at `v6.0.0`. The `v5.36.0-fork.N` tags are the history from when the project followed the upstream version; never create new ones. The Go module stays `gatus/v5`: it is not importable (everything lives in `internal/`), so the major version of the tag does not have to match it.
 - **Release notes are written in English**, like the rest of what the users of the fork read (interface, `README.md` and `docs/`). Commit messages, pull requests and the OpenSpec artifacts stay in Portuguese. Write the notes from what the user sees — what changed on the screen, what the administrator has to do, what the default is — and not from the names of the files that were touched.
 - Screens of the fork are published in [docs/screenshots](docs/screenshots): curated images, committed to the repository, linked from the `README.md`. They are captured by hand with `agent-browser` at 1280×900, from a local instance with `admin.enabled` and `security.basic`, and have to be retaken whenever a screen changes shape. The screenshots of `test/e2e/*.sh` are a different thing: they go to `dist/prints/`, which stays out of git.
 
@@ -43,12 +41,12 @@ Change: `openspec/changes/migrate-to-echo-and-cobra/` (milestone 2). The server 
 - **Go through `internal/httpx`, never through the same-named methods of `echo.Context`.** Several of them changed meaning in the move, silently: `c.Get("Origin")` reads the **store** of the request and is always nil (use `httpx.Header`) — a CSRF check built on it lets everything through; `c.Path()` is the **registered route** such as `/status/:slug` (use `httpx.Path`); `c.Scheme()` and `c.RealIP()` trust forwarded headers (use `httpx.IsTLS` and `httpx.RemoteIP`, and never set `Echo.IPExtractor`); `c.JSON` adds a line break (use `httpx.JSON`). The tests of `internal/httpx` demonstrate each trap against Echo itself.
 - **The body is read ahead by `httpx.BufferBody`**, which answers 413 above 4 MiB *before* the handler, with or without `Content-Length`. Echo's `BodyLimit` only notices a chunked body while it is read, and the push never reads its body. `httpx.Body` returns the same bytes as many times as it is asked: a middleware that inspects the body does not leave the handler with an empty one.
 - **A header set after the first byte is lost.** Fiber let a handler change the headers after another one had written the body; `net/http` does not. Set them before writing (`setBadgeCacheControl`), and render templates and charts into a buffer.
-- **Protection is a property of the group, not of the order of the registrations.** `api/api.go` has two groups under `/api`, public and protected. `app.Use` covers every route, whenever it is called. A group with middlewares registers its own 404, so an unknown path under `/api` still answers 401 without credentials.
+- **Protection is a property of the group, not of the order of the registrations.** `internal/api/api.go` has two groups under `/api`, public and protected. `app.Use` covers every route, whenever it is called. A group with middlewares registers its own 404, so an unknown path under `/api` still answers 401 without credentials.
 - **The static files are the route `/*`, never `middleware.Static`**: that middleware runs before the routes and would answer `/` with the raw template of the SPA. A directory is 404 (echo's handler redirects it to a trailing slash, which `RemoveTrailingSlash` removes again: a redirect loop).
 - `RemoveTrailingSlash` must be `e.Pre`. `RouterConfig.AutoHandleHEAD` stays off (it would open an event stream for a HEAD): use `httpx.GetAndHead`. The router stays the default one: it matches the escaped path and does not unescape the parameters, so every handler unescapes its key once; `UseEscapedPathForMatching` does the opposite of its name in v5.3.
 - The errors of the router are not `*echo.HTTPError` in v5: `httpErrorHandler` reads the status through `echo.HTTPStatusCoder`, and answers the bodies Fiber used to (`Cannot GET /x`).
 - `controller` runs a plain `http.Server`, a new one per cycle. `http.ErrServerClosed` is how it stops, never a fatal error — a reload stops the server. `Shutdown` closes the connections past its deadline, and `liveupdates.Close()` always comes before it.
-- **`api/contract_test.go` is the safety net**: 169 requests through a real TCP connection, compared with `api/testdata/http_contract.golden.json`. Record it again with `go test ./api/ -run TestHTTPContract -update-contract` and **read the diff**: every changed line is something a client can see.
+- **`internal/api/contract_test.go` is the safety net**: 169 requests through a real TCP connection, compared with `internal/api/testdata/http_contract.golden.json`. Record it again with `go test ./api/ -run TestHTTPContract -update-contract` and **read the diff**: every changed line is something a client can see.
 
 ## Command line
 
@@ -92,15 +90,15 @@ Change (archived): `openspec/changes/archive/2026-09-16-add-admin-backup-restore
 - The restore never calls `prepare(raw, key)` nor generates push tokens: masked secrets (`HasMaskedSecret`, every place written by `MaskSecrets`) and push endpoints without token are skipped. It never deletes items nor changes keys or slugs.
 - `pushkey.Restore` holds `pushkey.mutex` and then, through `managedendpoint.Service.EndpointTokenGuard`, `statesMutex`: a push key can never have the hash of the token of an endpoint (file, managed in any state or of the backup). `managedendpoint` never takes `pushkey.mutex`.
 - The fingerprint hashes the plaintext bytes, the options, `statuspage.Generation()` and the version and definition hash of each item: the apply answers 409 when anything changed. `ErrCycleInProgress` of an item skips the remaining ones.
-- `api/admin_backup.go`: the restore routes are exempted from the 256 KB limit of `adminRequestProtection` (3.5 MiB, below the 4 MiB of `httpx.MaximumBodySize`, which every request is held to before its handler runs) and require `application/json`; wrong passwords count in a limiter of their own (`security.NewFailureLimiter`, 15 minutes), never in the login limiter. The handler clears the `endpoint-status-*` cache after `Apply`.
+- `internal/api/admin_backup.go`: the restore routes are exempted from the 256 KB limit of `adminRequestProtection` (3.5 MiB, below the 4 MiB of `httpx.MaximumBodySize`, which every request is held to before its handler runs) and require `application/json`; wrong passwords count in a limiter of their own (`security.NewFailureLimiter`, 15 minutes), never in the login limiter. The handler clears the `endpoint-status-*` cache after `Apply`.
 - `managedendpoint.IsManagedUnavailable` tells an unavailable list from an empty one; backup, preview and apply answer 503 when any registry is unavailable.
 
 ## Public status pages
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/` (read `design.md` before touching these areas; documentation in `docs/status-pages.md`); specs in `openspec/specs/public-status-pages`, `status-page-*`.
 
-- The public payload only uses the types of `statuspage/payload.go`: never serialize `endpoint.Status` or `endpoint.Result` on a public route (hostname, errors and conditions would leak). The sanitization test decodes the JSON with `DisallowUnknownFields`.
-- The public routes (`/api/v1/status-pages/*` and `/status/*`) are in the unprotected group of `api/api.go`. The catch-all of `/api/v1/status-pages` is always registered: it is more specific than the 404 of the protected group, and a path reaching the security middleware would respond 401 and open the login prompt of the browser.
+- The public payload only uses the types of `internal/statuspage/payload.go`: never serialize `endpoint.Status` or `endpoint.Result` on a public route (hostname, errors and conditions would leak). The sanitization test decodes the JSON with `DisallowUnknownFields`.
+- The public routes (`/api/v1/status-pages/*` and `/status/*`) are in the unprotected group of `internal/api/api.go`. The catch-all of `/api/v1/status-pages` is always registered: it is more specific than the 404 of the protected group, and a path reaching the security middleware would respond 401 and open the login prompt of the browser.
 - Administration writes store to the database and **only after the commit** publish the snapshot with a new revision; the cache and `singleflight` use `slug|revision|generation`, never the database version.
 - The assembly is synchronous in the goroutine of the request and resolves the store reader on every assembly (a reload closes and replaces the store).
 - The limiter is our own and has no goroutine (a limiter with a goroutine of its own would leak one per reload) and only counts 404 responses.
@@ -112,18 +110,18 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-public-status-pages/
 
 Change: `openspec/changes/add-status-page-authentication/` (documentation in `docs/status-pages.md#login-of-a-page`).
 
-- `auth` in the definition (`config/statuspage`) holds the username and the bcrypt hash in base64, like `security.basic`. The plaintext password exists **only** in the document submitted by the administration: the definition is persisted with `yaml.Marshal` of the struct, so a password field there would reach the database, the YAML of the detail and the backup. `statuspage/credential.go` converts submission → definition before any parse.
+- `auth` in the definition (`internal/config/statuspage`) holds the username and the bcrypt hash in base64, like `security.basic`. The plaintext password exists **only** in the document submitted by the administration: the definition is persisted with `yaml.Marshal` of the struct, so a password field there would reach the database, the YAML of the detail and the backup. `internal/statuspage/credential.go` converts submission → definition before any parse.
 - Every read of the administration masks the hash with `********` (detail, YAML, validation, preview and list), and receiving the mask back means "keep the stored hash". The restore merges the credential of the destination **before** validating, because the mask is not a valid hash.
-- `api/status_page_auth.go` puts the middleware on **each** route of a page, never on the group nor on the catch-all: it resolves the slug once into `c.Locals` and the handlers use that capture. The 404 of a page comes before the challenge; the 404 of a key comes after it.
+- `internal/api/status_page_auth.go` puts the middleware on **each** route of a page, never on the group nor on the catch-all: it resolves the slug once into `c.Locals` and the handlers use that capture. The 404 of a page comes before the challenge; the 404 of a key comes after it.
 - Never reuse `isBrowserRequest` here: it omits `WWW-Authenticate` on purpose for the login screen of `security.basic`, and this page needs the dialog of the browser.
-- `statuspage/auth.go` keeps the order limiter → memory → bcrypt → failure. The memory is an HMAC with a key drawn at startup, with the length of each part as a prefix; the limiter is keyed by page and client IP; both are reset by `Load`.
+- `internal/statuspage/auth.go` keeps the order limiter → memory → bcrypt → failure. The memory is an HMAC with a key drawn at startup, with the length of each part as a prefix; the limiter is keyed by page and client IP; both are reset by `Load`.
 - The public SPA fetches the routes of the page with `credentials: 'same-origin'` (with `omit` the page would open empty after the dialog), and the badges of the details page point to the routes under the page. The routes by key of the original Gatus stay public.
 
 ## Push monitoring
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-push-monitoring/` (read `design.md` before touching these areas; documentation in `docs/push-monitoring.md`); spec in `openspec/specs/push-monitoring`.
 
-- The push route (`api/push.go`: `/api/push/:token`, `/api/push/:token/:key` and the catch-alls) is in the unprotected block of `api/api.go`, like the status pages: a path reaching the security middleware would respond 401. Inputs and responses must stay identical to the Uptime Kuma (`status`, `msg`, `ping` with the `parseFloat` rules, `{"ok":...}` bodies, 404 for every rejection).
+- The push route (`internal/api/push.go`: `/api/push/:token`, `/api/push/:token/:key` and the catch-alls) is in the unprotected block of `internal/api/api.go`, like the status pages: a path reaching the security middleware would respond 401. Inputs and responses must stay identical to the Uptime Kuma (`status`, `msg`, `ping` with the `parseFloat` rules, `{"ok":...}` bodies, 404 for every rejection).
 - `push.Resolver` resolves every push from atomic snapshots, never from the database: the YAML (`cfg.ExternalEndpoints` and `push.endpoints`), `managedendpoint` (push index published with the states) and `pushkey` (global keys, compared by SHA-256 hash, published only after the commit). Never log tokens or keys.
 - Heartbeats of Push endpoints run in the watchdog registry by key (`StartExternalEndpoint`), counting from the last accepted push (`lastPush`), not from the last stored result. Results of checks, pushes and heartbeats of a key are serialized by `lockEndpointResults`; pushes to registered endpoints go through `watchdog.SubmitEndpointResult`.
 - The message and the origin of a result are in the fork table `endpoint_result_messages` (`ON DELETE CASCADE`), not in `endpoint_results`. The public payloads of the status pages must never carry errors, and only the details payload of a page with `show-messages` carries `message` and `origin`.
@@ -135,11 +133,11 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-push-monitoring/` (r
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-mysql-storage/` (documentation in `docs/storage-mysql.md`); spec in `openspec/specs/mysql-storage`.
 
-- The queries of `storage/store/sql` keep the PostgreSQL placeholders (`$N`): `mysql_connector.go` translates them, emulates `INSERT ... RETURNING <column>` and aborts a transaction at its first failed statement, like PostgreSQL. Never write `?` in a query.
+- The queries of `internal/storage/store/sql` keep the PostgreSQL placeholders (`$N`): `mysql_connector.go` translates them, emulates `INSERT ... RETURNING <column>` and aborts a transaction at its first failed statement, like PostgreSQL. Never write `?` in a query.
 - What MySQL cannot run as written lives in `dialect_mysql.go` (`dialectQuery` for the upserts, early branches for the deletions of old rows). The schema is `specific_mysql.go`: foreign keys as table constraints (MySQL 8.4 ignores `REFERENCES` in a column), `VARCHAR(768)` keys, `MEDIUMTEXT`, `DATETIME(6)`, indexes inside `CREATE TABLE`.
 - Connections use `READ COMMITTED`; `InsertEndpointResult` and `InsertSuiteResult` retry deadlocks and lock wait timeouts up to 3 attempts.
 - Tests: `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL` (a user allowed to create databases: each test uses a database of its own). Local containers: `gatus-test-mysql` (mysql:8.4.11, port 53306) and `gatus-test-mariadb` (mariadb:10.11.19, port 53307). `conformance_test.go` compares every database with SQLite.
-- Do not run two `go test` processes of `storage/store/sql` at the same time with `GATUS_TEST_POSTGRES_URL`: the PostgreSQL database is shared and `Clear` removes the data of the other process.
+- Do not run two `go test` processes of `internal/storage/store/sql` at the same time with `GATUS_TEST_POSTGRES_URL`: the PostgreSQL database is shared and `Clear` removes the data of the other process.
 
 ## Real-time endpoint updates
 
@@ -147,11 +145,11 @@ Change (archived): `openspec/changes/archive/2026-09-16-realtime-endpoint-update
 
 - `liveupdates` keeps a sequence per key that never resets (not even on reload) and notifies subscribers through channels of capacity 1. `Publish` is only called after a result is stored: `watchdog.UpdateEndpointStatus`, `processExternalEndpointResult` and `SubmitEndpointResult`. `Forget` on rename and delete, `ForgetExcept` on a successful reload.
 - The events never carry data of the result: the frontend refetches through the usual routes. The public route checks `statuspage.IsEndpointShown` before anything else, to keep the identical 404.
-- `api/live_updates.go` limits 500 streams and 10 per IP. The handler **is** the loop of the stream: the slot and the subscription are released by a `defer` on every way out, a panic included; the client that left is `r.Context().Done()`; and the stream gives itself a write deadline of `liveupdates.StreamWriteTimeout` **before its first byte**, because the 15 seconds of `http.Server.WriteTimeout` would cut it — and the cut looks like a client that left. The tests of the streams run on a server with a write timeout of 300 ms, so any of them proves the deadline. The Gzip middleware must keep skipping the streams: its `Flush` would force `Content-Encoding: gzip`.
+- `internal/api/live_updates.go` limits 500 streams and 10 per IP. The handler **is** the loop of the stream: the slot and the subscription are released by a `defer` on every way out, a panic included; the client that left is `r.Context().Done()`; and the stream gives itself a write deadline of `liveupdates.StreamWriteTimeout` **before its first byte**, because the 15 seconds of `http.Server.WriteTimeout` would cut it — and the cut looks like a client that left. The tests of the streams run on a server with a write timeout of 300 ms, so any of them proves the deadline. The Gzip middleware must keep skipping the streams: its `Flush` would force `Content-Encoding: gzip`.
 - The server write timeout covers the whole streamed body: `controller` sets `HeaderReceived` so that only paths matched by `liveupdates.IsEventsPath` get `StreamWriteTimeout`. `compress` skips the same paths (it would buffer the stream).
 - `main.go` calls `liveupdates.Close()` before `controller.Shutdown()` (which uses `ShutdownWithTimeout`), and `Open()` before `controller.Handle`.
 - The details cache key of the public pages includes `liveupdates.Sequence(key)`.
-- `security/basic_auth.go` treats `Accept: text/event-stream` as a browser request (no `WWW-Authenticate`), because an `EventSource` cannot send custom headers.
+- `internal/security/basic_auth.go` treats `Accept: text/event-stream` as a browser request (no `WWW-Authenticate`), because an `EventSource` cannot send custom headers.
 - Frontend: `utils/liveUpdates.js` (`npm run test:unit`); on errors, only a CLOSED `EventSource` is reopened with backoff, never a CONNECTING one.
 
 ## Response time chart in the format of the Uptime Kuma
@@ -161,7 +159,7 @@ Change (archived): `openspec/changes/archive/2026-09-16-kuma-response-time-chart
 - The aggregates are in the fork table `endpoint_response_time_buckets` (minute for 24 h, hour for 7 days), written by `InsertEndpointResult` **after** the commit of the result, in a short transaction of its own (`insertResponseTimeBuckets`): a failure only loses the buckets and must never undo the result (PostgreSQL and `mysqlTx` abort the whole transaction on the first failed statement). The minimum and the maximum use `LEAST(COALESCE(current, new), COALESCE(new, current))` (scalar `MIN`/`MAX` on SQLite), because MySQL and SQLite return NULL with a NULL argument.
 - Only Up results of at least 1 ms (`Duration.Milliseconds() > 0`) enter the average, the minimum and the maximum. Timestamps are truncated in UTC.
 - Reads through the optional `store.ResponseTimeChartReader`; Recent uses a light query without the write-through cache. The memory store keeps the buckets in its own maps under the store lock.
-- `api/response_time_chart.go`: the protected route checks the key in memory, the public one uses `statuspage.IsEndpointShown` (identical 404) before validating `period` (400). The public payload is cached in `statuspage.chartCache`, separate from `publicCache`, with the sequence of `liveupdates` for Recent and the current minute for the other periods. Recent is limited to 100 results (50 on public pages).
+- `internal/api/response_time_chart.go`: the protected route checks the key in memory, the public one uses `statuspage.IsEndpointShown` (identical 404) before validating `period` (400). The public payload is cached in `statuspage.chartCache`, separate from `publicCache`, with the sequence of `liveupdates` for Recent and the current minute for the other periods. Recent is limited to 100 results (50 on public pages).
 - Frontend: `utils/responseTimeChart.js` ports `PingChart.vue` of the Uptime Kuma (the aggregates are walked from the newest, like the Kuma, and the series reversed); `npm run test:unit`. The chart exposes `data-period`, `data-line-points`, `data-down-columns` and `data-pending-columns` for the end-to-end tests.
 
 ## Thin scrollbar of the theme
@@ -191,18 +189,18 @@ Change (archived): `openspec/changes/archive/2026-09-17-self-host-inter-font/`; 
   - `inter-4-1-latin.woff2` — 48256 bytes — `3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`
   - `inter-4-1-latin-ext.woff2` — 85068 bytes — `34b9c504cab7a73e37b746343a449132e56cf7b5481af2cb81dc74dcff25c956`
 - Only the latin subsets are shipped: the other ones add more than 200 KB and the interface is in English. A name in Cyrillic or Greek falls back to the font of the system, as everything did before.
-- **Tabular figures** come from `font-variant-numeric: tabular-nums` on the `body`, plus `font-variant-numeric: inherit` on form controls, which the user agent resets through the `font` shorthand. The chart draws its labels on a canvas, so `ResponseTimeChart.vue` sets `ChartJS.defaults.font.family` from the computed font of the `body`; the SVG badges of `api/badge.go` are generated by the backend with their own stack and stay out of it.
+- **Tabular figures** come from `font-variant-numeric: tabular-nums` on the `body`, plus `font-variant-numeric: inherit` on form controls, which the user agent resets through the `font` shorthand. The chart draws its labels on a canvas, so `ResponseTimeChart.vue` sets `ChartJS.defaults.font.family` from the computed font of the `body`; the SVG badges of `internal/api/badge.go` are generated by the backend with their own stack and stay out of it.
 - `web/static_test.go` requires the two `woff2` and the licence in the embedded files, and `TestFontsAreServed` in `api` requires `200`, `Content-Type: font/woff2` and the `wOF2` signature. `test/e2e/status-pages.sh` requires a loaded `FontFace`, the download coming from Gatus and the pair of control of tabular figures.
 
 ## Login screen of security.basic
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (read `design.md` before touching these areas; documentation in `docs/admin-endpoints.md#login-screen`); specs in `openspec/specs/basic-login-page` and `admin-access-control`.
 
-- Only with `security.basic` without OIDC (`security.Config.UsesBasicLogin`). `security/basic_auth.go` is the authentication of `security.basic`: a login session (`gatus_session` cookie, `login_sessions` table with only the SHA-256 of the token) or `Authorization: Basic`, under the failure limiter of `security/limiter.go`.
+- Only with `security.basic` without OIDC (`security.Config.UsesBasicLogin`). `internal/security/basic_auth.go` is the authentication of `security.basic`: a login session (`gatus_session` cookie, `login_sessions` table with only the SHA-256 of the token) or `Authorization: Basic`, under the failure limiter of `internal/security/limiter.go`.
 - The authentication runs once per request and is kept in the locals: the middleware, `IsAuthenticated` (`/api/v1/config`) and `IsAdmin` reuse it, so a wrong password counts one failure and runs bcrypt once. Never check the password outside of `checkCredentials`, nor before `Blocked`.
 - Sessions are read from the store on every request, without cache and without goroutine: the login and the lookup that finds an expired session delete it. The credential fingerprint (username and hash) invalidates the sessions when the credential changes.
-- `security` cannot import `statuspage` (cycle through `config`): `api/auth.go` computes the client IP with `statuspage.ClientIP` and `status-pages.trusted-proxies` and stores it in `security.LocalsClientIP`, before `/api/v1/config`, the login routes and the protected router.
-- `POST /api/v1/auth/login` and `/logout` are always registered in the unprotected block (404 without basic login), with the origin rules of `api/admin_middleware.go`. Never log passwords or tokens.
+- `security` cannot import `statuspage` (cycle through `config`): `internal/api/auth.go` computes the client IP with `statuspage.ClientIP` and `status-pages.trusted-proxies` and stores it in `security.LocalsClientIP`, before `/api/v1/config`, the login routes and the protected router.
+- `POST /api/v1/auth/login` and `/logout` are always registered in the unprotected block (404 without basic login), with the origin rules of `internal/api/admin_middleware.go`. Never log passwords or tokens.
 - Frontend: `views/LoginPage.vue` (`meta.login`, no dashboard header), redirect validated by `utils/redirect.js` (`npm run test:unit`), calls to the protected API with `PROTECTED_API_HEADERS` and `notifyUnauthorized()` on 401 (`utils/auth.js`). Without these headers, a 401 carries `WWW-Authenticate: Basic` and the browser opens its native dialog.
 
 ## OpenSpec
@@ -216,27 +214,9 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (
 - Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
 - Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh`, `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`), `test/e2e/login.sh`, `test/e2e/admin-backup.sh` and `test/e2e/cli.sh` (no browser: the commands of the binary, the reload of the file of `--config` and SIGTERM, about a minute and a half because the configuration is only checked every 30 seconds). The scripts sign in through the login screen (`login_screen`), not with `set credentials`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
-## Syncing with upstream
+## Relationship with TwiN/gatus
 
-```bash
-git fetch upstream --tags
-git merge upstream/master
-# New upstream code comes with the old module path
-grep -rl --include='*.go' 'github.com/TwiN/gatus/v5' . | xargs -r sed -i 's#github.com/TwiN/gatus/v5#gatus/v5#g'
-gofmt -w $(git diff --name-only -- '*.go')
-```
-
-- Import conflicts (almost every Go file differs from upstream only by the module path): resolve them keeping the upstream content and apply the replacement above; check with `grep -rn 'github.com/TwiN/gatus/v5' --include='*.go' .` (no results) and `go build ./...`.
-- `go.mod`: keep `module gatus/v5`.
-- `go.mod`: keep the `replace` block of the TwiN modules (`third_party/github.com/TwiN/`). When the upstream requires another version of one of them, update its copy as described in `third_party/README.md` before `go mod tidy`; never remove the `replace` to download the module again.
-
-- Conflict in `web/static/`: accept either side and regenerate with `make frontend-install && make frontend-build`.
-- Workflows removed by the fork (`benchmark`, `labeler`, `publish-*`, `regenerate-static-assets`, `test`, `test-ui`): keep them removed.
-- `AGENTS.md`: accept the upstream version and keep the line pointing to this file.
-- `README.md`: the fork keeps a short README (summary, quick start and links); the full documentation of Gatus, taken from the upstream README, lives in `docs/README.md`. On a conflict or upstream change in `README.md`, keep the fork README and apply the upstream changes to `docs/README.md`, with the relative links one level up (`../.github/assets/`, `../.examples/`) and without the fork section. The upstream `AGENTS.md` rule "add to README.md" (alerting providers, for example) means `docs/README.md` in the fork.
-- Update `UPSTREAM_BASE` in the `Makefile` to the incorporated upstream commit and run `make lint test`.
-- MySQL storage: run the tests of `storage/store/sql` with `GATUS_TEST_MYSQL_URL` and `GATUS_TEST_MARIADB_URL`, and review the new upstream queries that use `RETURNING` with more than one column, `ON CONFLICT`, `LIMIT` in a subquery, `REFERENCES` in a column definition, `CREATE INDEX IF NOT EXISTS` or MySQL reserved words (quote them, like `"condition"`).
-- The next release uses the new upstream version as its base (`vX.Y.Z-fork.1`).
+The project no longer syncs with the original repository and sends nothing to it, so compatibility with the upstream tree is not a design constraint: packages can be moved, renamed and rewritten. Keep the `LICENSE` and the attribution to the original project. Every Go package lives in `internal/`; only `main.go`, `cmd/` and `web/` (the embedded static files) stay outside it.
 
 ## Commits and PRs
 
