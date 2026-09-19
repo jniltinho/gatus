@@ -6,6 +6,16 @@ DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 VERSION ?= dev
 DIST := dist
 RELEASE_ARCHS := amd64 arm64
+# Versão, commit e data gravados no binário, mostrados por `gatus version`
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+# Cada -X entre aspas simples, senão uma versão com espaço partiria o -ldflags; e só o alfabeto de uma versão é aceito,
+# porque o valor é interpolado num comando do shell
+LDFLAGS := -s -w -X 'gatus/v5/cmd.Version=$(VERSION)' -X 'gatus/v5/cmd.GitCommit=$(GIT_COMMIT)' -X 'gatus/v5/cmd.BuildDate=$(BUILD_DATE)'
+
+.PHONY: check-version
+check-version:
+	@printf '%s' '$(subst ','\'',$(VERSION))' | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]*$$' || { echo "VERSION inválida: use só letras, dígitos, ponto, hífen, sublinhado e +"; exit 1; }
 # Arquivos Go adicionados ou alterados pelo fork desde UPSTREAM_BASE (inclui os não commitados)
 FORK_GO_FILES = $(shell { git diff --name-only --diff-filter=ACMR $(UPSTREAM_BASE) -- '*.go'; git ls-files --others --exclude-standard -- '*.go'; } 2>/dev/null | sort -u)
 
@@ -15,7 +25,7 @@ install:
 
 .PHONY: run
 run:
-	ENVIRONMENT=dev GATUS_CONFIG_PATH=./config.yaml go run main.go
+	ENVIRONMENT=dev GATUS_CONFIG_PATH=./config.yaml go run .
 
 .PHONY: run-binary
 run-binary:
@@ -30,9 +40,9 @@ test:
 	go test ./... -cover
 
 .PHONY: build
-build:
+build: check-version
 	@mkdir -p $(DIST)
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o $(DIST)/$(BINARY) .
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/$(BINARY) .
 
 .PHONY: check-upstream-base
 check-upstream-base:
@@ -53,11 +63,11 @@ lint: check-upstream-base vet
 	if [ -n "$$unformatted" ]; then echo "Arquivos precisando de gofmt (execute: make fmt):"; echo "$$unformatted"; exit 1; fi
 
 .PHONY: release-cross
-release-cross:
+release-cross: check-version
 	@rm -rf $(DIST)/pkg
 	@for arch in $(RELEASE_ARCHS); do \
 		mkdir -p $(DIST)/pkg/linux_$$arch && \
-		CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "-s -w" -o $(DIST)/pkg/linux_$$arch/$(BINARY) . && \
+		CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/pkg/linux_$$arch/$(BINARY) . && \
 		tar -czf $(DIST)/$(BINARY)_$(VERSION)_linux_$$arch.tar.gz -C $(DIST)/pkg/linux_$$arch $(BINARY) -C $(CURDIR) config.yaml LICENSE README.md && \
 		echo "  $(DIST)/$(BINARY)_$(VERSION)_linux_$$arch.tar.gz" || exit 1; \
 	done
@@ -75,8 +85,12 @@ docker-release:
 ##########
 
 .PHONY: docker-build
-docker-build:
-	docker build -t jniltinho/gatus:$(VERSION) .
+docker-build: check-version
+	docker build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
+		-t jniltinho/gatus:$(VERSION) .
 
 .PHONY: docker-run
 docker-run:

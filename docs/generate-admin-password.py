@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Generate the security.basic.password-bcrypt-base64 value of Gatus, without htpasswd.
 
+Since the binary has a command line, `gatus password hash` does the same without Python (see docs/cli.md). This script
+stays for whoever does not have the binary at hand.
+
 Equivalent to:
 
     htpasswd -bnBC 10 "" 'your-password' | tr -d ':\\n' | sed 's/$2y/$2a/' | base64 -w0 | tr '+/' '-_'

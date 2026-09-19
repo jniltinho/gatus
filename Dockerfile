@@ -4,7 +4,13 @@ RUN apk --update add ca-certificates
 WORKDIR /app
 COPY . ./
 RUN go mod tidy -diff
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o gatus .
+# Shown by `gatus version`
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-s -w -X 'gatus/v5/cmd.Version=${VERSION}' -X 'gatus/v5/cmd.GitCommit=${GIT_COMMIT}' -X 'gatus/v5/cmd.BuildDate=${BUILD_DATE}'" \
+    -o gatus .
 
 # Run Tests inside docker image if you don't have a configured go environment
 #RUN apk update && apk add --virtual build-dependencies build-base gcc
@@ -19,4 +25,6 @@ ENV GATUS_CONFIG_PATH=""
 ENV GATUS_LOG_LEVEL="INFO"
 ENV PORT="8080"
 EXPOSE ${PORT}
+# The image has no shell, so the binary checks itself: the address, the port and the TLS come from the configuration
+HEALTHCHECK --interval=30s --timeout=6s --start-period=30s --retries=3 CMD ["/gatus", "healthcheck"]
 ENTRYPOINT ["/gatus"]

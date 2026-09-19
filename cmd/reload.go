@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"gatus/v5/config"
@@ -19,8 +19,8 @@ func loadUpdatedConfiguration(current *config.Config, load func() (*config.Confi
 	if !current.SkipInvalidConfigUpdate {
 		panic(err)
 	}
-	logr.Errorf("[main.loadUpdatedConfiguration] Failed to load new configuration: %s", err.Error())
-	logr.Error("[main.loadUpdatedConfiguration] The configuration file was updated, but it is not valid. The current configuration will continue being used.")
+	logr.Errorf("[cmd.loadUpdatedConfiguration] Failed to load new configuration: %s", err.Error())
+	logr.Error("[cmd.loadUpdatedConfiguration] The configuration file was updated, but it is not valid. The current configuration will continue being used.")
 	// Update the last file modification time to avoid trying to process the same invalid configuration again
 	current.UpdateLastFileModTime()
 	return nil, false
