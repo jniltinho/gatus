@@ -47,6 +47,7 @@ import secrets
 import ssl
 import string
 import sys
+import time
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -66,6 +67,21 @@ TOKEN_LENGTH = 32
 
 # Endpoints of the configuration file cannot be changed through the administration
 SOURCE_CONFIG = "config"
+
+
+# How many times a request answered with 503 is sent, and the longest wait between two of them, in seconds
+UNAVAILABLE_ATTEMPTS = 8
+UNAVAILABLE_MAXIMUM_DELAY = 5.0
+
+
+def retry_delay(retry_after: str | None, attempt: int) -> float:
+    """The wait before repeating a request: Retry-After when Gatus sends it in seconds, otherwise 0.25s doubled at each
+    attempt, and never more than UNAVAILABLE_MAXIMUM_DELAY"""
+    try:
+        delay = float(retry_after) if retry_after else 0.25 * (2**attempt)
+    except ValueError:
+        delay = 0.25 * (2**attempt)
+    return max(0.0, min(delay, UNAVAILABLE_MAXIMUM_DELAY))
 
 
 class GatusError(Exception):
@@ -169,13 +185,21 @@ class Gatus:
             request.add_header(name, value)
         # Origin is not sent on purpose: Gatus only refuses an Origin that does not match the address it answers on,
         # which behind a reverse proxy is not the address used here. A request without Origin is not a CSRF risk.
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout, context=self.context) as response:
-                return response.status, decode(response.read())
-        except urllib.error.HTTPError as error:
-            return error.code, decode(error.read())
-        except urllib.error.URLError as error:
-            raise GatusError(f"{method} {path}: {error.reason}") from error
+        # Gatus applies each change in a cycle of its own and answers 503 to the changes that arrive meanwhile ("a start
+        # or configuration reload is in progress, try again later"), which a sequence of requests hits all the time.
+        # The request is safe to repeat: a 503 means that nothing was changed.
+        for attempt in range(UNAVAILABLE_ATTEMPTS):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout, context=self.context) as response:
+                    return response.status, decode(response.read())
+            except urllib.error.HTTPError as error:
+                body = decode(error.read())
+                if error.code != 503 or attempt == UNAVAILABLE_ATTEMPTS - 1:
+                    return error.code, body
+                time.sleep(retry_delay(error.headers.get("Retry-After"), attempt))
+            except urllib.error.URLError as error:
+                raise GatusError(f"{method} {path}: {error.reason}") from error
+        raise AssertionError("unreachable")
 
     def list_endpoints(self) -> list[dict]:
         status, body = self.request("GET", "/api/v1/admin/endpoints")

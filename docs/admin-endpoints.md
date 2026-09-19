@@ -230,6 +230,10 @@ keeps the password out of the shell history. Every subcommand that changes somet
 and `rename-group` accept `--dry-run`. `--timeout` and `--insecure` change the timeout of each request and skip the
 verification of the TLS certificate.
 
+Gatus applies each change in a cycle of its own and answers `503` to the changes that arrive meanwhile, which a
+sequence of registrations runs into. The script repeats a request answered with `503` up to 8 times, waiting what
+`Retry-After` says or, without it, from 0.25 to 5 seconds. A `503` means that nothing was changed, so repeating is safe.
+
 ### csv and import
 
 The CSV can be an inventory of hostnames, with the columns `Serviço`, `Ambiente`, `Hostname` and `Status` — the service
