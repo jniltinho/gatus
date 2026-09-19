@@ -335,7 +335,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
+    "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"truncated\":false,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
   },
   "admin status page create short password": {
     "status": 400,
@@ -359,7 +359,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"groups-collapsed\":true,\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\ngroups-collapsed: true\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"truncated\":false,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"groups-collapsed\":true,\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\ngroups-collapsed: true\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
   },
   "admin status page preview": {
     "status": 200,
@@ -410,7 +410,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
+    "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"truncated\":false,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":4,\"truncated\":false,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"truncated\":false,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
   },
   "admin status pages options": {
     "status": 200,

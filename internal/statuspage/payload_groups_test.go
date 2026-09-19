@@ -84,18 +84,18 @@ func TestBuildPayload_GroupSummaryWithoutData(t *testing.T) {
 func TestBuildPayload_GroupSummaryOfATruncatedPage(t *testing.T) {
 	now := time.Now()
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}}
-	refs := make([]EndpointRef, 0, pageconfig.MaximumEndpoints+50)
+	refs := make([]EndpointRef, 0, pageconfig.DefaultMaximumEndpointsPerPage+50)
 	summaries := make(map[string]*common.EndpointSummary, cap(refs))
 	for i := 0; i < cap(refs); i++ {
 		key := fmt.Sprintf("core_e%03d", i)
 		refs = append(refs, EndpointRef{Key: key, Name: key[5:], Group: "core"})
 		summaries[key] = &common.EndpointSummary{Results: []common.ResultSummary{{Timestamp: now, Success: true}}}
 	}
-	payload := BuildPayload(page, Select(page, refs), summaries, now)
+	payload := BuildPayload(page, Select(page, refs, pageconfig.DefaultMaximumEndpointsPerPage), summaries, now)
 	if !payload.Truncated {
 		t.Fatal("expected the page to be truncated")
 	}
-	if expected := (SummaryPayload{Total: pageconfig.MaximumEndpoints, Up: pageconfig.MaximumEndpoints}); payload.Groups[0].Summary != expected {
+	if expected := (SummaryPayload{Total: pageconfig.DefaultMaximumEndpointsPerPage, Up: pageconfig.DefaultMaximumEndpointsPerPage}); payload.Groups[0].Summary != expected {
 		t.Errorf("expected %+v, got %+v", expected, payload.Groups[0].Summary)
 	}
 }

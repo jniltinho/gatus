@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v3"
 )
 
 func TestValidateSlug(t *testing.T) {
@@ -69,7 +70,7 @@ func TestPage_ValidateAndSetDefaults(t *testing.T) {
 }
 
 func TestPage_ValidateAndSetDefaultsErrors(t *testing.T) {
-	manyEndpoints := make([]string, MaximumEndpoints+1)
+	manyEndpoints := make([]string, MaximumEndpointKeys+1)
 	for i := range manyEndpoints {
 		manyEndpoints[i] = fmt.Sprintf("core_endpoint-%d", i)
 	}
@@ -238,4 +239,67 @@ func TestPageAuth_HashWithTheURLAlphabet(t *testing.T) {
 		return
 	}
 	t.Skip("no hash with - or _ was generated")
+}
+
+func TestConfig_MaximumEndpointsPerPage(t *testing.T) {
+	if limit := (*Config)(nil).GetMaximumEndpointsPerPage(); limit != DefaultMaximumEndpointsPerPage {
+		t.Errorf("expected a nil config to answer the default of %d, got %d", DefaultMaximumEndpointsPerPage, limit)
+	}
+	if limit := (&Config{}).GetMaximumEndpointsPerPage(); limit != 400 {
+		t.Errorf("expected the default to be 400, got %d", limit)
+	}
+	scenarios := []struct {
+		yaml     string
+		expected int
+		invalid  bool
+	}{
+		{yaml: "enabled: true", expected: 400},
+		{yaml: "maximum-endpoints-per-page: 1", expected: 1},
+		{yaml: "maximum-endpoints-per-page: 200", expected: 200},
+		{yaml: "maximum-endpoints-per-page: 1000", expected: 1000},
+		{yaml: "maximum-endpoints-per-page: 0", invalid: true},
+		{yaml: "maximum-endpoints-per-page: -5", invalid: true},
+		{yaml: "maximum-endpoints-per-page: 1001", invalid: true},
+		{yaml: "maximum-endpoints-per-page: 2.5", invalid: true},
+		{yaml: "maximum-endpoints-per-page: many", invalid: true},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.yaml, func(t *testing.T) {
+			cfg := &Config{}
+			err := yaml.Unmarshal([]byte(scenario.yaml), cfg)
+			if err == nil {
+				err = cfg.ValidateAndSetDefaults()
+			}
+			if scenario.invalid {
+				if err == nil {
+					t.Fatal("expected the configuration to be refused")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected the configuration to be valid, got %v", err)
+			}
+			if limit := cfg.GetMaximumEndpointsPerPage(); limit != scenario.expected {
+				t.Errorf("expected %d, got %d", scenario.expected, limit)
+			}
+		})
+	}
+}
+
+// The number of keys of a definition is bounded by a fixed ceiling, not by maximum-endpoints-per-page: a definition
+// stays valid whatever the limit in force, and is shown truncated.
+func TestPage_MaximumEndpointKeys(t *testing.T) {
+	for _, count := range []int{200, 201, 1000, 1001} {
+		keys := make([]string, count)
+		for i := range keys {
+			keys[i] = fmt.Sprintf("core_endpoint-%d", i)
+		}
+		err := (&Page{Slug: "infra", Title: "t", Endpoints: keys}).ValidateAndSetDefaults()
+		if count <= MaximumEndpointKeys && err != nil {
+			t.Errorf("expected %d keys to be valid, got %v", count, err)
+		}
+		if count > MaximumEndpointKeys && !errors.Is(err, ErrInvalidEndpoints) {
+			t.Errorf("expected %d keys to be refused with ErrInvalidEndpoints, got %v", count, err)
+		}
+	}
 }

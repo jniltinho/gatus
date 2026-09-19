@@ -28,7 +28,7 @@ type Selection struct {
 
 	Sections []Section
 
-	// Truncated is whether endpoints were left out because the page selects more than pageconfig.MaximumEndpoints
+	// Truncated is whether endpoints were left out because the page selects more than the limit given to Select
 	Truncated bool
 }
 
@@ -60,10 +60,12 @@ func (selection Selection) Refs() []EndpointRef {
 //   - sections follow the order of page.Groups, then the groups only reached through page.Endpoints in alphabetical
 //     order, then the endpoints without group;
 //   - endpoints are ordered by name, ignoring case, within each section;
-//   - at most pageconfig.MaximumEndpoints endpoints are kept, the featured ones first.
-func Select(page *pageconfig.Page, refs []EndpointRef) Selection {
+//   - at most limit endpoints are kept, the featured ones first. The limit is the one of the snapshot the page was
+//     read from (Published.MaximumEndpoints): it also decides which endpoints the routes of the page may serve, so
+//     every caller must use the limit captured with the page, never the configuration.
+func Select(page *pageconfig.Page, refs []EndpointRef, limit int) Selection {
 	var selection Selection
-	remaining := pageconfig.MaximumEndpoints
+	remaining := max(limit, 0)
 	refsByKey := make(map[string]EndpointRef, len(refs))
 	for _, ref := range refs {
 		refsByKey[ref.Key] = ref

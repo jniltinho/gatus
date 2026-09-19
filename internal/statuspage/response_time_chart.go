@@ -25,21 +25,20 @@ var (
 )
 
 // PublicResponseTimeChart returns the JSON payload of the response time chart of the endpoint with the given key on the
-// published status page with the given slug, for the given period, which the caller has already validated. The payload
-// is assembled by assembleFunc with the maximum number of recent results of the page, at most once every 30 seconds:
-// for the recent period, per result sequence of the endpoint, so that a new result renews it, and for the other
-// periods, per minute.
+// published status page that the caller looked up and authenticated, for the given period, which the caller has already
+// validated. The page, its limits and its revision all come from that one capture, so a reload between the
+// authentication and the answer cannot serve an endpoint under a limit or a login that were not the ones checked. The
+// payload is assembled by assembleFunc with the maximum number of recent results of the page, at most once every 30
+// seconds: for the recent period, per result sequence of the endpoint, so that a new result renews it, and for the
+// other periods, per minute.
 //
-// It returns ErrPageNotFound, without reading the storage, when the page is not published or does not show the
-// endpoint, and ErrPageUnavailable when the payload could not be assembled or waited too long for a slot.
-func PublicResponseTimeChart(slug, key, period string, now time.Time, assembleFunc func(maximumResults int) ([]byte, error)) ([]byte, error) {
-	if !IsEndpointShown(slug, key) {
+// It returns ErrPageNotFound, without reading the storage, when the page does not show the endpoint, and
+// ErrPageUnavailable when the payload could not be assembled or waited too long for a slot.
+func PublicResponseTimeChart(published Published, key, period string, now time.Time, assembleFunc func(maximumResults int) ([]byte, error)) ([]byte, error) {
+	if !IsEndpointShownOf(published, key) {
 		return nil, ErrPageNotFound
 	}
-	published, ok := Lookup(slug)
-	if !ok {
-		return nil, ErrPageNotFound
-	}
+	slug := published.Page.Slug
 	version := uint64(now.Unix() / 60)
 	if period == "recent" {
 		version = liveupdates.Sequence(key)

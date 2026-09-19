@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,11 @@ import (
 
 // warningTypeCharts is the type of the warning of a page with the deprecated charts, which are ignored
 const warningTypeCharts = "charts"
+
+// WarningTypeTruncated is the type of the warning of a page that selects more endpoints than
+// status-pages.maximum-endpoints-per-page: unlike the other warnings, its value is not something without match but the
+// limit in force.
+const WarningTypeTruncated = "truncated"
 
 var (
 	// ErrReadOnly is returned when trying to change a status page defined in the configuration file
@@ -81,9 +87,13 @@ type Item struct {
 	// case the page is not published. It is omitted for a valid page.
 	Error string `json:"error,omitempty"`
 
-	// Endpoints is the number of endpoints that the page shows at this moment, featured ones included, at most 200. It
-	// is 0 when the definition cannot be read.
+	// Endpoints is the number of endpoints that the page shows at this moment, featured ones included, at most
+	// status-pages.maximum-endpoints-per-page. It is 0 when the definition cannot be read.
 	Endpoints int `json:"endpoints"`
+
+	// Truncated is whether the page selects more endpoints than status-pages.maximum-endpoints-per-page allows: the ones
+	// beyond the limit are not shown and their routes of the page answer 404.
+	Truncated bool `json:"truncated"`
 
 	// RequiresLogin is whether the page has a login of its own (fork)
 	RequiresLogin bool `json:"requiresLogin"`
@@ -139,15 +149,18 @@ type Detail struct {
 	YAML string `json:"yaml"`
 }
 
-// Warning is a group or an endpoint key selected by a page without match, or the notice of a deprecated field. It is
-// an item of the warnings field of Validation.
+// Warning is a group or an endpoint key selected by a page without match, the notice of a deprecated field or the
+// notice of a truncated page. It is an item of the warnings field of Validation.
 type Warning struct {
 	// Type is what has no match: "group" for a group, "endpoint" for an endpoint key and "featured" for the key of a
-	// featured endpoint. It is "charts" when the definition still has the deprecated charts, which are ignored.
+	// featured endpoint. It is "charts" when the definition still has the deprecated charts, which are ignored, and
+	// "truncated" when the page selects more endpoints than status-pages.maximum-endpoints-per-page, in which case only
+	// the first ones are shown.
 	Type string `json:"type"`
 
 	// Value is the name of the group or the key of the endpoint, in the lowercase group_name form, without match. For
-	// the type "charts" it is the keys of the charts joined by ", ".
+	// the type "charts" it is the keys of the charts joined by ", ", and for the type "truncated" it is the limit in
+	// force, in decimal.
 	Value string `json:"value"`
 }
 
@@ -163,7 +176,8 @@ type Validation struct {
 	// the notice of the deprecated charts. They do not prevent saving. It is an empty array, never null, without warning.
 	Warnings []Warning `json:"warnings"`
 
-	// Endpoints is the number of endpoints that the page would show at this moment, featured ones included, at most 200.
+	// Endpoints is the number of endpoints that the page would show at this moment, featured ones included, at most
+	// status-pages.maximum-endpoints-per-page.
 	Endpoints int `json:"endpoints"`
 }
 
@@ -243,12 +257,12 @@ func NewService() *Service {
 
 // List returns the status pages of the configuration file and the managed status pages
 func (s *Service) List() *Listing {
-	refs := Endpoints()
+	refs, limit := endpointsAndLimit()
 	states := List()
 	listing := &Listing{PublicationEnabled: IsEnabled(), ManagedUnavailable: IsManagedUnavailable(), StatusPages: make([]*Item, 0, len(states))}
 	listing.SharedRateLimitWarning, _ = SharedRateLimitWarning()
 	for _, state := range states {
-		listing.StatusPages = append(listing.StatusPages, newItem(state, refs))
+		listing.StatusPages = append(listing.StatusPages, newItem(state, refs, limit))
 	}
 	return listing
 }
@@ -327,9 +341,10 @@ func (s *Service) Validate(raw []byte, slug string) (*Validation, error) {
 	if err != nil {
 		return nil, err
 	}
-	refs := Endpoints()
+	refs, limit := endpointsAndLimit()
 	// Fork: like every read of the administration, the validation answers with the hash of the credential masked
-	return &Validation{Definition: maskCredential(page), Warnings: selectionWarnings(page, refs), Endpoints: len(Select(page, refs).Keys())}, nil
+	selection := Select(page, refs, limit)
+	return &Validation{Definition: maskCredential(page), Warnings: withTruncationWarning(selectionWarnings(page, refs), selection, limit), Endpoints: len(selection.Keys())}, nil
 }
 
 // Create creates a managed status page. Without enabled, it is created disabled.
@@ -435,7 +450,15 @@ func (s *Service) Delete(slug string, expectedVersion int64, author string) erro
 // Preview returns the public payload of any status page, including disabled, in conflict and configuration file ones,
 // without cache and without rate limit
 func (s *Service) Preview(slug string) ([]byte, error) {
-	state := findState(slug)
+	// The page and the limits of the preview come from one read of the snapshot, like the ones of a published page
+	snap := current.Load()
+	if snap == nil {
+		return nil, ErrPageNotFound
+	}
+	state := snap.managedStates[slug]
+	if state == nil {
+		state = snap.configStates[slug]
+	}
 	if state == nil {
 		return nil, ErrPageNotFound
 	}
@@ -451,11 +474,8 @@ func (s *Service) Preview(slug string) ([]byte, error) {
 		return nil, ErrPageUnavailable
 	}
 	defer release()
-	maximumResults := MaximumPublicResults
-	if snap := current.Load(); snap != nil {
-		maximumResults = snap.maximumResults
-	}
-	body, err := assemble(page, maximumResults, time.Now())
+	maximumResults, maximumEndpoints := snap.maximumResults, snap.maximumEndpoints
+	body, err := assemble(page, maximumResults, maximumEndpoints, time.Now())
 	if err != nil {
 		logr.Errorf("[statuspage.Preview] Failed to assemble status page with slug=%s: %s", slug, err.Error())
 		return nil, ErrPageUnavailable
@@ -550,9 +570,10 @@ func publishManaged(stored *common.ManagedStatusPage) *State {
 
 // cloneCurrentSnapshot returns a copy of the current snapshot, to be changed and published. mutex must be held.
 func cloneCurrentSnapshot() *snapshot {
-	next := &snapshot{enabled: true, maximumResults: MaximumPublicResults, configStates: make(map[string]*State), managedStates: make(map[string]*State)}
+	next := &snapshot{enabled: true, maximumResults: MaximumPublicResults, maximumEndpoints: pageconfig.DefaultMaximumEndpointsPerPage, configStates: make(map[string]*State), managedStates: make(map[string]*State)}
 	if snap := current.Load(); snap != nil {
 		next.generation, next.maximumResults, next.enabled = snap.generation, snap.maximumResults, snap.enabled
+		next.maximumEndpoints = snap.maximumEndpoints
 		next.managedUnavailable, next.configEndpoints = snap.managedUnavailable, snap.configEndpoints
 		for slug, state := range snap.configStates {
 			next.configStates[slug] = state
@@ -607,7 +628,15 @@ func selectionWarnings(page *pageconfig.Page, refs []EndpointRef) []Warning {
 	return warnings
 }
 
-func newItem(state *State, refs []EndpointRef) *Item {
+// withTruncationWarning adds to warnings the one of a truncated selection, with the limit that cut it
+func withTruncationWarning(warnings []Warning, selection Selection, limit int) []Warning {
+	if !selection.Truncated {
+		return warnings
+	}
+	return append(warnings, Warning{Type: WarningTypeTruncated, Value: strconv.Itoa(limit)})
+}
+
+func newItem(state *State, refs []EndpointRef, limit int) *Item {
 	item := &Item{Slug: state.Slug, Origin: state.Origin, Path: "/status/" + state.Slug, Published: IsEnabled() && state.IsPublished()}
 	page := state.Page
 	if page == nil && state.Stored != nil {
@@ -620,7 +649,8 @@ func newItem(state *State, refs []EndpointRef) *Item {
 		if state.Origin == OriginAdmin {
 			item.Enabled = page.Enabled != nil && *page.Enabled
 		}
-		item.Endpoints = len(Select(page, refs).Keys())
+		selection := Select(page, refs, limit)
+		item.Endpoints, item.Truncated = len(selection.Keys()), selection.Truncated
 		item.RequiresLogin = page.RequiresLogin()
 	}
 	if stored := state.Stored; stored != nil {
@@ -639,7 +669,8 @@ func newItem(state *State, refs []EndpointRef) *Item {
 // newDetail describes a status page with its definition. Fork: the hash of the credential of the page is masked, in
 // the definition and in the YAML, and submitting the mask back keeps the stored hash.
 func newDetail(state *State) (*Detail, error) {
-	detail := &Detail{Item: *newItem(state, Endpoints())}
+	refs, limit := endpointsAndLimit()
+	detail := &Detail{Item: *newItem(state, refs, limit)}
 	if state.Stored != nil {
 		detail.YAML = maskCredentialInDefinition(state.Stored.Definition)
 		if page, err := Parse([]byte(state.Stored.Definition)); err == nil {

@@ -32,7 +32,8 @@
 
         <StatusSummary :status="page.status" :updated-at="page.updatedAt" :now="now" :summary="page.summary" />
 
-        <p v-if="page.truncated" class="mt-2 text-sm text-muted-foreground">Showing the first 200 services.</p>
+        <!-- The number is the one of the payload: the limit is status-pages.maximum-endpoints-per-page, not a constant -->
+        <p v-if="page.truncated" class="mt-2 text-sm text-muted-foreground" data-testid="status-page-truncated">Showing the first {{ page.summary?.total ?? 0 }} services.</p>
         <p v-if="page.groups.length === 0 && featuredEndpoints.length === 0" class="mt-6 text-center text-muted-foreground">No services on this page.</p>
 
         <section v-if="featuredEndpoints.length" class="mt-6" aria-labelledby="status-featured-title" data-testid="status-featured">

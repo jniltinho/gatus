@@ -23,7 +23,7 @@ func TestSelect_Featured(t *testing.T) {
 		{Key: "database_pg", Name: "pg", Group: "database"},
 	}
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}, Featured: []string{"core_api", "missing_endpoint", "database_pg"}}
-	selection := Select(page, refs)
+	selection := Select(page, refs, pageconfig.DefaultMaximumEndpointsPerPage)
 	if len(selection.Featured) != 2 || selection.Featured[0].Name != "api" || selection.Featured[1].Name != "pg" {
 		t.Fatalf("expected api and pg featured in the order of the page, got %+v", selection.Featured)
 	}

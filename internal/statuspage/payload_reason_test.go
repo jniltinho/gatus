@@ -230,15 +230,15 @@ func TestBuildPayload_Summary(t *testing.T) {
 func TestBuildPayload_SummaryOfATruncatedPage(t *testing.T) {
 	now := time.Now()
 	page := &pageconfig.Page{Slug: "infra", Title: "Infra", Groups: []string{"core"}}
-	refs := make([]EndpointRef, 0, pageconfig.MaximumEndpoints)
-	summaries := make(map[string]*common.EndpointSummary, pageconfig.MaximumEndpoints)
-	for i := 0; i < pageconfig.MaximumEndpoints; i++ {
+	refs := make([]EndpointRef, 0, pageconfig.DefaultMaximumEndpointsPerPage)
+	summaries := make(map[string]*common.EndpointSummary, pageconfig.DefaultMaximumEndpointsPerPage)
+	for i := 0; i < pageconfig.DefaultMaximumEndpointsPerPage; i++ {
 		key := "core_" + strconv.Itoa(i)
 		refs = append(refs, EndpointRef{Key: key, Name: key})
 		summaries[key] = &common.EndpointSummary{Results: []common.ResultSummary{{Timestamp: now, Success: true}}}
 	}
 	payload := BuildPayload(page, Selection{Sections: []Section{{Group: "core", Endpoints: refs}}, Truncated: true}, summaries, now)
-	if !payload.Truncated || payload.Summary.Total != pageconfig.MaximumEndpoints || payload.Summary.Up != pageconfig.MaximumEndpoints {
+	if !payload.Truncated || payload.Summary.Total != pageconfig.DefaultMaximumEndpointsPerPage || payload.Summary.Up != pageconfig.DefaultMaximumEndpointsPerPage {
 		t.Errorf("expected the count of the published endpoints, got %+v", payload.Summary)
 	}
 }

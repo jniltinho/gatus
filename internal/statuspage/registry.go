@@ -76,6 +76,10 @@ type Published struct {
 
 	// MaximumResults is the number of latest results shown for each endpoint
 	MaximumResults int
+
+	// MaximumEndpoints is how many endpoints the page shows (status-pages.maximum-endpoints-per-page), captured with
+	// the page: it is the limit to give to Select for anything that is decided or assembled for this Published
+	MaximumEndpoints int
 }
 
 // MaximumPublicResults is the maximum number of latest results shown for each endpoint of a public status page
@@ -85,6 +89,7 @@ type snapshot struct {
 	revision           uint64
 	generation         uint64
 	maximumResults     int
+	maximumEndpoints   int
 	enabled            bool
 	managedUnavailable bool
 	configStates       map[string]*State
@@ -115,12 +120,13 @@ func Load(cfg *config.Config) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	next := &snapshot{
-		generation:      generations.Add(1),
-		maximumResults:  maximumPublicResults(cfg),
-		enabled:         cfg.StatusPages.IsEnabled(),
-		configStates:    make(map[string]*State),
-		managedStates:   make(map[string]*State),
-		configEndpoints: configEndpointRefs(cfg),
+		generation:       generations.Add(1),
+		maximumResults:   maximumPublicResults(cfg),
+		maximumEndpoints: cfg.StatusPages.GetMaximumEndpointsPerPage(),
+		enabled:          cfg.StatusPages.IsEnabled(),
+		configStates:     make(map[string]*State),
+		managedStates:    make(map[string]*State),
+		configEndpoints:  configEndpointRefs(cfg),
 	}
 	if cfg.StatusPages != nil {
 		for _, page := range cfg.StatusPages.Pages {
@@ -197,7 +203,7 @@ func Lookup(slug string) (Published, bool) {
 	if state == nil || !state.IsPublished() {
 		return Published{}, false
 	}
-	return Published{Page: state.Page, Revision: snap.revision, Generation: snap.generation, MaximumResults: snap.maximumResults}, true
+	return Published{Page: state.Page, Revision: snap.revision, Generation: snap.generation, MaximumResults: snap.maximumResults, MaximumEndpoints: snap.maximumEndpoints}, true
 }
 
 // Generation returns the generation of the loaded status pages, 0 before the first Load
@@ -242,10 +248,19 @@ func IsManagedUnavailable() bool {
 // Endpoints returns the endpoints that can be published: the enabled endpoints and external endpoints of the
 // configuration file, and the valid, enabled and not in conflict managed endpoints
 func Endpoints() []EndpointRef {
+	refs, _ := endpointsAndLimit()
+	return refs
+}
+
+// endpointsAndLimit returns the endpoints that can be published and how many of them a page shows, both from one read
+// of the snapshot, for the callers that have no Published at hand (the administration)
+func endpointsAndLimit() ([]EndpointRef, int) {
 	snap := current.Load()
 	var refs []EndpointRef
+	limit := pageconfig.DefaultMaximumEndpointsPerPage
 	if snap != nil {
 		refs = append(refs, snap.configEndpoints...)
+		limit = snap.maximumEndpoints
 	}
 	for _, state := range managedendpoint.List() {
 		if ep := state.Endpoint; ep != nil && ep.IsEnabled() {
@@ -256,7 +271,7 @@ func Endpoints() []EndpointRef {
 			refs = append(refs, EndpointRef{Key: pushEndpoint.Key(), Name: pushEndpoint.Name, Group: pushEndpoint.Group})
 		}
 	}
-	return refs
+	return refs, limit
 }
 
 func configEndpointRefs(cfg *config.Config) []EndpointRef {

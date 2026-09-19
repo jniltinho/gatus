@@ -56,7 +56,11 @@
           <td class="whitespace-nowrap px-2 py-1">
             <span :class="stateClass(item)" :title="item.conflictOrigin || item.error || ''">{{ stateLabel(item) }}</span>
           </td>
-          <td class="hidden px-2 py-1 text-right lg:table-cell">{{ item.endpoints }}</td>
+          <td class="hidden px-2 py-1 text-right lg:table-cell">
+            <!-- The page selects more endpoints than status-pages.maximum-endpoints-per-page shows -->
+            <span v-if="item.truncated" class="text-amber-700 dark:text-amber-400" :title="TRUNCATED_TITLE" :data-testid="`status-page-truncated-${item.slug}`">{{ item.endpoints }}+<span class="sr-only"> ({{ TRUNCATED_TITLE }})</span></span>
+            <template v-else>{{ item.endpoints }}</template>
+          </td>
           <td class="whitespace-nowrap px-2 py-0 text-right">
           <AdminActionButton :icon="ExternalLink" :label="`Open ${item.slug} in a new tab`" :testid="`status-page-open-${item.slug}`" :href="item.path" />
             <AdminActionButton :icon="Link2" :label="`Copy the link of ${item.slug}`" :testid="`status-page-copy-${item.slug}`" @click="copyLink(item)" />
@@ -90,7 +94,7 @@
         </div>
         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground dark:text-gray-400">
           <span>{{ item.origin === 'admin' ? 'Web' : 'YAML' }}</span>
-          <span>{{ item.endpoints }} {{ item.endpoints === 1 ? 'endpoint' : 'endpoints' }}</span>
+          <span :class="item.truncated ? 'text-amber-700 dark:text-amber-400' : ''" :title="item.truncated ? TRUNCATED_TITLE : ''">{{ item.endpoints }}{{ item.truncated ? '+' : '' }} {{ item.endpoints === 1 ? 'endpoint' : 'endpoints' }}<span v-if="item.truncated" class="sr-only"> ({{ TRUNCATED_TITLE }})</span></span>
           <!-- Fork: the page has a login of its own -->
           <span v-if="item.requiresLogin" class="flex items-center gap-1 text-amber-600 dark:text-amber-400" :data-testid="`status-page-requires-login-${item.slug}`">
             <Lock class="h-3 w-3 shrink-0" aria-hidden="true" />Requires login
@@ -144,6 +148,8 @@ import AdminListLayout from '@/components/admin/AdminListLayout.vue'
 import { describeStatusPageError, statusPagesApi } from '@/utils/adminApi'
 
 const router = useRouter()
+
+const TRUNCATED_TITLE = 'The page selects more endpoints than status-pages.maximum-endpoints-per-page: only the first ones are shown'
 
 const listing = ref(null)
 const loading = ref(true)

@@ -129,6 +129,9 @@ status-pages:
   # Behind a reverse proxy (nginx), set the IP address from which it connects to Gatus, for example the gateway of the
   # Docker network, so that the rate limit is counted per visitor:
   # trusted-proxies: ["172.30.0.1/32"]
+  # How many endpoints a page shows, from 1 to 1000. A page that selects more shows the first ones, and the others are
+  # not served by the page at all, so raising it publishes more endpoints. See docs/status-pages.md.
+  # maximum-endpoints-per-page: 400
   pages:
     - slug: services
       title: "Services"

@@ -123,7 +123,9 @@ type Item struct {
 
 	// Warnings are the selections of a status page (group, endpoint, featured or charts) that match nothing among the
 	// current endpoints and the enabled endpoints the restore would create or update, as English sentences ending in
-	// "selects nothing". It is an empty list, never null, for the other types and when every selection matches.
+	// "selects nothing", and the sentence of a page that selects more endpoints than
+	// status-pages.maximum-endpoints-per-page, which is shown truncated. It is an empty list, never null, for the other
+	// types and when every selection matches within the limit.
 	Warnings []string `json:"warnings"`
 
 	// What is applied, as previewed
@@ -418,9 +420,15 @@ func (r *Restorer) planStatusPage(backupStatusPage StatusPage, options Options, 
 	return item
 }
 
+// describeWarnings puts the warnings of a status page into words: what it selects without match, and the limit that
+// truncates it
 func describeWarnings(warnings []statuspage.Warning) []string {
 	described := make([]string, 0, len(warnings))
 	for _, warning := range warnings {
+		if warning.Type == statuspage.WarningTypeTruncated {
+			described = append(described, fmt.Sprintf("selects more endpoints than status-pages.maximum-endpoints-per-page (%s): only the first %s are shown", warning.Value, warning.Value))
+			continue
+		}
 		described = append(described, fmt.Sprintf("%s %q selects nothing", warning.Type, warning.Value))
 	}
 	return described

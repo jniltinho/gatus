@@ -18,6 +18,7 @@ status-pages:
   enabled: true                          # defaults to true; false unpublishes every page
   trusted-proxies: ["172.30.0.1/32"]     # see "Behind a reverse proxy"
   rate-limit: 120                        # 404 responses per minute per IP; 0 disables it
+  maximum-endpoints-per-page: 400        # how many endpoints a page shows; 1 to 1000, defaults to 400
   pages:
     - slug: services
       title: "Services"
@@ -38,7 +39,7 @@ status-pages:
 | `title` | Required, up to 100 characters. |
 | `description` | Optional, up to 1000 characters, plain text (no markdown or HTML). |
 | `groups` | Up to 50 groups. Every enabled endpoint of the group is shown, including the ones created later. |
-| `endpoints` | Up to 200 keys in the `group_name` format (the same key as the badges). |
+| `endpoints` | Up to 1000 keys in the `group_name` format (the same key as the badges). How many of them are shown is [`maximum-endpoints-per-page`](#maximum-number-of-endpoints-per-page). |
 | `featured` | Up to 10 endpoint keys shown at the top of the page, in cards with more details. They are part of the selection of the page and are not repeated in their group. |
 | `charts` | **Deprecated and ignored.** Every endpoint of the page now has a details page with its response time chart. Still accepted, with a warning, so that pages saved by `v5.36.0-fork.2` stay valid; saving the page in the administration removes it. |
 | `show-certificate-expiration` | Optional, defaults to `false`. Shows below the name of each endpoint how many days are left until its TLS certificate expires, like the *Show Certificate Expiry* option of Uptime Kuma. |
@@ -49,6 +50,30 @@ status-pages:
 
 A page must select at least one group, endpoint or featured endpoint. A group or key that does not exist yet does not invalidate the page:
 the load logs a warning and the administration shows the warning when validating.
+
+### Maximum number of endpoints per page
+
+`status-pages.maximum-endpoints-per-page` is how many endpoints a page shows: an integer from `1` to `1000`, `400` by
+default (it was a fixed `200` up to `v6.2.0`). Anything else (`0`, `1001`, `2.5`) invalidates the configuration, also in
+`gatus config validate`. It applies to every page, of the file and managed through the web, and a change takes effect
+when Gatus reloads its configuration file, without restart.
+
+A page that selects more endpoints than the limit stays published and shows the first ones in display order (the
+featured endpoints, then the sections), with the notice "Showing the first N services". The administration marks it in
+the listing (`400+`) and warns when validating the page.
+
+- **The limit is an access rule, not only a display rule.** An endpoint beyond the cut is not on the page: its details
+  page, its chart, its event stream and its badges answer the same 404 as a key that does not exist. Raising the limit
+  therefore **publishes more endpoints** on the pages that were truncated: look at what those pages select before
+  raising it.
+- **Two different limits.** A definition accepts up to 1000 keys in `endpoints` whatever the limit in force; the limit
+  decides how many endpoints are shown, counting the ones reached through `groups`.
+- **Cost of a high limit.** Measured with 1000 endpoints and 50 results each: the payload of a page is about 4 MiB
+  (under 40 KiB on the wire with gzip) and takes about 20 ms to assemble, against 1.5 MiB and 10 ms with 400. In the
+  browser, a page with everything expanded has about 70,000 DOM nodes and 56 MiB of heap, and expanding 20 groups at
+  once takes half a second; with [`groups-collapsed: true`](#collapsible-groups) it has 275 nodes and 6 MiB. Use
+  `groups-collapsed` on pages with many hundreds of endpoints. The numbers come from `TestMeasureEndpointLimit`
+  (`GATUS_MEASURE_ENDPOINT_LIMIT=1 go test ./internal/statuspage/ -run TestMeasureEndpointLimit -v`).
 
 The default `config.yaml` of the fork (Docker image and release tarballs) already ships the `/status/services` and
 `/status/infrastructure` pages with example endpoints.
@@ -75,7 +100,7 @@ database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
 - A **status banner** with the state of the page in words and colour ("All systems operational", "Partial outage",
   "Major outage" or "No data"), how many endpoints are up and down (`12 up · 2 down`, with pending and without data
   only when there are any) and when the page was assembled. The counts come from the server, so they stay right on a
-  page that shows only the first 200 services.
+  page that is truncated by [`maximum-endpoints-per-page`](#maximum-number-of-endpoints-per-page).
 - **Featured** endpoints first, in cards with the uptime and the average response time over 24 hours, 7 days and
   30 days, the last response time, the check bars and a **View details** link.
 - The name of every endpoint links to its details page (see below).
@@ -86,7 +111,8 @@ database as the endpoints (SQLite, PostgreSQL, MySQL or MariaDB).
   **Other services** with the endpoints without group. Within each section, endpoints are sorted by name.
 - Endpoints of the file, external endpoints and endpoints managed through the web, as long as they are enabled. Suites
   and `remote` instances are left out.
-- At most 200 endpoints per page; above that, the page says that it only shows the first ones.
+- At most [`maximum-endpoints-per-page`](#maximum-number-of-endpoints-per-page) endpoints per page, 400 by default; above
+  that, the page says how many it shows ("Showing the first 400 services").
 - The latest 50 results of each endpoint (or `storage.maximum-number-of-results`, if lower).
 
 Statuses:
@@ -374,6 +400,8 @@ dashboard API keeps publishing more than the page shows.
   in [real time](#real-time-updates).
 - The key of the cached details includes the sequence of the results of the endpoint, so a new result renews them.
 - The data of the response time chart has a cache of its own, so that the charts never evict the pages.
+- The cache of the pages and of the details holds at most 1000 payloads and 128 MiB. Above that the least recently used
+  payloads are discarded and assembled again when asked.
 
 ## Rate limit
 
@@ -494,11 +522,17 @@ invalid and stops publishing it, so untick "Start with the groups collapsed" on 
 not restore on an older version a backup made with the option on. In the configuration file it is the opposite: an
 older version ignores `groups-collapsed` silently, and the page just opens expanded.
 
+The same care goes for `maximum-endpoints-per-page`, from `v6.3.0`. An older version ignores the option and shows 200
+endpoints per page, and it refuses any definition with more than 200 keys in `endpoints`: a managed page like that is
+marked invalid and stops being published, and a page **of the configuration file** like that keeps Gatus from starting.
+Bring those pages down to 200 keys before going back.
+
 ## End-to-end tests
 
 ```bash
 test/e2e/status-pages.sh
 test/e2e/status-page-groups.sh    # the collapsible groups, with Push endpoints to take a group down on demand
+test/e2e/status-page-limit.sh     # maximum-endpoints-per-page: the cut as an access rule, changed with Gatus running
 ```
 
 Starts Gatus with a temporary SQLite database, basic auth and the administration, goes through the public page without
