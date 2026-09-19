@@ -98,4 +98,4 @@ Campo opcional e cookie com valor novo: nada a migrar. Voltar de versão: a vers
 
 ## Open Questions
 
-- **Cabeçalho claro ou marinho?** O site de onde a paleta vem usa cabeçalho claro; um marinho daria mais identidade. A tarefa 3.1 entrega as duas capturas para o dono escolher.
+- ~~Cabeçalho claro ou marinho?~~ **Decidido pelo dono em 2026-09-19: marinho.** As variáveis do tema são redefinidas dentro de `.app-header` (o do dashboard e o das páginas públicas), de modo que o título, os links, o seletor de tema e o menu dele acompanham sem regra por componente. Sobre o marinho o verde-água tem 5,9:1, então ali — e só ali — ele é o anel de foco.

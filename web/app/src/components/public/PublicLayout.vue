@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex flex-col bg-background text-foreground" data-testid="public-layout">
-    <header class="border-b bg-card/50 dark:border-gray-800">
+    <header class="app-header border-b bg-card/50 dark:border-gray-800">
       <div class="container mx-auto px-4 py-3 max-w-5xl flex items-center justify-between gap-4">
         <component
           :is="link ? 'a' : 'div'"
