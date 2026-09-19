@@ -1,0 +1,2325 @@
+{
+  "admin backup": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Disposition": [
+        "attachment; filename=\"gatus-backup-\u003cdate\u003e.json\""
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    }
+  },
+  "admin backup wrong content type": {
+    "status": 415,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"content type must be application/json\"}"
+  },
+  "admin config endpoint is read only": {
+    "status": 409,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"the endpoint is defined in the configuration file and cannot be changed through the administration\"}"
+  },
+  "admin create": {
+    "status": 201,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Etag": [
+        "\"1\""
+      ]
+    },
+    "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
+  },
+  "admin create again": {
+    "status": 409,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"the endpoint key is already in use by another managed endpoint: web_site\"}"
+  },
+  "admin create body above the limit": {
+    "status": 413,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"request body is too large\"}"
+  },
+  "admin create cross site": {
+    "status": 403,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"cross-site requests are not allowed\"}"
+  },
+  "admin create foreign origin": {
+    "status": 403,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
+  },
+  "admin create forged forwarded host": {
+    "status": 403,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
+  },
+  "admin create invalid": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"invalid endpoint definition: you must specify an url for each endpoint\"}"
+  },
+  "admin create wrong content type": {
+    "status": 415,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"content type must be application/json or application/yaml\"}"
+  },
+  "admin delete": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"key\":\"web_site\",\"triggeredAlerts\":0}"
+  },
+  "admin disable": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Etag": [
+        "\"3\""
+      ]
+    },
+    "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":false,\"source\":\"admin\",\"conflict\":false,\"version\":3,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\nenabled: false\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"enabled\":false,\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\nenabled: false\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"enabled\":false,\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
+  },
+  "admin get": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Etag": [
+        "\"1\""
+      ]
+    },
+    "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
+  },
+  "admin get config endpoint": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"definition\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: core\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: api\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: https://example.org/api\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"core\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"api\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"https://example.org/api\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: core\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: api\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: https://example.org/api\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"core\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"api\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"https://example.org/api\"}}}"
+  },
+  "admin get unknown": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"endpoint not found\"}"
+  },
+  "admin list": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/db\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\",\"type\":\"PUSH\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"acceptsPush\":true}]"
+  },
+  "admin metadata": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"alertTypes\":[],\"tunnels\":[],\"extraLabels\":[]}"
+  },
+  "admin parse": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}}"
+  },
+  "admin push keys create invalid": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"push.keys[].name must have between 1 and 64 characters\"}"
+  },
+  "admin push keys list": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"managedUnavailable\":false,\"keys\":[]}"
+  },
+  "admin restore preview above its limit": {
+    "status": 413,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"request body is too large\"}"
+  },
+  "admin restore preview above the global limit": {
+    "status": -1,
+    "body": "connection error"
+  },
+  "admin restore preview invalid": {
+    "status": 400,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"invalid backup file: the file is not a JSON object\"}"
+  },
+  "admin restore preview of 3 MiB": {
+    "status": 400,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"invalid backup file: the file is not a JSON object\"}"
+  },
+  "admin status page create": {
+    "status": 201,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Etag": [
+        "\"1\""
+      ]
+    },
+    "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
+  },
+  "admin status page create short password": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"the password of the login of a status page must have at least 8 characters\"}"
+  },
+  "admin status page get": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
+  },
+  "admin status page preview": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+  },
+  "admin status pages exposure": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"published\":true,\"reason\":\"group\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"published\":false,\"reason\":\"group\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"published\":true,\"reason\":\"group\"}]}"
+  },
+  "admin status pages exposure without query": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"the group or the key of the endpoint is required\"}"
+  },
+  "admin status pages list": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
+  },
+  "admin status pages options": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"groups\":[{\"name\":\"core\",\"endpoints\":2},{\"name\":\"jobs\",\"endpoints\":1}],\"endpoints\":[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\"},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\"},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\"}]}"
+  },
+  "admin unknown path": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /api/v1/admin/nothing-here"
+  },
+  "admin update invalid if-match": {
+    "status": 412,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"managed endpoint version does not match: invalid If-Match header\"}"
+  },
+  "admin update outdated if-match": {
+    "status": 412,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"managed endpoint version does not match\"}"
+  },
+  "admin update weak if-match": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Etag": [
+        "\"2\""
+      ]
+    },
+    "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":2,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
+  },
+  "admin update without if-match": {
+    "status": 428,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"the If-Match header with the current version of the endpoint is required\"}"
+  },
+  "admin validate": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
+  },
+  "admin without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "api root without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "badge health": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "badge health head": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ]
+    }
+  },
+  "badge health shields": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"color\":\"brightgreen\",\"label\":\"gatus\",\"message\":\"up\",\"schemaVersion\":1}"
+  },
+  "badge health unknown key": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "endpoint not found"
+  },
+  "badge response time": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"165\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"165\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h110v20H0z\"/\u003e\n    \u003cpath fill=\"#94cc11\" d=\"M110 0h55v20H110z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h165v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"55\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"55\" y=\"14\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      100ms\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"14\"\u003e\n      100ms\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "badge uptime": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"114\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"114\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h70v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M70 0h44v20H70z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h114v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"35\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      uptime 24h\n    \u003c/text\u003e\n    \u003ctext x=\"35\" y=\"14\"\u003e\n      uptime 24h\n    \u003c/text\u003e\n    \u003ctext x=\"92\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      100%\n    \u003c/text\u003e\n    \u003ctext x=\"92\" y=\"14\"\u003e\n      100%\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "badge uptime invalid duration": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Durations supported: 30d, 7d, 24h, 1h"
+  },
+  "chart response time": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ]
+    }
+  },
+  "config uppercase": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"admin\":{\"authorized\":false,\"enabled\":true},\"announcements\":[],\"authenticated\":false,\"login\":\"basic\",\"oidc\":false}"
+  },
+  "config with credentials": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"admin\":{\"authorized\":true,\"enabled\":true},\"announcements\":[],\"authenticated\":true,\"login\":\"basic\",\"oidc\":false}"
+  },
+  "config without session": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"admin\":{\"authorized\":false,\"enabled\":true},\"announcements\":[],\"authenticated\":false,\"login\":\"basic\",\"oidc\":false}"
+  },
+  "custom css": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/css"
+      ]
+    }
+  },
+  "endpoint chart": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    }
+  },
+  "endpoint chart without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "endpoint events head": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, no-transform"
+      ],
+      "Content-Type": [
+        "text/event-stream"
+      ],
+      "X-Accel-Buffering": [
+        "no"
+      ]
+    }
+  },
+  "endpoint events unknown key": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"endpoint not found\"}"
+  },
+  "endpoint status": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}],\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}],\"push\":false,\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"currentResponseTime\":80}"
+  },
+  "endpoint status unknown key": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "endpoint not found"
+  },
+  "endpoint status without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "external result": {
+    "status": 200
+  },
+  "external result unknown key": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "not found"
+  },
+  "external result without token": {
+    "status": 401,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "invalid Authorization header"
+  },
+  "external result wrong token": {
+    "status": 401,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "invalid token"
+  },
+  "health": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "{\"status\":\"UP\"}"
+  },
+  "health head": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    }
+  },
+  "health post": {
+    "status": 405,
+    "headers": {
+      "Allow": [
+        "GET, HEAD"
+      ],
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Method Not Allowed"
+  },
+  "history response time": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    }
+  },
+  "index.html redirect": {
+    "status": 301,
+    "headers": {
+      "Location": [
+        "/"
+      ]
+    }
+  },
+  "index.html redirect with query": {
+    "status": 301,
+    "headers": {
+      "Location": [
+        "/?a=1"
+      ]
+    }
+  },
+  "key with double encoded slash": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "endpoint not found"
+  },
+  "key with encoded slash": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "endpoint not found"
+  },
+  "key with invalid escape": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "invalid key encoding"
+  },
+  "key with plus": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "endpoint not found"
+  },
+  "login": {
+    "status": 204,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Set-Cookie": [
+        "gatus_session=\u003ctoken\u003e; max-age=28800; path=/; HttpOnly; SameSite=Strict"
+      ]
+    }
+  },
+  "login body above the limit": {
+    "status": 413,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"request body is too large\"}"
+  },
+  "login cross site": {
+    "status": 403,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"cross-site requests are not allowed\"}"
+  },
+  "login foreign origin": {
+    "status": 403,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
+  },
+  "login get": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "login malformed": {
+    "status": 400,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"invalid request body\"}"
+  },
+  "login with forged https": {
+    "status": 204,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Set-Cookie": [
+        "gatus_session=\u003ctoken\u003e; max-age=28800; path=/; HttpOnly; secure; SameSite=Strict"
+      ]
+    }
+  },
+  "login wrong content type": {
+    "status": 415,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"content type must be application/json\"}"
+  },
+  "login wrong password": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"Invalid username or password\"}"
+  },
+  "logout": {
+    "status": 204,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Set-Cookie": [
+        "gatus_session=\u003ctoken\u003e; expires=\u003cdate\u003e; path=/; HttpOnly; SameSite=Strict"
+      ]
+    }
+  },
+  "protected page": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding, Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+  },
+  "protected page after ten failures": {
+    "status": 429,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Retry-After": [
+        "\u003cseconds\u003e"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"too many requests\"}"
+  },
+  "protected page badge": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "protected page badge response time": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"165\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"165\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h110v20H0z\"/\u003e\n    \u003cpath fill=\"#94cc11\" d=\"M110 0h55v20H110z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h165v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"55\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"55\" y=\"14\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      100ms\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"14\"\u003e\n      100ms\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "protected page badge without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page browser request": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page details": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding, Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"page\":{\"slug\":\"clients\",\"title\":\"Clients\",\"showMessages\":false},\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}]}"
+  },
+  "protected page events head": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-cache, no-store, no-transform"
+      ],
+      "Content-Type": [
+        "text/event-stream"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding, Authorization"
+      ],
+      "X-Accel-Buffering": [
+        "no"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "protected page events without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page html": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "text/html"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "protected page html head without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "protected page html nested without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page html trailing slash without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page html without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page unknown key": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "protected page unknown key before 404": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page with admin credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "protected page without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic realm=\"clients\", charset=\"UTF-8\""
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "public page while another one is limited": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "push body above the limit": {
+    "status": -1,
+    "body": "connection error"
+  },
+  "push by token": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":true}"
+  },
+  "push by token post": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":true}"
+  },
+  "push invalid ping": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":false,\"msg\":\"Invalid ping value. Must be between 0 and 100000000000 ms.\"}"
+  },
+  "push repeated query": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":true}"
+  },
+  "push root": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
+  },
+  "push too deep": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
+  },
+  "push unknown token": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ]
+    },
+    "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
+  },
+  "raw response time": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "text/plain"
+      ]
+    },
+    "body": "100"
+  },
+  "raw uptime": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "text/plain"
+      ]
+    },
+    "body": "1.000000"
+  },
+  "spa admin": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa admin backup": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa admin endpoint edit": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa admin status pages": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa endpoint": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa login": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa root": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa root head": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "spa suite": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "static css": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/css"
+      ]
+    }
+  },
+  "static css gzip": {
+    "status": 200,
+    "headers": {
+      "Content-Encoding": [
+        "gzip"
+      ],
+      "Content-Type": [
+        "text/css"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    }
+  },
+  "static css head": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/css"
+      ]
+    }
+  },
+  "static directory": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/html"
+      ]
+    }
+  },
+  "static font": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    }
+  },
+  "static missing": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /js/missing.js"
+  },
+  "static missing with credentials": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /js/missing.js"
+  },
+  "status page": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"down\",\"endpoints\":[{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+  },
+  "status page badge": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "status page chart": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page chart invalid period": {
+    "status": 400,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"invalid period\"}"
+  },
+  "status page details": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"page\":{\"slug\":\"infra\",\"title\":\"Infra\",\"showMessages\":true},\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120,\"message\":\"HTTP 200\"},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80,\"message\":\"HTTP 200\"}],\"group\":\"core\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}]}"
+  },
+  "status page details failed check": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"page\":{\"slug\":\"infra\",\"title\":\"Infra\",\"showMessages\":true},\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5,\"message\":\"Connection failed\"}],\"group\":\"core\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"UNHEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}]}"
+  },
+  "status page details unknown key": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page disabled": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page events head": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, no-transform"
+      ],
+      "Content-Type": [
+        "text/event-stream"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Accel-Buffering": [
+        "no"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page events unknown key": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page gzip": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Encoding": [
+        "gzip"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page head": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page html": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "text/html"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page html missing": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "text/html"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page html nested": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "text/html"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page html trailing slash": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "text/html"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    }
+  },
+  "status page missing": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page options": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page post": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page root": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page too deep": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page trailing slash": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"down\",\"endpoints\":[{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+  },
+  "status page uppercase slug": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "status page with admin credentials": {
+    "status": 404,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "{\"error\":\"status page not found\"}"
+  },
+  "statuses": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"errors\":[\"disk full\"],\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":12000000,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"Disk full\"],\"message\":\"Disk full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
+  },
+  "statuses browser without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "statuses event source without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "statuses head": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    }
+  },
+  "statuses paged": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
+  },
+  "statuses without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "statuses wrong password": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "suite status unknown key": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "{\"error\":\"Suite with key 'missing' not found\"}"
+  },
+  "suite statuses": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "body": "null"
+  },
+  "suite statuses without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "trailing slash": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "{\"status\":\"UP\"}"
+  },
+  "unknown api path with credentials": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /api/v1/nothing-here"
+  },
+  "unknown api path without credentials": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "unknown path": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /nothing-here"
+  },
+  "unknown path with credentials": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Cannot GET /nothing-here"
+  },
+  "uppercase path": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "{\"status\":\"UP\"}"
+  }
+}
