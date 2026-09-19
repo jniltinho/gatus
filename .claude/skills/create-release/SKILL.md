@@ -117,6 +117,27 @@ docker buildx imagetools inspect "jniltinho/gatus:$NEXT"
 
 ---
 
+### 0. Antes da tag: teste de atualização
+
+Com a imagem candidata construída localmente (`make docker-build`), rode o teste de atualização contra a última release
+publicada. Ele faz backup na versão antiga e restaura na nova, sobe a nova sobre o banco da antiga e roda os scripts
+Python de `docs/` contra as duas:
+
+```bash
+OLD_IMAGE=jniltinho/gatus:$LAST_TAG NEW_IMAGE=<imagem candidata> test/e2e/upgrade.sh
+```
+
+### 7. Depois da release: versões dos exemplos
+
+A versão aparece em exemplos que o usuário copia. Troque a anterior pela nova em todos e abra um PR de pós-release:
+
+```bash
+grep -rln "${LAST_TAG#v}\|$LAST_TAG" README.md docs/*.md .examples   # README, docs/README.md, docs/status-pages.md e os composes
+```
+
+Fora do repositório, o pacote `mariadb/` (`.env` e `Dockerfile`) também fixa a versão. Arquive a change do OpenSpec que
+a release entrega, se houver.
+
 ## O que o processo gera
 
 | Artefato | Onde | Status |

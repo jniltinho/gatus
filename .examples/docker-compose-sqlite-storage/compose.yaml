@@ -1,6 +1,6 @@
 services:
   gatus:
-    image: twinproduction/gatus:latest
+    image: jniltinho/gatus:v6.0.0
     ports:
       - "8080:8080"
     volumes:

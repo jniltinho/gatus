@@ -1,47 +1,37 @@
-> Full documentation of Gatus, from the original [TwiN/gatus](https://github.com/TwiN/gatus) README. The summary
-> of the [jniltinho/gatus](https://github.com/jniltinho/gatus) fork and the quick start are in the
-> [README](../README.md); the features of the fork are in [admin-endpoints.md](admin-endpoints.md),
-> [status-pages.md](status-pages.md) and [storage-mysql.md](storage-mysql.md). A status page of the fork can also ask
-> for a username and a password of its own, which the browser requests as in `security.basic`: see
-> [status-pages.md](status-pages.md#login-of-a-page).
+> Full configuration reference of Gatus: endpoints, conditions, alerting, storage, security, UI, suites and deployment.
+> It comes from the README of the original [TwiN/gatus](https://github.com/TwiN/gatus), from which this project started,
+> and everything in it applies here. What [jniltinho/gatus](https://github.com/jniltinho/gatus) adds is documented apart:
+> [admin-endpoints.md](admin-endpoints.md) (administration, login screen, backup),
+> [status-pages.md](status-pages.md) (public status pages, with an optional login of their own),
+> [push-monitoring.md](push-monitoring.md), [storage-mysql.md](storage-mysql.md) and [cli.md](cli.md). The summary and
+> the quick start are in the [README](../README.md).
 
-[![Gatus](../.github/assets/logo-with-dark-text.png)](https://gatus.io)
-
-![test](https://github.com/TwiN/gatus/actions/workflows/test.yml/badge.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/TwiN/gatus?)](https://goreportcard.com/report/github.com/TwiN/gatus)
-[![Go version](https://img.shields.io/github/go-mod/go-version/TwiN/gatus.svg)](https://github.com/TwiN/gatus)
-[![Docker pulls](https://img.shields.io/docker/pulls/twinproduction/gatus.svg)](https://cloud.docker.com/repository/docker/twinproduction/gatus)
-[![Follow TwiN](https://img.shields.io/github/followers/TwiN?label=Follow&style=social)](https://github.com/TwiN)
+<a href="https://github.com/jniltinho/gatus">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../.github/assets/logo-with-light-text.png">
+    <img alt="Gatus" src="../.github/assets/logo-with-dark-text.png" width="420">
+  </picture>
+</a>
 
 Gatus is a developer-oriented health dashboard that gives you the ability to monitor your services using HTTP, ICMP, TCP, and even DNS
 queries as well as evaluate the result of said queries by using a list of conditions on values like the status code,
 the response time, the certificate expiration, the body and many others. The icing on top is that each of these health
 checks can be paired with alerting via Slack, Teams, PagerDuty, Discord, Twilio and many more.
 
-I personally deploy it in my Kubernetes cluster and let it monitor the status of my
-core applications: https://status.twin.sh/
-
-_Looking for a managed solution? Check out [Gatus.io](https://gatus.io)._
-
 <details>
   <summary><b>Quick start</b></summary>
 
 ```console
-docker run -p 8080:8080 --name gatus ghcr.io/twin/gatus:stable
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
 ```
 
-You can also use Docker Hub if you prefer:
-```console
-docker run -p 8080:8080 --name gatus twinproduction/gatus:stable
-```
-For more details, see [Usage](#usage)
+Images are published on [Docker Hub](https://hub.docker.com/r/jniltinho/gatus) with fixed tags only: there is no
+`latest` nor `stable`. For more details, see [Usage](#usage)
 </details>
-
-> ❤ Like this project? Please consider [sponsoring me](https://github.com/sponsors/TwiN).
 
 ![Gatus dashboard](../.github/assets/dashboard-dark.jpg)
 
-Have any feedback or questions? [Create a discussion](https://github.com/TwiN/gatus/discussions/new).
+Have any feedback or questions? [Open an issue](https://github.com/jniltinho/gatus/issues/new).
 
 
 ## Table of Contents
@@ -199,13 +189,9 @@ The main features of Gatus are:
 ## Usage
 
 ```console
-docker run -p 8080:8080 --name gatus ghcr.io/twin/gatus:stable
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
 ```
 
-You can also use Docker Hub if you prefer:
-```console
-docker run -p 8080:8080 --name gatus twinproduction/gatus:stable
-```
 If you want to create your own configuration, see [Docker](#docker) for information on how to mount a configuration file.
 
 Here's a simple example:
@@ -2961,24 +2947,24 @@ Many examples can be found in the [.examples](../.examples) folder, but this sec
 ### Docker
 To run Gatus locally with Docker:
 ```console
-docker run -p 8080:8080 --name gatus ghcr.io/twin/gatus:stable
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
 ```
 
 Other than using one of the examples provided in the [.examples](../.examples) folder, you can also try it out locally by
 creating a configuration file, we'll call it `config.yaml` for this example, and running the following
 command:
 ```console
-docker run -p 8080:8080 --mount type=bind,source="$(pwd)"/config.yaml,target=/config/config.yaml --name gatus ghcr.io/twin/gatus:stable
+docker run -p 8080:8080 --mount type=bind,source="$(pwd)"/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.0
 ```
 
 If you're on Windows, replace `"$(pwd)"` by the absolute path to your current directory, e.g.:
 ```console
-docker run -p 8080:8080 --mount type=bind,source=C:/Users/Chris/Desktop/config.yaml,target=/config/config.yaml --name gatus ghcr.io/twin/gatus:stable
+docker run -p 8080:8080 --mount type=bind,source=C:/Users/Chris/Desktop/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.0
 ```
 
 To build the image locally:
 ```console
-docker build . -t ghcr.io/twin/gatus:stable
+docker build . -t gatus:dev
 ```
 
 
@@ -2994,6 +2980,9 @@ helm repo update
 helm install gatus twin/gatus
 ```
 
+The chart is the one of the original project and deploys its image by default. To run this project with it, set the
+image: `--set image.repository=jniltinho/gatus --set image.tag=v6.0.0`.
+
 To get more details, please check [chart's configuration](https://github.com/TwiN/helm-charts/blob/master/charts/gatus/README.md).
 
 
@@ -3001,7 +2990,8 @@ To get more details, please check [chart's configuration](https://github.com/Twi
 
 #### Kubernetes
 
-Gatus can be deployed on Kubernetes using Terraform by using the following module: [terraform-kubernetes-gatus](https://github.com/TwiN/terraform-kubernetes-gatus).
+Gatus can be deployed on Kubernetes using Terraform by using the following module: [terraform-kubernetes-gatus](https://github.com/TwiN/terraform-kubernetes-gatus). It belongs to the
+original project too: point its image at `jniltinho/gatus` with a fixed tag.
 
 
 ## Running the tests

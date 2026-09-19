@@ -15,7 +15,7 @@ services:
       - web
 
   gatus:
-    image: twinproduction/gatus:latest
+    image: jniltinho/gatus:v6.0.0
     restart: always
     ports:
       - "8080:8080"
