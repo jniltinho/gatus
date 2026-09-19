@@ -140,7 +140,7 @@ grep -q gatus_session "$WORK/session.txt" || fail "the login did not set the ses
 [ "$(http_status -b "$WORK/session.txt" "$BASE/api/v1/endpoints/statuses")" = 401 ] || fail "the token of a closed session should be refused"
 [ "$(http_status -b "$WORK/session.txt" -u "$USERNAME:$PASSWORD" "$BASE/api/v1/endpoints/statuses")" = 200 ] || fail "an old session cookie should not block curl -u"
 
-step "Administration without session: login screen at 15% of the top, without the dashboard header nor the native dialog"
+step "Administration without session: login screen at 10% of the top, without the dashboard header nor the native dialog"
 browser set viewport 1280 900 >/dev/null
 # Fork: the operating system prefers the light theme, which is not followed: without a theme cookie, the theme is dark
 browser set media light >/dev/null
@@ -149,9 +149,11 @@ wait_for login-card
 [ "$(js 'location.pathname')" = /login ] || fail "expected the login screen, got $(js 'location.pathname')"
 [ "$(js 'new URLSearchParams(location.search).get("redirect")')" = /admin ] || fail "expected redirect=/admin, got $(js 'location.search')"
 [ "$(js 'document.querySelector("header") === null && document.querySelector("[data-testid=admin-link]") === null')" = true ] || fail "the login screen should not show the dashboard header"
-[ "$(js 'Math.abs(document.querySelector("[data-testid=login-card]").getBoundingClientRect().top - innerHeight * 0.15) < 2')" = true ] || fail "the card should start at 15% of the height of the window"
+[ "$(js 'Math.abs(document.querySelector("[data-testid=login-card]").getBoundingClientRect().top - innerHeight * 0.10) < 2')" = true ] || fail "the card should start at 10% of the height of the window"
 [ "$(js 'document.querySelector("[data-testid=login-title]").textContent.trim()')" = Status ] || fail "expected the default header Status on the login screen, got $(js 'document.querySelector("[data-testid=login-title]").textContent')"
-[ "$(js 'document.querySelector("[data-testid=login-card] img") === null')" = true ] || fail "the login screen should not show a logo without ui.logo"
+# Without ui.logo the logo embedded in the binary is shown (ui.logo: none hides it)
+[ "$(js 'new URL(document.querySelector("[data-testid=login-card] img").src).pathname')" = "/logo-192x192.png" ] || fail "the login screen should show the embedded logo without ui.logo"
+[ "$(js 'document.querySelector("[data-testid=login-card] img").naturalWidth > 0')" = true ] || fail "the embedded logo did not load"
 [ "$(js 'document.documentElement.classList.contains("dark")')" = true ] || fail "without a theme cookie, the login screen should be dark even with the operating system in light mode"
 [ "$(js 'document.documentElement.dataset.defaultTheme')" = dark ] || fail "the HTML should have the default theme of ui.dark-mode"
 [ "$(js 'document.querySelector("meta[name=theme-color]").content')" = "#030712" ] || fail "the theme color should follow the dark theme"
@@ -227,7 +229,7 @@ browser open "$BASE/" >/dev/null
 wait_for logout-button
 wait_for admin-link
 [ "$(js 'document.querySelector("header h1").textContent.trim()')" = Status ] || fail "expected the default header Status on the dashboard, got $(js 'document.querySelector("header h1").textContent')"
-[ "$(js 'document.querySelector("header img") === null')" = true ] || fail "the dashboard header should not show a logo without ui.logo"
+[ "$(js 'new URL(document.querySelector("header img").src).pathname')" = "/logo-192x192.png" ] || fail "the dashboard header should show the embedded logo without ui.logo"
 [ "$(js '!document.body.innerText.includes("Gatus") && document.querySelector("#social, a[href*=\"github.com\"], a[href*=\"gatus.io\"]") === null')" = true ] || fail "the dashboard should not show the Gatus name, the GitHub link nor the Powered by footer"
 [ "$(js 'document.title')" = "Health Dashboard | Status" ] || fail "expected the default title, got $(js 'document.title')"
 browser open "$BASE/endpoints/core_health" >/dev/null
@@ -261,7 +263,7 @@ browser open "$BASE/status/services" >/dev/null
 wait_for public-layout
 expect_location /status/services
 [ "$(js 'document.querySelector("[data-testid=login-card]") === null')" = true ] || fail "the public status page should not ask for a login"
-[ "$(js 'document.querySelector("[data-testid=public-layout] header img") === null && document.querySelector("[data-testid=public-layout] header").innerText.includes("Status")')" = true ] || fail "the public header should show Status without a logo"
+[ "$(js 'new URL(document.querySelector("[data-testid=public-layout] header img").src).pathname === "/logo-192x192.png" && document.querySelector("[data-testid=public-layout] header").innerText.includes("Status")')" = true ] || fail "the public header should show the embedded logo and Status without ui.logo"
 browser screenshot "$PRINTS/07-public-status-page.png" >/dev/null
 
 step "Limit of failed logins: 429 with Retry-After, also with the right password, and message on the login screen"

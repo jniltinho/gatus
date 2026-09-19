@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"html/template"
+	"strings"
 
 	"gatus/v5/internal/storage"
 	static "gatus/v5/web"
@@ -19,15 +20,18 @@ const (
 	defaultHeader              = "Status"
 	defaultDashboardHeading    = "Health Dashboard"
 	defaultDashboardSubheading = "Monitor the health of your endpoints in real-time"
-	defaultLogo                = ""
-	defaultLink                = ""
-	defaultFavicon             = "/favicon.ico"
-	defaultFavicon16           = "/favicon-16x16.png"
-	defaultFavicon32           = "/favicon-32x32.png"
-	defaultCustomCSS           = ""
-	defaultSortBy              = "name"
-	defaultFilterBy            = "none"
-	defaultLoginSubtitle       = "System Monitoring Dashboard"
+	// defaultLogo is the logo embedded in the binary (web/static), shown when ui.logo is not set (fork)
+	defaultLogo = "/logo-192x192.png"
+	// NoLogo is the value of ui.logo that shows no logo at all: an empty value means the default one
+	NoLogo               = "none"
+	defaultLink          = ""
+	defaultFavicon       = "/favicon.ico"
+	defaultFavicon16     = "/favicon-16x16.png"
+	defaultFavicon32     = "/favicon-32x32.png"
+	defaultCustomCSS     = ""
+	defaultSortBy        = "name"
+	defaultFilterBy      = "none"
+	defaultLoginSubtitle = "System Monitoring Dashboard"
 )
 
 var (
@@ -55,7 +59,7 @@ type Config struct {
 	DashboardHeading    string   `yaml:"dashboard-heading,omitempty"`    // Dashboard Title between header and endpoints
 	DashboardSubheading string   `yaml:"dashboard-subheading,omitempty"` // Dashboard Description between header and endpoints
 	Header              string   `yaml:"header,omitempty"`               // Header is the text at the top of the page
-	Logo                string   `yaml:"logo,omitempty"`                 // Logo to display on the page
+	Logo                string   `yaml:"logo,omitempty"`                 // Logo shown in the headers and on the login screen: a URL, empty for the embedded one, or "none" for no logo
 	Link                string   `yaml:"link,omitempty"`                 // Link to open when clicking on the logo
 	Favicon             Favicon  `yaml:"favicon,omitempty"`              // Favourite icon to display in web browser tab or address bar
 	Buttons             []Button `yaml:"buttons,omitempty"`              // Buttons to display below the header
@@ -198,6 +202,9 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 	}
 	if len(cfg.Logo) == 0 {
 		cfg.Logo = defaultLogo
+	} else if strings.EqualFold(strings.TrimSpace(cfg.Logo), NoLogo) {
+		// The template and the frontend show a logo whenever there is one: "none" becomes no logo at all
+		cfg.Logo = ""
 	}
 	if len(cfg.Link) == 0 {
 		cfg.Link = defaultLink
