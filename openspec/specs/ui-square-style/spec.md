@@ -4,7 +4,7 @@
 TBD - created by archiving change add-admin-endpoint-management. Update Purpose after archive.
 ## Requirements
 ### Requirement: Interface sem cantos arredondados
-Todos os elementos retangulares da interface web MUST ser exibidos com raio de borda zero, nos temas claro e escuro, no dashboard, nas páginas de detalhes e nas telas de administração. Isso inclui cards, botões, campos de texto, selects, badges, contadores, banners de anúncio, modais, tooltips (inclusive o tooltip do gráfico de tempo de resposta), a barra e os botões de configurações, popovers, barras de progresso, tabelas e contêineres de gráficos.
+Todos os elementos retangulares da interface web MUST ser exibidos com raio de borda zero, em todos os temas (claro, escuro e Bio), no dashboard, nas páginas de detalhes e nas telas de administração. Isso inclui cards, botões, campos de texto, selects, badges, contadores, banners de anúncio, modais, tooltips (inclusive o tooltip do gráfico de tempo de resposta), a barra e os botões de configurações, popovers, barras de progresso, tabelas e contêineres de gráficos.
 
 #### Scenario: Card de endpoint
 - **WHEN** o dashboard exibe um card de endpoint
