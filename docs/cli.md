@@ -85,9 +85,21 @@ storage, no OIDC).
 - With `web.tls`, the check speaks HTTPS **without verifying the certificate**, which may be self-signed or issued for
   another name than the loopback. It only ever talks to the server of its own configuration.
 - A redirect is not a healthy answer, and the proxy of the environment is never used.
-- `--url` checks another address, and then the configuration is not read at all.
+- `--url` checks another address, and then the configuration is not read at all. The certificate is only left
+  unverified for the loopback (`127.0.0.1`, `::1`, `localhost`): a `--url` to another host gets the normal verification.
+- The 5 seconds cover the whole command, the read of the configuration included.
+- The `HEALTHCHECK` is another process: it inherits the environment of the container, **not the arguments** of the
+  server. In a container, choose the configuration with `GATUS_CONFIG_PATH`, which both see, rather than with
+  `command: ["serve", "--config", "/other.yaml"]`, which the healthcheck would not know about.
 
 With `GATUS_DELAY_START_SECONDS`, raise the `--start-period` of the `HEALTHCHECK` in your compose file accordingly.
+
+## What changed for whoever already ran the binary
+
+- An invalid or missing configuration at start used to end in a Go `panic` with a stack trace and the exit code 2. It
+  now prints one line, `Error: ...`, and exits with 1. A storage that cannot be opened still panics, as before.
+- The prefix of the log lines of the lifecycle went from `[main.` to `[cmd.` — for instance
+  `[cmd.listenToConfigurationFileChanges]`. An alert that matches the old prefix has to be updated.
 
 ## gatus version
 

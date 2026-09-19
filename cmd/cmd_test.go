@@ -11,9 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gatus/v5/config"
 	"gatus/v5/security"
+	"github.com/TwiN/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -179,6 +181,27 @@ func TestConfigValidate(t *testing.T) {
 			t.Error("expected the missing path to be an error, not the default configuration to be validated")
 		}
 	})
+	t.Run("flag-before-the-command", func(t *testing.T) {
+		output, err := execute(t, "", "--config", writeConfiguration(t, validConfiguration), "config", "validate")
+		if err != nil || !strings.Contains(output, "The configuration is valid") {
+			t.Errorf("expected the flag to work before the command, got %q and %v", output, err)
+		}
+	})
+	t.Run("a-document-that-makes-the-load-panic", func(t *testing.T) {
+		_, err := execute(t, "", "config", "validate", "--config", writeConfiguration(t, "endpoints: [null]\n"))
+		if err == nil {
+			t.Error("expected an error and not a panic")
+		}
+	})
+	t.Run("the-log-level-is-restored", func(t *testing.T) {
+		logr.SetThreshold(logr.LevelInfo)
+		if _, err := execute(t, "", "config", "validate", "--config", writeConfiguration(t, validConfiguration)); err != nil {
+			t.Fatal(err)
+		}
+		if logr.GetThreshold() != logr.LevelInfo {
+			t.Errorf("expected the log level to be restored, got %s", logr.GetThreshold())
+		}
+	})
 	t.Run("opens-no-storage", func(t *testing.T) {
 		database := filepath.Join(t.TempDir(), "gatus.db")
 		withStorage := validConfiguration + "storage:\n  type: sqlite\n  path: " + database + "\n"
@@ -228,10 +251,67 @@ func TestPasswordHash(t *testing.T) {
 		}
 	})
 	t.Run("as-an-argument", func(t *testing.T) {
-		if _, err := execute(t, "", "password", "hash", "a-good-password"); err == nil {
-			t.Error("expected the password as an argument to be refused")
+		output, err := execute(t, "", "password", "hash", "a-good-password")
+		if err == nil {
+			t.Fatal("expected the password as an argument to be refused")
+		}
+		// cobra.NoArgs would answer `unknown command "a-good-password"`: the refusal must not repeat the password
+		if strings.Contains(err.Error(), "a-good-password") || strings.Contains(output, "a-good-password") {
+			t.Errorf("expected the refusal not to repeat the password, got %q and %q", err.Error(), output)
 		}
 	})
+	t.Run("a-carriage-return-that-is-not-the-line-break", func(t *testing.T) {
+		output, err := execute(t, "abc\r\r\n", "password", "hash")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !security.CheckCredentials("admin", strings.TrimSpace(output), "admin", "abc\r") {
+			t.Error("expected only the line break to be dropped")
+		}
+	})
+	t.Run("exactly-the-limit-of-bcrypt", func(t *testing.T) {
+		if _, err := execute(t, strings.Repeat("a", 72), "password", "hash"); err != nil {
+			t.Errorf("expected 72 bytes to be accepted, got %v", err)
+		}
+		// 37 characters of 2 bytes are 74 bytes: the limit is in bytes
+		if _, err := execute(t, strings.Repeat("é", 37), "password", "hash"); err == nil {
+			t.Error("expected 74 bytes in 37 characters to be refused")
+		}
+	})
+}
+
+func TestIsLoopbackTarget(t *testing.T) {
+	scenarios := map[string]bool{
+		"https://127.0.0.1:8443/health":     true,
+		"https://[::1]:8443/health":         true,
+		"https://localhost:8443/health":     true,
+		"https://status.example.org/health": false,
+		"https://192.0.2.10:8443/health":    false,
+		"https://127.0.0.1.example.org/":    false,
+		"https://localhost.example.org/":    false,
+		"://not a url":                      false,
+	}
+	for target, expected := range scenarios {
+		if actual := isLoopbackTarget(target); actual != expected {
+			t.Errorf("%s: expected %v, got %v", target, expected, actual)
+		}
+	}
+}
+
+func TestCommandLineErrors(t *testing.T) {
+	for _, arguments := range [][]string{{"unknown-command"}, {"serve", "extra-argument"}, {"config"}} {
+		_, err := execute(t, "", arguments...)
+		if arguments[0] == "config" {
+			// A group of commands shows its help
+			if err != nil {
+				t.Errorf("%v: expected the help, got %v", arguments, err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("%v: expected an error", arguments)
+		}
+	}
 }
 
 func TestHealthcheckURL(t *testing.T) {
@@ -242,7 +322,11 @@ func TestHealthcheckURL(t *testing.T) {
 		expected string
 	}{
 		{address: "0.0.0.0", port: 8080, expected: "http://127.0.0.1:8080/health"},
-		{address: "::", port: 8080, expected: "http://127.0.0.1:8080/health"},
+		// The loopback of the same family: a server bound to :: with bindv6only does not answer on 127.0.0.1
+		{address: "::", port: 8080, expected: "http://[::1]:8080/health"},
+		{address: "[::]", port: 8080, expected: "http://[::1]:8080/health"},
+		// The server accepts the address with brackets, which must not be doubled
+		{address: "[::1]", port: 8080, expected: "http://[::1]:8080/health"},
 		{address: "", port: 9090, expected: "http://127.0.0.1:9090/health"},
 		{address: "127.0.0.1", port: 9090, hasTLS: true, expected: "https://127.0.0.1:9090/health"},
 		{address: "192.0.2.10", port: 8080, expected: "http://192.0.2.10:8080/health"},
@@ -289,6 +373,28 @@ func TestHealthcheck(t *testing.T) {
 		t.Setenv(GatusConfigPathEnvVar, writeConfiguration(t, "this is: [not valid"))
 		if _, err := execute(t, "", "healthcheck", "--url", server.URL+"/health"); err != nil {
 			t.Errorf("expected --url not to depend on the configuration, got %v", err)
+		}
+	})
+	t.Run("the-proxy-of-the-environment-is-not-used", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(healthy))
+		defer server.Close()
+		// A proxy that refuses every connection: the check would fail if it went through it
+		t.Setenv("HTTP_PROXY", "http://127.0.0.1:1")
+		t.Setenv("http_proxy", "http://127.0.0.1:1")
+		if _, err := execute(t, "", "healthcheck", "--url", server.URL+"/health"); err != nil {
+			t.Errorf("expected the proxy of the environment to be ignored, got %v", err)
+		}
+	})
+	t.Run("the-start-delay-does-not-apply", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(healthy))
+		defer server.Close()
+		t.Setenv(GatusDelayStartEnvVar, "30")
+		started := time.Now()
+		if _, err := execute(t, "", "healthcheck", "--url", server.URL+"/health"); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(started); elapsed > 5*time.Second {
+			t.Errorf("expected the check not to wait for the start delay, took %s", elapsed)
 		}
 	})
 	t.Run("unhealthy", func(t *testing.T) {

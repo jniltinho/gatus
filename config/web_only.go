@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"strings"
 
@@ -38,6 +39,9 @@ func LoadWebConfiguration(configPath string) (*web.Config, error) {
 	}
 	if webConfig.Port == 0 {
 		webConfig.Port = web.DefaultPort
+	} else if webConfig.Port < 0 || webConfig.Port > math.MaxUint16 {
+		// The same rule as web.Config.ValidateAndSetDefaults, which the server applies
+		return nil, fmt.Errorf("invalid port: value should be between %d and %d", 0, math.MaxUint16)
 	}
 	return webConfig, nil
 }
@@ -64,7 +68,12 @@ func readConfigurationBytes(configPath string) ([]byte, error) {
 			continue
 		}
 		if !fileInfo.IsDir() {
-			return os.ReadFile(candidate)
+			configBytes, readErr := os.ReadFile(candidate)
+			if readErr == nil && len(configBytes) == 0 {
+				// Like LoadConfiguration, for which an empty file is no configuration
+				return nil, ErrConfigFileNotFound
+			}
+			return configBytes, readErr
 		}
 		var configBytes []byte
 		err = walkConfigDir(candidate, func(path string, _ fs.DirEntry, _ error) error {

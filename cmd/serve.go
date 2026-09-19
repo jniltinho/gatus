@@ -29,7 +29,7 @@ var serveConfigPath string
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the server (the default when no command is given)",
-	Args:  cobra.NoArgs,
+	Args:  cobra.ExactArgs(0),
 	RunE:  runServe,
 }
 

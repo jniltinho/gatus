@@ -50,6 +50,20 @@ func TestLoadWebConfiguration(t *testing.T) {
 			}
 		})
 	}
+	t.Run("a port out of range, which the server refuses too", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		_ = os.WriteFile(path, []byte("web:\n  port: 70000\n"), 0o600)
+		if _, err := LoadWebConfiguration(path); err == nil {
+			t.Error("expected the port to be refused")
+		}
+	})
+	t.Run("an empty file is no configuration, as for the server", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		_ = os.WriteFile(path, nil, 0o600)
+		if _, err := LoadWebConfiguration(path); !errors.Is(err, ErrConfigFileNotFound) {
+			t.Errorf("expected ErrConfigFileNotFound, got %v", err)
+		}
+	})
 	t.Run("a directory of configuration files", func(t *testing.T) {
 		directory := t.TempDir()
 		_ = os.WriteFile(filepath.Join(directory, "endpoints.yaml"), []byte("endpoints: []\n"), 0o600)
