@@ -1,6 +1,6 @@
 services:
   gatus:
-    image: jniltinho/gatus:v6.0.0
+    image: jniltinho/gatus:v6.0.1
     ports:
       - 8080:8080
     volumes:

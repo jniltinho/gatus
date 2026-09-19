@@ -22,7 +22,7 @@ checks can be paired with alerting via Slack, Teams, PagerDuty, Discord, Twilio 
   <summary><b>Quick start</b></summary>
 
 ```console
-docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.1
 ```
 
 Images are published on [Docker Hub](https://hub.docker.com/r/jniltinho/gatus) with fixed tags only: there is no
@@ -189,7 +189,7 @@ The main features of Gatus are:
 ## Usage
 
 ```console
-docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.1
 ```
 
 If you want to create your own configuration, see [Docker](#docker) for information on how to mount a configuration file.
@@ -2947,19 +2947,19 @@ Many examples can be found in the [.examples](../.examples) folder, but this sec
 ### Docker
 To run Gatus locally with Docker:
 ```console
-docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.0
+docker run -p 8080:8080 --name gatus jniltinho/gatus:v6.0.1
 ```
 
 Other than using one of the examples provided in the [.examples](../.examples) folder, you can also try it out locally by
 creating a configuration file, we'll call it `config.yaml` for this example, and running the following
 command:
 ```console
-docker run -p 8080:8080 --mount type=bind,source="$(pwd)"/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.0
+docker run -p 8080:8080 --mount type=bind,source="$(pwd)"/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.1
 ```
 
 If you're on Windows, replace `"$(pwd)"` by the absolute path to your current directory, e.g.:
 ```console
-docker run -p 8080:8080 --mount type=bind,source=C:/Users/Chris/Desktop/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.0
+docker run -p 8080:8080 --mount type=bind,source=C:/Users/Chris/Desktop/config.yaml,target=/config/config.yaml --name gatus jniltinho/gatus:v6.0.1
 ```
 
 To build the image locally:
@@ -2981,7 +2981,7 @@ helm install gatus twin/gatus
 ```
 
 The chart is the one of the original project and deploys its image by default. To run this project with it, set the
-image: `--set image.repository=jniltinho/gatus --set image.tag=v6.0.0`.
+image: `--set image.repository=jniltinho/gatus --set image.tag=v6.0.1`.
 
 To get more details, please check [chart's configuration](https://github.com/TwiN/helm-charts/blob/master/charts/gatus/README.md).
 
