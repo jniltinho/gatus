@@ -174,6 +174,6 @@ Nenhum marco muda o banco, o `config.yaml` ou as variáveis de ambiente.
 
 ## Open Questions
 
-- **O custo de sincronização com o upstream é aceitável?** Se não for, a change se reduz aos marcos 1 e 3, que entregam a linha de comando e o layout sem tocar o servidor.
+- ~~O custo de sincronização com o upstream é aceitável?~~ **Decidido pelo dono em 2026-09-19: sim, a migração para o Echo v5 segue**, ciente de que as correções do upstream em `api/`, `security/` e `controller/` passam a ser portadas à mão. Os três marcos ficam na change.
 - **Distinguir maiúsculas nos caminhos** é aceitável, ou é preciso um middleware que normalize?
 - **`internal/` para tudo, como no `go-ispconfig`, ou só para os pacotes do fork (D7)?** O padrão do dono põe todo o código em `internal/`. Aqui isso mudaria o caminho de todos os arquivos que o upstream também tem, e a sincronização deixaria de ser possível por `git merge`. D7 recomenda só os pacotes do fork; se a sincronização com o upstream deixar de ser um objetivo — e o marco 2 já a enfraquece —, o marco 3 pode ser o `internal/` completo.
