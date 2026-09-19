@@ -24,11 +24,17 @@ const (
 )
 
 var (
-	ErrInvalidDNSResolver        = errors.New("invalid DNS resolver specified. Required format is {proto}://{ip}:{port}")
-	ErrInvalidDNSResolverPort    = errors.New("invalid DNS resolver port")
+	// ErrInvalidDNSResolver is returned when dns-resolver is not in the {proto}://{ip}:{port} format.
+	ErrInvalidDNSResolver = errors.New("invalid DNS resolver specified. Required format is {proto}://{ip}:{port}")
+	// ErrInvalidDNSResolverPort is returned when the port of dns-resolver is not a number between 1 and 65535.
+	ErrInvalidDNSResolverPort = errors.New("invalid DNS resolver port")
+	// ErrInvalidClientOAuth2Config is returned when oauth2 is set without one of the fields of the client credentials flow.
 	ErrInvalidClientOAuth2Config = errors.New("invalid oauth2 configuration: must define all fields for client credentials flow (token-url, client-id, client-secret, scopes)")
-	ErrInvalidClientIAPConfig    = errors.New("invalid Identity-Aware-Proxy configuration: must define all fields for Google Identity-Aware-Proxy programmatic authentication (audience)")
-	ErrInvalidClientTLSConfig    = errors.New("invalid TLS configuration: certificate-file and private-key-file must be specified")
+	// ErrInvalidClientIAPConfig is returned when identity-aware-proxy is set without an audience.
+	ErrInvalidClientIAPConfig = errors.New("invalid Identity-Aware-Proxy configuration: must define all fields for Google Identity-Aware-Proxy programmatic authentication (audience)")
+	// ErrInvalidClientTLSConfig is returned when tls is set without both certificate-file and private-key-file. A pair
+	// that cannot be loaded returns the error of the load instead.
+	ErrInvalidClientTLSConfig = errors.New("invalid TLS configuration: certificate-file and private-key-file must be specified")
 
 	defaultConfig = Config{
 		Insecure:       false,

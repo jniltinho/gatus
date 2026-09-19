@@ -1,3 +1,5 @@
+// Package pagerduty implements the alerting provider that triggers and resolves PagerDuty incidents through
+// the Events API v2, keeping the dedup key returned by PagerDuty as the alert's resolve key.
 package pagerduty
 
 import (
@@ -19,15 +21,22 @@ const (
 	restAPIURL = "https://events.pagerduty.com/v2/enqueue"
 )
 
+// ErrIntegrationKeyNotSet is returned by Config.Validate when integration-key is not exactly 32 characters
+// long, which includes not being set at all.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrIntegrationKeyNotSet   = errors.New("integration-key must have exactly 32 characters")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the PagerDuty provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	IntegrationKey string `yaml:"integration-key"`
 }
 
+// Validate returns ErrIntegrationKeyNotSet unless the integration key has exactly 32 characters.
 func (cfg *Config) Validate() error {
 	if len(cfg.IntegrationKey) != 32 {
 		return ErrIntegrationKeyNotSet
@@ -35,6 +44,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites IntegrationKey with the one of override when it is not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.IntegrationKey) > 0 {
 		cfg.IntegrationKey = override.IntegrationKey
@@ -43,6 +53,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using PagerDuty
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -114,6 +125,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the event sent to the PagerDuty Events API v2. DedupKey is empty when triggering and carries the
+// alert's ResolveKey when resolving.
 type Body struct {
 	RoutingKey  string  `json:"routing_key"`
 	DedupKey    string  `json:"dedup_key"`
@@ -121,6 +134,7 @@ type Body struct {
 	Payload     Payload `json:"payload"`
 }
 
+// Payload describes the incident inside Body. Source is always "Gatus" and Severity is always "critical".
 type Payload struct {
 	Summary  string `json:"summary"`
 	Source   string `json:"source"`

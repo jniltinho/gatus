@@ -17,6 +17,8 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// Bodies of the errors of the public status page API. The 404 is identical for every page that is not published and
+// every path that is not a page.
 const (
 	statusPageNotFoundBody        = `{"error":"status page not found"}`
 	statusPageUnavailableBody     = `{"error":"status page temporarily unavailable"}`
@@ -28,6 +30,11 @@ const (
 //
 // The catch-all of /api/v1/status-pages is always registered, even with status-pages.enabled set to false, so that no
 // path under it reaches the security middleware (which would answer 401 and open the login prompt of the browser).
+//
+// Any method on /api/v1/status-pages and /api/v1/status-pages/* that matches no route of a page is answered by
+// statusPageNotFound: 404 with {"error": "status page not found"}, or 429 with Retry-After above the rate limit of the
+// client. The routes of a page are only registered when status-pages.enabled is true, and all run behind
+// statusPageAuth.
 func registerStatusPageRoutes(app httpx.Router, unprotectedAPIRouter httpx.Router, cfg *config.Config) {
 	statuspage.ConfigureLimiter(cfg.StatusPages.GetRateLimit())
 	trustedProxies := cfg.StatusPages.TrustedProxyPrefixes()
@@ -61,6 +68,19 @@ func registerStatusPageRoutes(app httpx.Router, unprotectedAPIRouter httpx.Route
 	httpx.GetAndHead(app, "/status/*", spa, statusPageHTMLAuth(trustedProxies))
 }
 
+// statusPageHandler returns the handler of GET and HEAD /api/v1/status-pages/:slug: the public payload of a published
+// status page, answered from the cache of the server, see statuspage.PublicPage.
+//
+// Authentication: none, or HTTP Basic with the login of the page when the page requires one (statusPageAuth).
+// Request: the path parameter slug is the slug of the page, used as it was sent.
+// Responses: 200 with statuspage.Payload as JSON, Cache-Control: no-cache (private, no-store and Vary: Authorization
+// for a page with a login), X-Robots-Tag: noindex, nofollow, X-Content-Type-Options: nosniff, Referrer-Policy:
+// strict-origin-when-cross-origin and Vary: Accept-Encoding; 401 with WWW-Authenticate: Basic realm="<slug>" and
+// {"error": "authentication required"} when the page requires a login and the credential is missing or wrong; 404 with
+// {"error": "status page not found"} when the page does not exist or is not published; 429 with Retry-After (seconds)
+// and {"error": "too many requests"} when the client exceeded the rate limit of the 404s (status-pages.rate-limit) or
+// failed the login of the page too many times; 503 with {"error": "status page temporarily unavailable"} when the
+// payload cannot be assembled. Errors have Cache-Control: no-store.
 func statusPageHandler(notFound echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		published, captured := publishedStatusPage(c)
@@ -85,6 +105,16 @@ func statusPageHandler(notFound echo.HandlerFunc) echo.HandlerFunc {
 
 // statusPageEndpointHandler serves the details of an endpoint of a published status page, see
 // statuspage.PublicEndpointDetails
+//
+// It returns the handler of GET and HEAD /api/v1/status-pages/:slug/endpoints/:key.
+//
+// Authentication: none, or HTTP Basic with the login of the page when the page requires one (statusPageAuth).
+// Request: path parameters slug and key; the key is the key of an endpoint shown by the page, unescaped once with
+// url.QueryUnescape and not lower-cased.
+// Responses: 200 with statuspage.EndpointDetailsPayload as JSON, with the same headers as statusPageHandler; 401, 429
+// and 503 as in statusPageHandler; 404 with {"error": "status page not found"} when the page is not published, the key
+// cannot be unescaped or the page does not show the endpoint (after the challenge of a page with a login, so that the
+// answer does not tell which endpoints the page has).
 func statusPageEndpointHandler(notFound echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		key, err := url.QueryUnescape(c.Param("key"))
@@ -112,6 +142,10 @@ func statusPageEndpointHandler(notFound echo.HandlerFunc) echo.HandlerFunc {
 
 // statusPageNotFound answers the same 404 for every page that is not published and every path that is not a page. Only
 // these responses count in the rate limit of the client.
+//
+// It is also the handler of any method on /api/v1/status-pages and /api/v1/status-pages/*. Responses: 404 with
+// {"error": "status page not found"}; 429 with Retry-After (seconds) and {"error": "too many requests"} once the
+// client exceeded status-pages.rate-limit. Both have Cache-Control: no-store and the headers of the public API.
 func statusPageNotFound(trustedProxies []netip.Prefix) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		remoteIP := httpx.RemoteIP(c)
@@ -127,6 +161,8 @@ func statusPageNotFound(trustedProxies []netip.Prefix) echo.HandlerFunc {
 	}
 }
 
+// sendStatusPageError answers an error of the public status page API: the given status and JSON body, with the headers
+// of the public API and Cache-Control: no-store. It is used for 400 (invalid period), 401, 404, 429 and 503.
 func sendStatusPageError(c *echo.Context, status int, body string) error {
 	setPublicAPIHeaders(c)
 	httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")

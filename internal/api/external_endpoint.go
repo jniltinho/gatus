@@ -15,6 +15,21 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// CreateExternalEndpointResult returns the handler of POST /api/v1/endpoints/:key/external: it records a result
+// reported by an external system for an external endpoint of the configuration file, publishes its metrics and handles
+// its alerts.
+//
+// Authentication: bearer token of the external endpoint (Authorization: Bearer <token>); the route is in the public
+// group and checks the token itself.
+// Request: the path parameter key is the key of the external endpoint, used as it was sent (neither unescaped nor
+// lower-cased). Query parameters: success, required, true or false (when it is repeated, the last occurrence is
+// validated and the first one is used); duration, optional, a Go duration such as 250ms or 1.5s; error, optional, the
+// error of the result, only kept when success is false. The body is not used.
+// Responses: 200 with an empty body; 400 when success is missing or invalid, or when the duration cannot be parsed; 401
+// when the Authorization header is not a bearer token, the token is empty or is not the token of the endpoint; 404
+// when no external endpoint has the key, in the configuration or in the storage; 500 when the result could not be
+// stored, with the text of the error. Errors are text/plain. The parameters are checked in this order: success, the
+// Authorization header, the key, the token, then the duration.
 func CreateExternalEndpointResult(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		// Check if the success query parameter is present

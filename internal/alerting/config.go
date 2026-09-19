@@ -1,3 +1,5 @@
+// Package alerting holds the configuration of every alerting provider and finds the provider of an alert type
+// by matching the type against the YAML tags of Config through reflection.
 package alerting
 
 import (

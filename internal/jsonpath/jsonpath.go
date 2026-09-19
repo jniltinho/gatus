@@ -1,3 +1,5 @@
+// Package jsonpath evaluates the small JSON path dialect of the conditions, such as [BODY].data[0].name, against a
+// JSON document.
 package jsonpath
 
 import (

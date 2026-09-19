@@ -11,11 +11,23 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// ConfigHandler serves the part of the configuration the frontend needs before anything else: the login method, whether
+// the request is authenticated, the state of the administration and the announcements.
 type ConfigHandler struct {
 	securityConfig *security.Config
 	config         *config.Config
 }
 
+// GetConfig handles GET and HEAD /api/v1/config: it tells the frontend how to log in, whether the request is
+// authenticated, whether it can use the administration, and the announcements.
+//
+// Authentication: none (public group); the authentication of the request, if any, is only reported. With
+// security.basic, a wrong Authorization: Basic header counts as a failure for the limiter of the client, but the
+// response is still 200.
+// Responses: 200 with the JSON object {"oidc": bool, "login": "basic"|"oidc"|"", "authenticated": bool (true without
+// security), "admin": {"enabled": bool, "authorized": bool}, "announcements": array of announcement.Announcement,
+// empty when there is none}; "admin" is absent when the handler has no configuration, which only happens in tests. 500
+// with {"error": "..."} when the response cannot be encoded.
 func (handler ConfigHandler) GetConfig(c *echo.Context) error {
 	hasOIDC := false
 	login := ""

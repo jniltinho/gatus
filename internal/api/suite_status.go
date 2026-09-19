@@ -14,6 +14,15 @@ import (
 )
 
 // SuiteStatuses handles requests to retrieve all suite statuses
+//
+// It returns the handler of GET and HEAD /api/v1/suites/statuses: the status of every suite with a page of its results.
+// While the storage has no suite status yet, an empty status is returned for every enabled suite of the configuration.
+//
+// Authentication: protected group (security middleware, when security is configured).
+// Request: query parameters page (default 1) and pageSize (default 50, capped at 100 on page 1), see
+// extractPageAndPageSizeFromRequest. They page the results of each suite, not the suites.
+// Responses: 200 with a JSON array of suite.Status; 401 without a valid authentication (and 429 with security.basic
+// while the client is blocked); 500 with {"error": "..."} when the storage fails.
 func SuiteStatuses(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, 100)
@@ -37,6 +46,17 @@ func SuiteStatuses(cfg *config.Config) echo.HandlerFunc {
 }
 
 // SuiteStatus handles requests to retrieve a single suite's status
+//
+// It returns the handler of GET and HEAD /api/v1/suites/:key/statuses: the status of one suite with a page of its
+// results. A suite of the configuration without status in the storage, or whose status cannot be read, gets an empty
+// status.
+//
+// Authentication: protected group (security middleware, when security is configured).
+// Request: the path parameter key is the key of the suite, used as it was sent (neither unescaped nor lower-cased);
+// query parameters page (default 1) and pageSize (default 50, capped at 100 on page 1).
+// Responses: 200 with suite.Status; 401 without a valid authentication (and 429 with security.basic while the client is
+// blocked); 404 with {"error": "..."} when the suite is neither in the storage nor in the configuration. An error of
+// the storage is never a 500: it falls back on the configuration, then on the 404.
 func SuiteStatus(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, 100)

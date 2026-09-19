@@ -1,3 +1,5 @@
+// Package telegram implements the alerting provider that sends alerts to a Telegram chat through the
+// sendMessage method of the Bot API.
 package telegram
 
 import (
@@ -14,23 +16,35 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ApiURL is the base URL of the Telegram Bot API, used when Config.ApiUrl is empty.
 const ApiURL = "https://api.telegram.org"
 
+// ErrTokenNotSet is returned by Config.Validate when the bot token is empty.
+// ErrIDNotSet is returned by Config.Validate when the chat ID is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrTokenNotSet            = errors.New("token not set")
 	ErrIDNotSet               = errors.New("id not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Telegram provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override. ID is the ID of the chat that receives the messages,
+// TopicID the optional topic (message thread) inside that chat, and ApiUrl the base URL of the Bot API, which
+// defaults to ApiURL.
 type Config struct {
 	Token   string `yaml:"token"`
 	ID      string `yaml:"id"`
 	TopicID string `yaml:"topic-id,omitempty"`
 	ApiUrl  string `yaml:"api-url"`
 
+	// ClientConfig is the configuration of the client used to communicate with the provider's target.
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate fills in ApiUrl with ApiURL when it is empty, then returns ErrTokenNotSet or ErrIDNotSet when the
+// corresponding field is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.ApiUrl) == 0 {
 		cfg.ApiUrl = ApiURL
@@ -44,6 +58,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites Token, ID, TopicID and ApiUrl with the values of override that are not empty, and
+// ClientConfig when override has one.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -64,6 +80,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Telegram
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -117,6 +134,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload of the sendMessage call. The text is formatted as Markdown and TopicID is sent as
+// message_thread_id only when configured.
 type Body struct {
 	ChatID    string `json:"chat_id"`
 	Text      string `json:"text"`

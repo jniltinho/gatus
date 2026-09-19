@@ -129,8 +129,8 @@ func PublicEndpointDetailsOf(slug string, published Published, key string) ([]by
 	})
 }
 
-// IsEndpointShown returns whether the published status page with the given slug shows the endpoint with the given key,
-// without reading the storage (fork)
+// IsEndpointShownOf returns whether a published status page already looked up by the caller shows the endpoint with
+// the given key, without reading the storage (fork)
 func IsEndpointShownOf(published Published, key string) bool {
 	if len(key) == 0 || len(key) > pageconfig.MaximumEndpointKeyLength {
 		return false

@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	// DefaultOIDCSessionTTL is the lifetime of an OIDC session when session-ttl is not set.
 	DefaultOIDCSessionTTL = 8 * time.Hour
 )
 

@@ -1,3 +1,5 @@
+// Package gitlab implements the alerting provider that creates and resolves GitLab alerts through the HTTP
+// endpoint (webhook) of a GitLab alert integration.
 package gitlab
 
 import (
@@ -16,16 +18,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Defaults applied by Config.Validate: DefaultSeverity when no severity is set and DefaultMonitoringTool when
+// no monitoring tool name is set.
 const (
 	DefaultSeverity       = "critical"
 	DefaultMonitoringTool = "gatus"
 )
 
+// Errors returned by the validation of the configuration: ErrInvalidWebhookURL when the webhook URL is empty
+// or cannot be parsed and ErrAuthorizationKeyNotSet when the authorization key is missing.
 var (
 	ErrInvalidWebhookURL      = fmt.Errorf("invalid webhook-url")
 	ErrAuthorizationKeyNotSet = fmt.Errorf("authorization-key not set")
 )
 
+// Config holds the webhook URL and the authorization key of the GitLab alert integration and the values sent
+// with each alert.
 type Config struct {
 	WebhookURL       string `yaml:"webhook-url"`                // The webhook url provided by GitLab
 	AuthorizationKey string `yaml:"authorization-key"`          // The authorization key provided by GitLab
@@ -35,6 +43,8 @@ type Config struct {
 	Service          string `yaml:"service,omitempty"`          // Service affected. Defaults to the endpoint's display name
 }
 
+// Validate checks the webhook URL and the authorization key, and fills Severity and MonitoringTool with their
+// defaults when they are empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrInvalidWebhookURL
@@ -53,6 +63,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -87,8 +98,8 @@ func (provider *AlertProvider) Validate() error {
 	return provider.DefaultConfig.Validate()
 }
 
-// Send creates an issue in the designed RepositoryURL if the resolved parameter passed is false,
-// or closes the relevant issue(s) if the resolved parameter passed is true.
+// Send posts the alert to the GitLab alert endpoint. A resolve key is generated when the alert has none, and
+// GitLab uses it as the fingerprint that links the resolved alert to the triggered one.
 func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) error {
 	cfg, err := provider.GetConfig(ep.Group, alert)
 	if err != nil {
@@ -116,6 +127,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// AlertBody is the JSON payload posted to the GitLab alert endpoint. Fingerprint carries the resolve key of the
+// alert, and EndTime is only set when the alert is resolved.
 type AlertBody struct {
 	Title                 string `json:"title,omitempty"`                   // The title of the alert.
 	Description           string `json:"description,omitempty"`             // A high-level summary of the problem.

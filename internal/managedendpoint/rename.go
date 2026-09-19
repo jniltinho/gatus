@@ -9,9 +9,13 @@ import (
 )
 
 // AffectedStatusPage is a status page of the configuration file that selects the old key of a renamed managed endpoint
-// by key, and that cannot be changed through the administration
+// by key, and that cannot be changed through the administration. It is output-only and travels in
+// Detail.AffectedConfigStatusPages, in the response of PUT /api/v1/admin/endpoints/{key}.
 type AffectedStatusPage struct {
-	Slug  string `json:"slug"`
+	// Slug identifies the status page, as in its public URL.
+	Slug string `json:"slug"`
+
+	// Title is the display title of the status page. It may be empty.
 	Title string `json:"title"`
 }
 

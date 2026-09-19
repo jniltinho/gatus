@@ -1,3 +1,7 @@
+// Package client runs the checks of the endpoints: HTTP, gRPC, TCP, UDP, SCTP, TLS and STARTTLS, DNS, ICMP, SSH and
+// WebSocket. It also builds the HTTP client of an endpoint from its client configuration (timeout, redirects, proxy,
+// custom DNS resolver, OAuth2, Identity-Aware Proxy, mutual TLS and SSH tunnel). The HTTP client and the ICMP pinger
+// can be replaced in tests with InjectHTTPClient and InjectPinger.
 package client
 
 import (
@@ -286,6 +290,8 @@ func CanCreateSSHConnection(address, username, password, privateKey string, conf
 	return true, cli, nil
 }
 
+// CheckSSHBanner connects to the address by TCP (port 22 when none is given) and waits up to one second for the first
+// byte of the banner, without authenticating. The integer is 0 when the banner arrived and 1 otherwise.
 func CheckSSHBanner(address string, cfg *Config) (bool, int, error) {
 	var port string
 	if strings.Contains(address, ":") {
@@ -472,6 +478,9 @@ func QueryWebSocket(address, body string, headers map[string]string, config *Con
 	return true, msg, nil
 }
 
+// QueryDNS sends a query of queryType for queryName to the DNS server at url (port 53 when none is given). It returns
+// whether the server answered, the response code (NOERROR, NXDOMAIN, ...) and the value of the last answer as the body;
+// TXT answers are joined by line breaks. A PTR query for a plain IP address is converted to its reverse lookup name.
 func QueryDNS(queryType, queryName, url string) (connected bool, dnsRcode string, body []byte, err error) {
 	if !strings.Contains(url, ":") {
 		url = fmt.Sprintf("%s:%d", url, dnsPort)

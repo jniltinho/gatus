@@ -1,3 +1,7 @@
+// Package watchdog runs the monitoring: one goroutine per endpoint and per suite, limited by the configured
+// concurrency. Each execution stores its result, updates the metrics, handles the alerts and publishes the live
+// update. Endpoints managed from the administration are started, stopped and restarted individually, and push
+// endpoints are watched for missing heartbeats.
 package watchdog
 
 import (

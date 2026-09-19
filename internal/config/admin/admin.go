@@ -1,4 +1,6 @@
-// Package admin contains the configuration of the web administration of endpoints
+// Package admin contains the configuration of the web administration of endpoints, i.e. the admin section of the YAML
+// configuration: whether it is enabled, which OIDC subjects may use it and which origins may send its requests. It
+// validates and normalizes these values.
 package admin
 
 import (
@@ -32,7 +34,9 @@ func (c *Config) IsEnabled() bool {
 	return c != nil && c.Enabled
 }
 
-// ValidateAndSetDefaults validates the configuration and normalizes its values
+// ValidateAndSetDefaults validates the configuration and normalizes its values: blank subjects are dropped, and the
+// origins are trimmed and lowercased. It returns an error wrapping ErrInvalidAllowedOrigin for an origin that is not
+// an http or https scheme://host[:port] without path, query, fragment or user.
 func (c *Config) ValidateAndSetDefaults() error {
 	subjects := make([]string, 0, len(c.AllowedSubjects))
 	for _, subject := range c.AllowedSubjects {

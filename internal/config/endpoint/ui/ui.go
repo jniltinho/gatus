@@ -1,3 +1,6 @@
+// Package ui holds the ui section of an endpoint of the YAML configuration: what is hidden from the results of the
+// endpoint (hostname, URL, port, errors, conditions), how its conditions are displayed and the thresholds of its
+// response time badge. It validates the section and provides its defaults.
 package ui
 
 import "errors"
@@ -29,19 +32,26 @@ type Config struct {
 	Badge *Badge `yaml:"badge"`
 }
 
+// Badge is the configuration of the badges generated for an endpoint.
 type Badge struct {
-	ResponseTime *ResponseTime `yaml:"response-time"`
+	ResponseTime *ResponseTime `yaml:"response-time"` // ResponseTime is the configuration of the response time badge
 }
 
+// ResponseTime is the configuration of the response time badge of an endpoint.
 type ResponseTime struct {
+	// Thresholds are the 5 ascending response times, in milliseconds, that separate the colors of the badge, from the
+	// best to the worst. Defaults to 50, 200, 300, 500 and 750.
 	Thresholds []int `yaml:"thresholds"`
 }
 
 var (
+	// ErrInvalidBadgeResponseTimeConfig is returned by Config.ValidateAndSetDefaults when the thresholds of the
+	// response time badge are not exactly 5 values in ascending order.
 	ErrInvalidBadgeResponseTimeConfig = errors.New("invalid response time badge configuration: expected parameter 'response-time' to have 5 ascending numerical values")
 )
 
-// ValidateAndSetDefaults validates the UI configuration and sets the default values
+// ValidateAndSetDefaults validates the UI configuration and sets the default values: a missing badge section gets
+// the default thresholds, a present one must pass the check of ErrInvalidBadgeResponseTimeConfig.
 func (config *Config) ValidateAndSetDefaults() error {
 	if config.Badge != nil {
 		if len(config.Badge.ResponseTime.Thresholds) != 5 {
@@ -58,7 +68,8 @@ func (config *Config) ValidateAndSetDefaults() error {
 	return nil
 }
 
-// GetDefaultConfig retrieves the default UI configuration
+// GetDefaultConfig retrieves the default UI configuration: nothing hidden, failed conditions resolved, successful
+// ones not, and response time badge thresholds of 50, 200, 300, 500 and 750 milliseconds.
 func GetDefaultConfig() *Config {
 	return &Config{
 		HideHostname:                false,

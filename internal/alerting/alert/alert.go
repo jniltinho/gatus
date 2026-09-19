@@ -1,3 +1,5 @@
+// Package alert defines the alert configuration attached to an endpoint and the alert types, one for each
+// alerting provider.
 package alert
 
 import (
@@ -16,6 +18,8 @@ var (
 	// ErrAlertWithInvalidDescription is the error with which Gatus will panic if an alert has an invalid character
 	ErrAlertWithInvalidDescription = errors.New("alert description must not have \" or \\")
 
+	// ErrAlertWithInvalidMinimumReminderInterval is returned by Alert.ValidateAndSetDefaults when
+	// minimum-reminder-interval is set to less than 5 minutes; 0 is valid and means that no reminder is sent.
 	ErrAlertWithInvalidMinimumReminderInterval = errors.New("minimum-reminder-interval must be either omitted or be at least 5m")
 )
 
@@ -128,6 +132,8 @@ func (alert *Alert) Checksum() string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+// ProviderOverrideAsBytes marshals ProviderOverride to YAML so that a provider can unmarshal it into its own
+// Config type. A marshalling failure is logged rather than returned.
 func (alert *Alert) ProviderOverrideAsBytes() []byte {
 	yamlBytes, err := yaml.Marshal(alert.ProviderOverride)
 	if err != nil {

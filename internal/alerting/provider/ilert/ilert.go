@@ -1,3 +1,5 @@
+// Package ilert implements the alerting provider that sends alert events to ilert through the events REST API
+// of its Gatus integration, identified by an integration key.
 package ilert
 
 import (
@@ -18,15 +20,19 @@ const (
 	restAPIUrl = "https://api.ilert.com/api/v1/events/gatus/"
 )
 
+// Errors returned by the validation of the configuration: ErrIntegrationKeyNotSet when the integration key is
+// missing and ErrDuplicateGroupOverride when an override has an empty or already used group.
 var (
 	ErrIntegrationKeyNotSet   = errors.New("integration key is not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the integration key, which is appended to the URL of the ilert events API.
 type Config struct {
 	IntegrationKey string `yaml:"integration-key"`
 }
 
+// Validate checks that the integration key is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.IntegrationKey) == 0 {
 		return ErrIntegrationKeyNotSet
@@ -34,6 +40,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge replaces the integration key of cfg with the one of override, unless the latter is empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.IntegrationKey) > 0 {
 		cfg.IntegrationKey = override.IntegrationKey
@@ -51,11 +58,14 @@ type AlertProvider struct {
 	Overrides []Override `yaml:"overrides,omitempty"`
 }
 
+// Override is a case under which the default configuration is overridden for the endpoints of a group.
 type Override struct {
 	Group  string `yaml:"group"`
 	Config `yaml:",inline"`
 }
 
+// Validate checks that every override has a non-empty group used only once, then validates the default
+// configuration.
 func (provider *AlertProvider) Validate() error {
 	registeredGroups := make(map[string]bool)
 	if provider.Overrides != nil {
@@ -69,6 +79,8 @@ func (provider *AlertProvider) Validate() error {
 	return provider.DefaultConfig.Validate()
 }
 
+// Send posts the alert to the ilert events API with the status firing or resolved. It returns an error
+// carrying the response body when the status code is 400 or above.
 func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) error {
 	cfg, err := provider.GetConfig(ep.Group, alert)
 	if err != nil {
@@ -94,6 +106,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the ilert events API. Status is firing or resolved, and Details falls
+// back to a placeholder text when the alert has no description.
 type Body struct {
 	Alert            alert.Alert                 `json:"alert"`
 	Name             string                      `json:"name"`
@@ -133,10 +147,13 @@ func (provider *AlertProvider) buildRequestBody(cfg *Config, ep *endpoint.Endpoi
 	return body
 }
 
+// GetDefaultAlert returns the provider's default alert configuration, or nil when none is configured.
 func (provider *AlertProvider) GetDefaultAlert() *alert.Alert {
 	return provider.DefaultAlert
 }
 
+// GetConfig returns the default configuration with the group override and then the alert's provider override
+// merged into it. The merged configuration is validated and returned along with the validation error, if any.
 func (provider *AlertProvider) GetConfig(group string, alert *alert.Alert) (*Config, error) {
 	cfg := provider.DefaultConfig
 	// Handle group overrides

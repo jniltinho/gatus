@@ -16,6 +16,13 @@ import (
 // endpointStatusResponse is the status of an endpoint with the fields of the fork used by the details page of the
 // dashboard: whether the endpoint is a push endpoint, its uptimes and average response times, and the response time of
 // its last result, whatever the page of results requested
+//
+// It is the body of GET /api/v1/endpoints/:key/statuses. The fields of endpoint.Status are inlined. Push is whether the
+// endpoint receives its results by push (a managed push endpoint or an external endpoint of the configuration file).
+// Uptime (a ratio from 0 to 1) and ResponseTime (an average in milliseconds) cover the last 24 hours, 7 days and 30
+// days; a period is null without execution during it, and all of them are null when the storage cannot summarize
+// endpoints. CurrentResponseTime is the response time of the latest result in milliseconds, and null when there is no
+// result or when it is not positive.
 type endpointStatusResponse struct {
 	*endpoint.Status
 	Push                bool                           `json:"push"`
@@ -24,10 +31,14 @@ type endpointStatusResponse struct {
 	CurrentResponseTime *int64                         `json:"currentResponseTime"`
 }
 
+// endpointSummaryReader is implemented by the storages that can summarize endpoints (latest results and uptimes), the
+// same reader the public status pages use.
 type endpointSummaryReader interface {
 	GetEndpointSummaries(keys []string, maximumResults int, now time.Time) (map[string]*common.EndpointSummary, error)
 }
 
+// newEndpointStatusResponse wraps a status with the fields of the details page. The uptimes and the response times are
+// left empty when the storage cannot summarize endpoints or when the summary fails, which is only logged.
 func newEndpointStatusResponse(cfg *config.Config, key string, status *endpoint.Status) *endpointStatusResponse {
 	response := &endpointStatusResponse{Status: status, Push: isPushEndpoint(cfg, key)}
 	reader, ok := store.Get().(endpointSummaryReader)

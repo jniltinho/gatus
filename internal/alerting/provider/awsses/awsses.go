@@ -1,3 +1,5 @@
+// Package awsses implements the alerting provider that sends alerts by email through AWS Simple Email Service,
+// using the SendEmail operation of the AWS SDK.
 package awsses
 
 import (
@@ -17,15 +19,22 @@ import (
 )
 
 const (
+	// CharSet is the character set declared for the subject and the body of the emails sent through SES.
 	CharSet = "UTF-8"
 )
 
+// Errors returned by the validation of the configuration: ErrMissingFromOrToFields when the sender or the
+// recipients are missing, ErrInvalidAWSAuthConfig when only one of the access key ID and the secret access key
+// is set, and ErrDuplicateGroupOverride when an override has no recipient or an empty or already used group.
 var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 	ErrMissingFromOrToFields  = errors.New("from and to fields are required")
 	ErrInvalidAWSAuthConfig   = errors.New("either both or neither of access-key-id and secret-access-key must be specified")
 )
 
+// Config holds the AWS credentials, the region and the addresses used to send an alert through SES.
+// When both AccessKeyID and SecretAccessKey are empty, the default AWS credential chain (IAM) is used.
+// To may hold several addresses separated by commas.
 type Config struct {
 	AccessKeyID     string `yaml:"access-key-id"`
 	SecretAccessKey string `yaml:"secret-access-key"`
@@ -35,6 +44,8 @@ type Config struct {
 	To   string `yaml:"to"`
 }
 
+// Validate checks that From and To are set and that the access key ID and the secret access key are either
+// both set or both empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.From) == 0 || len(cfg.To) == 0 {
 		return ErrMissingFromOrToFields
@@ -47,6 +58,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.AccessKeyID) > 0 {
 		cfg.AccessKeyID = override.AccessKeyID

@@ -1,3 +1,6 @@
+// Package maintenance holds the configuration of the maintenance windows during which alerts are not sent: the
+// global maintenance section of the YAML configuration and the maintenance-windows of an endpoint. It validates a
+// window, applies its defaults and tells whether the current time is within it.
 package maintenance
 
 import (
@@ -46,6 +49,7 @@ type Config struct {
 	durationToStartFromMidnight time.Duration
 }
 
+// GetDefaultConfig returns the configuration used when there is no maintenance section: a disabled window.
 func GetDefaultConfig() *Config {
 	defaultValue := false
 	return &Config{
@@ -61,7 +65,9 @@ func (c *Config) IsEnabled() bool {
 	return *c.Enabled
 }
 
-// ValidateAndSetDefaults validates the maintenance configuration and sets the default values if necessary.
+// ValidateAndSetDefaults validates the maintenance configuration and sets the default values if necessary: the
+// timezone defaults to UTC. A nil or disabled Config is not validated. It returns an error when a day name, the start
+// (hh:mm), the duration (more than 0, at most 24h) or the timezone is invalid.
 //
 // Must be called once in the application's lifecycle before IsUnderMaintenance is called, since it
 // also sets durationToStartFromMidnight.

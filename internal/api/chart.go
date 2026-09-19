@@ -19,8 +19,10 @@ import (
 	"github.com/wcharczuk/go-chart/v2/drawing"
 )
 
+// timeFormat is the format of the timestamps of the X axis of the chart for the durations 24h and 7d.
 const timeFormat = "3:04PM"
 
+// Styles of the response time chart: grey grid and axis on a transparent background, so that it fits any theme.
 var (
 	gridStyle = chart.Style{
 		StrokeColor: drawing.Color{R: 119, G: 119, B: 119, A: 40},
@@ -34,6 +36,16 @@ var (
 	}
 )
 
+// ResponseTimeChart handles GET and HEAD /api/v1/endpoints/:key/response-times/:duration/chart.svg: the hourly average
+// response time of an endpoint over the duration, rendered as an SVG line chart of 1280x300.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; the path parameter duration is one of 24h, 7d or 30d (1h is not supported here).
+// Responses: 200 with the chart as image/svg+xml, Cache-Control: no-cache, no-store and Expires: 0; 204 without body
+// when the endpoint has no response time in the period; 400 when the duration is not supported, the key cannot be
+// unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the storage or of the
+// rendering. Errors are text/plain, and the 500 carries the text of the error.
 func ResponseTimeChart(c *echo.Context) error {
 	duration := c.Param("duration")
 	chartTimestampFormatter := chart.TimeValueFormatterWithFormat(timeFormat)
@@ -131,6 +143,18 @@ func ResponseTimeChart(c *echo.Context) error {
 	return httpx.Send(c, http.StatusOK, rendered.Bytes())
 }
 
+// ResponseTimeHistory handles GET and HEAD /api/v1/endpoints/:key/response-times/:duration/history: the hourly average
+// response time of an endpoint over the duration, as JSON series.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; the path parameter duration is one of 24h, 7d or 30d.
+// Responses: 200 with {"timestamps": [...], "values": [...]}, two arrays of the same length: the start of each hour in
+// Unix milliseconds, in ascending order, and the average response time of that hour in milliseconds. The hours between
+// the start of the period and the first hour with data are filled with 0, an hour without data after it is absent, and
+// both arrays are empty when there is no data at all. 400 when the duration is not supported, the key cannot be
+// unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the storage. Errors are
+// text/plain, and the 500 carries the text of the error.
 func ResponseTimeHistory(c *echo.Context) error {
 	duration := c.Param("duration")
 	var from time.Time

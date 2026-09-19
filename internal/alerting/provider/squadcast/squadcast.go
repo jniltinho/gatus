@@ -1,3 +1,5 @@
+// Package squadcast implements the alerting provider that triggers and resolves Squadcast incidents through
+// an incoming webhook.
 package squadcast
 
 import (
@@ -14,15 +16,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrWebhookURLNotSet is returned by Config.Validate when webhook-url is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Squadcast provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	WebhookURL string `yaml:"webhook-url"` // Squadcast webhook URL
 }
 
+// Validate returns ErrWebhookURLNotSet when the webhook URL is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -30,6 +38,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites WebhookURL with the one of override when it is not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -38,6 +47,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Squadcast
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -95,6 +105,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the Squadcast webhook. Status is "trigger" or "resolve", and EventID
+// derives from the endpoint key so that the resolution matches the incident it closes.
 type Body struct {
 	Message     string            `json:"message"`
 	Description string            `json:"description,omitempty"`

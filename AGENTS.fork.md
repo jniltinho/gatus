@@ -203,6 +203,13 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (
 - `POST /api/v1/auth/login` and `/logout` are always registered in the unprotected block (404 without basic login), with the origin rules of `internal/api/admin_middleware.go`. Never log passwords or tokens.
 - Frontend: `views/LoginPage.vue` (`meta.login`, no dashboard header), redirect validated by `utils/redirect.js` (`npm run test:unit`), calls to the protected API with `PROTECTED_API_HEADERS` and `notifyUnauthorized()` on 401 (`utils/auth.js`). Without these headers, a 401 carries `WWW-Authenticate: Basic` and the browser opens its native dialog.
 
+## Doc comments
+
+- Every package has a package comment and every exported symbol a doc comment, in the standard `go doc` form (starts with the name, full sentence). `TestGoDocCoverage` (`internal/test/godoc_test.go`) fails otherwise. A comment above the first name of a run of consecutive lines in a `const`/`var` block documents the run; a comment between aligned names makes `gofmt` realign the block, so prefer the block form there.
+- Say what the code does that the name does not: defaults applied, errors returned and when, what a zero value means. Never restate the name.
+- **HTTP handlers carry what an OpenAPI operation needs**, in prose: method and full path (`GET and HEAD` for `httpx.GetAndHead`), authentication, path and query parameters with accepted values and defaults, required headers, the Go type of the success body, the content type when it is not JSON, and every status code with the condition that produces it. Follow the error-mapping helper (`adminServiceError`, `backupError`, ...) when adding a status. The Swagger description will be generated from these comments: change the comment in the same commit as the behaviour.
+- **Struct fields with a `json` tag are schema properties**: each one has a comment with the meaning, the format or unit (RFC 3339, nanoseconds, slug, key), the accepted values of an enum-like string, what an omitted value means, and the limits the validation enforces.
+
 ## OpenSpec
 
 - Proposals in `openspec/changes/<change>/`; validate with `openspec validate <change> --strict`.

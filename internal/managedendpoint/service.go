@@ -56,72 +56,179 @@ var (
 	testSlots = make(chan struct{}, maximumConcurrentTests)
 )
 
-// Item summarizes an endpoint for the administration list
+// Item summarizes an endpoint for the administration list: an endpoint or external endpoint of the configuration file,
+// which is read-only, or a managed endpoint. GET /api/v1/admin/endpoints returns the items ordered by key, and every
+// Detail embeds one. It is output-only.
 type Item struct {
-	Key            string `json:"key"`
-	Name           string `json:"name"`
-	Group          string `json:"group"`
-	Type           string `json:"type,omitempty"`
-	URL            string `json:"url,omitempty"`
-	Interval       string `json:"interval,omitempty"`
-	Enabled        bool   `json:"enabled"`
-	Source         string `json:"source"`
-	Conflict       bool   `json:"conflict"`
+	// Key identifies the endpoint in the routes of the API, in the group_name form: the group and the name trimmed, in
+	// lowercase and with the spaces and the characters / _ . , # + & replaced by -, joined by an underscore, e.g.
+	// "core_my-api", or "_my-api" without group.
+	Key string `json:"key"`
+
+	// Name is the display name of the endpoint, as written in its definition.
+	Name string `json:"name"`
+
+	// Group is the group of the endpoint, as written in its definition. It is empty when the endpoint has no group.
+	Group string `json:"group"`
+
+	// Type is the kind of check, derived from the URL: DNS, TCP, SCTP, UDP, ICMP, STARTTLS, TLS, HTTP, GRPC, WEBSOCKET,
+	// SSH or UNKNOWN, or PUSH for an endpoint that is not checked by Gatus and only receives its results through
+	// /api/push. It is omitted when a managed endpoint has no URL or its definition cannot be decoded.
+	Type string `json:"type,omitempty"`
+
+	// URL is the checked URL, with its password and its sensitive query parameters replaced by "********". It is omitted
+	// for a push endpoint and when the definition of a managed endpoint cannot be decoded.
+	URL string `json:"url,omitempty"`
+
+	// Interval is the interval between two checks, or the heartbeat interval of a push endpoint, as a Go duration such as
+	// "30s" or "1m0s". It is omitted when the definition does not set one: the default value is only shown in
+	// Detail.Effective.
+	Interval string `json:"interval,omitempty"`
+
+	// Enabled is whether the endpoint is monitored. It is always false for a managed endpoint in conflict or with an
+	// error, whatever its definition says.
+	Enabled bool `json:"enabled"`
+
+	// Source is where the endpoint is defined: "config" for the configuration file, which the administration cannot
+	// change, or "admin" for a managed endpoint.
+	Source string `json:"source"`
+
+	// Conflict is whether a managed endpoint is not monitored because its key is also used by the configuration file,
+	// which takes precedence. It is always false when Source is "config".
+	Conflict bool `json:"conflict"`
+
+	// ConflictOrigin describes, in English, what uses the key in the configuration file, e.g. "an endpoint of the
+	// configuration file". It is omitted unless Conflict is true.
 	ConflictOrigin string `json:"conflictOrigin,omitempty"`
-	Error          string `json:"error,omitempty"`
-	// AcceptsPush is whether the endpoint receives push (fork)
-	AcceptsPush bool       `json:"acceptsPush,omitempty"`
-	Version     int64      `json:"version,omitempty"`
-	CreatedAt   *time.Time `json:"createdAt,omitempty"`
-	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
-	UpdatedBy   string     `json:"updatedBy,omitempty"`
+
+	// Error is the validation error, in English, that keeps a managed endpoint out of the monitoring since the last load
+	// of the configuration. It is omitted when the endpoint is valid or in conflict.
+	Error string `json:"error,omitempty"`
+
+	// AcceptsPush is whether the endpoint receives results through /api/push: a push endpoint, an external endpoint, or a
+	// checked endpoint with the push option enabled. It is omitted when false (fork).
+	AcceptsPush bool `json:"acceptsPush,omitempty"`
+
+	// Version is the version number of a managed endpoint, which starts at 1 and is incremented on every change. It is
+	// sent as the ETag of the responses with a Detail and must be sent back in the If-Match header of the update, enable,
+	// disable and delete routes. It is omitted when Source is "config".
+	Version int64 `json:"version,omitempty"`
+
+	// CreatedAt is when the managed endpoint was created, as an RFC 3339 timestamp. It is omitted when Source is "config".
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+
+	// UpdatedAt is when the managed endpoint was last changed, as an RFC 3339 timestamp. It is omitted when Source is
+	// "config".
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+
+	// UpdatedBy is the user name of the author of the last change of the managed endpoint. It is omitted when Source is
+	// "config" or when the author is unknown.
+	UpdatedBy string `json:"updatedBy,omitempty"`
 }
 
-// Definition is an endpoint definition with its secrets masked, in YAML and as a JSON document with the YAML keys
+// Definition is an endpoint definition with its secrets masked, in YAML and as a JSON document with the YAML keys. It
+// is output-only and travels inside Detail and Validation. The masked secrets are replaced by "********": the values of
+// the headers whose name contains authorization, cookie, token, secret, password or key, the password and the sensitive
+// query parameters of the URL, client.oauth2.client-secret, ssh.password, ssh.private-key, the push tokens (token and
+// push.token) and every value of alerts[].provider-override. A definition sent back with those masks to the update,
+// validate or test routes of an existing managed endpoint keeps the stored secrets.
 type Definition struct {
-	YAML string         `json:"yaml"`
+	// YAML is the definition as a YAML document, with the same keys as an endpoint of the configuration file.
+	YAML string `json:"yaml"`
+
+	// JSON is the same definition as a JSON object whose keys are the YAML keys, e.g. "extra-labels" and not
+	// "extraLabels".
 	JSON map[string]any `json:"json"`
 }
 
-// Detail is an endpoint with its definitions
+// Detail is an endpoint with its definitions: the fields of Item, flattened into the same JSON object, and the
+// definitions with their secrets masked. It is output-only and is returned by GET /api/v1/admin/endpoints/{key}, by
+// POST /api/v1/admin/endpoints (201) and by PUT /api/v1/admin/endpoints/{key} and its /enable and /disable routes. For
+// a managed endpoint, the response carries the version in the ETag header.
 type Detail struct {
 	Item
-	// Definition is the persisted definition for managed endpoints, or the definition from the configuration file
+
+	// Definition is the definition as submitted and stored, without default values, for a managed endpoint. For an
+	// endpoint of the configuration file, it is the definition with its default values, equal to Effective. Secrets are
+	// masked (see Definition).
 	Definition *Definition `json:"definition"`
-	// Effective is the definition with default values, when the endpoint is valid
+
+	// Effective is the definition with its default values, as monitored, with its secrets masked. It is omitted when a
+	// managed endpoint is in conflict or invalid.
 	Effective *Definition `json:"effective,omitempty"`
-	// AffectedConfigStatusPages are the status pages of the configuration file that still select the old key, after a
-	// rename
+
+	// AffectedConfigStatusPages are the status pages of the configuration file that still select the old key of the
+	// endpoint, which the administration cannot change. It is only set in the response of an update that changed the key
+	// of the endpoint, and omitted when no such page exists.
 	AffectedConfigStatusPages []AffectedStatusPage `json:"affectedConfigStatusPages,omitempty"`
-	// PushToken is the push token of a managed endpoint that receives push, masked in its definition (fork)
+
+	// PushToken is the push token of a managed endpoint that receives push, used in /api/push/{token}. It is a secret
+	// returned in clear here, while it is masked in Definition and Effective. It is omitted when the endpoint has no
+	// token of its own and for the endpoints of the configuration file (fork).
 	PushToken string `json:"pushToken,omitempty"`
 }
 
-// Validation is the result of a successful validation
+// Validation is the result of a successful validation of a definition that was not persisted, returned by
+// POST /api/v1/admin/endpoints/validate. It is output-only; a definition that is not valid is answered with an error
+// instead.
 type Validation struct {
+	// Definition is the submitted definition once normalized, as it would be stored, with its secrets masked. When the
+	// key query parameter names a managed endpoint, the masked secrets of the submission were first restored from it.
 	Definition *Definition `json:"definition"`
-	Effective  *Definition `json:"effective"`
+
+	// Effective is the same definition with its default values, as it would be monitored, with its secrets masked.
+	Effective *Definition `json:"effective"`
 }
 
-// TestResult is the result of a single evaluation of an endpoint definition
+// TestResult is the result of a single evaluation of an endpoint definition, returned by
+// POST /api/v1/admin/endpoints/test. Nothing is persisted, no alert is sent and no metric is published. It is
+// output-only.
 type TestResult struct {
-	Success          bool                  `json:"success"`
-	DurationMs       int64                 `json:"durationMs"`
-	HTTPStatus       int                   `json:"status,omitempty"`
-	Errors           []string              `json:"errors,omitempty"`
+	// Success is whether the check passed: every condition was met and no error prevented the request from being made.
+	Success bool `json:"success"`
+
+	// DurationMs is the duration of the request of the check, in milliseconds. The client timeout of a test is capped at
+	// 10 seconds.
+	DurationMs int64 `json:"durationMs"`
+
+	// HTTPStatus is the HTTP status code of the response or, for an SSH check, the exit status of the command. It is
+	// omitted when it is zero: a check that is neither HTTP nor SSH, or no response received.
+	HTTPStatus int `json:"status,omitempty"`
+
+	// Errors are the errors met while running the check, in English, e.g. a timeout or a DNS failure. It is omitted when
+	// there is none; a failed condition is not an error.
+	Errors []string `json:"errors,omitempty"`
+
+	// ConditionResults are the results of the conditions of the definition, in the same order. It is an empty list, never
+	// null, when no condition was evaluated.
 	ConditionResults []TestConditionResult `json:"conditionResults"`
 }
 
-// TestConditionResult is the result of a condition of a tested endpoint
+// TestConditionResult is the result of a condition of a tested endpoint, an element of TestResult.ConditionResults
 type TestConditionResult struct {
+	// Condition is the condition as written in the definition, e.g. "[STATUS] == 200"; when it failed, the placeholders
+	// are followed by the value they resolved to, e.g. "[STATUS] (503) == 200". It is truncated to 512 bytes followed by
+	// an ellipsis.
 	Condition string `json:"condition"`
-	Success   bool   `json:"success"`
+
+	// Success is whether the condition passed.
+	Success bool `json:"success"`
 }
 
-// Metadata describes what a managed endpoint can use
+// Metadata describes what the definition of a managed endpoint can refer to in the loaded configuration, returned by
+// GET /api/v1/admin/metadata to fill the choices of the endpoint form. It is output-only and every list is empty, never
+// null, when there is nothing to offer.
 type Metadata struct {
-	AlertTypes  []string `json:"alertTypes"`
-	Tunnels     []string `json:"tunnels"`
+	// AlertTypes are the types of the alerting providers configured in the configuration file, e.g. "slack", in
+	// alphabetical order. They are the accepted values of alerts[].type; any other type is refused.
+	AlertTypes []string `json:"alertTypes"`
+
+	// Tunnels are the names of the tunnels of the tunneling section of the configuration file, in alphabetical order,
+	// accepted by client.tunnel.
+	Tunnels []string `json:"tunnels"`
+
+	// ExtraLabels are the names of the extra labels the Prometheus metrics were registered with, the only keys accepted
+	// in the extra-labels of a managed endpoint. It is empty when the metrics are not initialized.
 	ExtraLabels []string `json:"extraLabels"`
 }
 

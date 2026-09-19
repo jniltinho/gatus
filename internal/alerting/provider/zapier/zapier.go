@@ -1,3 +1,5 @@
+// Package zapier implements the alerting provider that hands alerts to a Zap by posting a JSON payload to a
+// Zapier webhook.
 package zapier
 
 import (
@@ -15,15 +17,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrWebhookURLNotSet is returned by Config.Validate when webhook-url is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Zapier provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	WebhookURL string `yaml:"webhook-url"` // Zapier webhook URL
 }
 
+// Validate returns ErrWebhookURLNotSet when the webhook URL is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -31,6 +39,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites WebhookURL with the one of override when it is not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookURL) > 0 {
 		cfg.WebhookURL = override.WebhookURL
@@ -39,6 +48,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Zapier
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -96,6 +106,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the Zapier webhook. Only the threshold that applies is filled in:
+// SuccessThreshold when resolved, FailureThreshold when triggered. Timestamp is in RFC 3339 format.
 type Body struct {
 	AlertType        string                      `json:"alert_type"`
 	Status           string                      `json:"status"`

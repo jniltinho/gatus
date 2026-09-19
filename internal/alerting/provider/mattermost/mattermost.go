@@ -1,3 +1,5 @@
+// Package mattermost implements the alerting provider that sends alerts to a Mattermost channel through an
+// incoming webhook.
 package mattermost
 
 import (
@@ -14,17 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrWebhookURLNotSet when the webhook URL is missing
+// and ErrDuplicateGroupOverride when an override has no webhook URL or an empty or already used group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook URL not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the webhook URL, the optional channel that replaces the default one of the webhook, and the
+// optional configuration of the HTTP client.
 type Config struct {
 	WebhookURL   string         `yaml:"webhook-url"`
 	Channel      string         `yaml:"channel,omitempty"`
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate checks that the webhook URL is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -32,6 +39,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -99,6 +107,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the Mattermost webhook. The alert itself is carried by Attachments, and
+// Username and IconURL identify Gatus as the author.
 type Body struct {
 	Channel     string       `json:"channel,omitempty"` // Optional channel override
 	Text        string       `json:"text"`
@@ -107,6 +117,7 @@ type Body struct {
 	Attachments []Attachment `json:"attachments"`
 }
 
+// Attachment is the coloured block of a Mattermost message that carries the alert text and its fields.
 type Attachment struct {
 	Title    string  `json:"title"`
 	Fallback string  `json:"fallback"`
@@ -116,6 +127,7 @@ type Attachment struct {
 	Fields   []Field `json:"fields"`
 }
 
+// Field is a titled entry of an Attachment, used to list the condition results.
 type Field struct {
 	Title string `json:"title"`
 	Value string `json:"value"`

@@ -1,3 +1,6 @@
+// Package heartbeat holds the heartbeat section of an external endpoint of the YAML configuration: the interval
+// within which a result must be pushed and the number of retries before the absence of a push counts as a failure.
+// The values are validated by the endpoint package.
 package heartbeat
 
 import "time"

@@ -1,3 +1,7 @@
+// Package security authenticates the requests of the protected routes, with basic authentication (security.basic)
+// or OpenID Connect (security.oidc). Basic authentication accepts both the Authorization header, for scripts, and the
+// session cookie created by the login screen, whose sessions are kept in the store; failed logins are rate limited
+// per client. The package also decides who is an administrator.
 package security
 
 import (

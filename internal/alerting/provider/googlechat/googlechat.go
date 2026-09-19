@@ -1,3 +1,5 @@
+// Package googlechat implements the alerting provider that sends alerts to a Google Chat space through an
+// incoming webhook.
 package googlechat
 
 import (
@@ -14,16 +16,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrWebhookURLNotSet when the webhook URL is missing
+// and ErrDuplicateGroupOverride when an override has no webhook URL or an empty or already used group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the webhook URL of the space and the optional configuration of the HTTP client.
 type Config struct {
 	WebhookURL   string         `yaml:"webhook-url"`
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate checks that the webhook URL is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -31,6 +37,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -95,23 +102,28 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the Google Chat webhook, in the cards message format.
 type Body struct {
 	Cards []Cards `json:"cards"`
 }
 
+// Cards is a card of the message, made of sections.
 type Cards struct {
 	Sections []Sections `json:"sections"`
 }
 
+// Sections is a section of a card, made of widgets.
 type Sections struct {
 	Widgets []Widgets `json:"widgets"`
 }
 
+// Widgets is a widget of a section: either a key-value block or a row of buttons.
 type Widgets struct {
 	KeyValue *KeyValue `json:"keyValue,omitempty"`
 	Buttons  []Buttons `json:"buttons,omitempty"`
 }
 
+// KeyValue is the widget that shows a labelled text, used for the alert message and the condition results.
 type KeyValue struct {
 	TopLabel         string `json:"topLabel,omitempty"`
 	Content          string `json:"content,omitempty"`
@@ -120,19 +132,23 @@ type KeyValue struct {
 	Icon             string `json:"icon,omitempty"`
 }
 
+// Buttons is a button of a widget; only text buttons are used.
 type Buttons struct {
 	TextButton TextButton `json:"textButton"`
 }
 
+// TextButton is a button with a label and the action run when it is clicked.
 type TextButton struct {
 	Text    string  `json:"text"`
 	OnClick OnClick `json:"onClick"`
 }
 
+// OnClick is the action of a button, which always opens a link.
 type OnClick struct {
 	OpenLink OpenLink `json:"openLink"`
 }
 
+// OpenLink holds the URL opened by a button, set to the URL of the endpoint.
 type OpenLink struct {
 	URL string `json:"url"`
 }

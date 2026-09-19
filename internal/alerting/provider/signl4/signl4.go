@@ -1,3 +1,5 @@
+// Package signl4 implements the alerting provider that sends alerts to SIGNL4 through the team's inbound
+// webhook, whose URL is built from the team secret.
 package signl4
 
 import (
@@ -14,15 +16,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrTeamSecretNotSet is returned by Config.Validate when team-secret is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrTeamSecretNotSet       = errors.New("team-secret not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the SIGNL4 provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	TeamSecret string `yaml:"team-secret"` // SIGNL4 team secret
 }
 
+// Validate returns ErrTeamSecretNotSet when the team secret is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.TeamSecret) == 0 {
 		return ErrTeamSecretNotSet
@@ -30,6 +38,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites TeamSecret with the one of override when it is not empty.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.TeamSecret) > 0 {
 		cfg.TeamSecret = override.TeamSecret
@@ -38,6 +47,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using SIGNL4
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -96,6 +106,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload posted to the SIGNL4 webhook. XS4Status is "new" or "resolved", and
+// XS4ExternalID derives from the endpoint key so that the resolution matches the alert it closes.
 type Body struct {
 	Title         string `json:"Title"`
 	Message       string `json:"Message"`

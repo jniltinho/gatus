@@ -13,6 +13,17 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// UptimeRaw handles GET and HEAD /api/v1/endpoints/:key/uptimes/:duration: the uptime of an endpoint over the duration,
+// as a bare number.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; the path parameter duration is one of 1h, 24h, 7d or 30d (1h reads the last two hours, because the
+// uptime is stored by hour).
+// Responses: 200 with the uptime as text/plain, a ratio between 0 and 1 with six decimals (e.g. 0.998500),
+// Cache-Control: no-cache, no-store, must-revalidate and Expires: 0; 400 when the duration is not supported, the key
+// cannot be unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the storage,
+// with the text of the error. Errors are text/plain.
 func UptimeRaw(c *echo.Context) error {
 	duration := c.Param("duration")
 	var from time.Time
@@ -48,6 +59,16 @@ func UptimeRaw(c *echo.Context) error {
 	return httpx.Send(c, 200, []byte(fmt.Sprintf("%f", uptime)))
 }
 
+// ResponseTimeRaw handles GET and HEAD /api/v1/endpoints/:key/response-times/:duration: the average response time of
+// an endpoint over the duration, as a bare number.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; the path parameter duration is one of 1h, 24h, 7d or 30d (1h reads the last two hours).
+// Responses: 200 with the average response time as text/plain, an integer number of milliseconds, Cache-Control:
+// no-cache, no-store, must-revalidate and Expires: 0; 400 when the duration is not supported, the key cannot be
+// unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the storage, with the
+// text of the error. Errors are text/plain.
 func ResponseTimeRaw(c *echo.Context) error {
 	duration := c.Param("duration")
 	var from time.Time

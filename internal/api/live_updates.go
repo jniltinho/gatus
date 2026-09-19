@@ -28,6 +28,8 @@ const (
 	maximumEventStreams      = 500
 	maximumEventStreamsPerIP = 10
 
+	// eventStreamRetryAfterSeconds is the Retry-After, in seconds, of the 429 of an event stream, and
+	// eventStreamUnavailableBody the body of the 503 answered while the live updates are closed
 	eventStreamRetryAfterSeconds = "30"
 	eventStreamUnavailableBody   = `{"error":"live updates temporarily unavailable"}`
 )
@@ -38,6 +40,7 @@ var eventStreamTestHook func()
 // eventStreams limits the event streams open in total and per IP address of client
 var eventStreams = &eventStreamLimiter{perIP: make(map[netip.Addr]int)}
 
+// eventStreamLimiter counts the event streams open, in total and per IP address of client.
 type eventStreamLimiter struct {
 	mutex sync.Mutex
 	total int
@@ -71,6 +74,24 @@ func (limiter *eventStreamLimiter) release(clientIP netip.Addr) {
 // endpointEventsHandler streams the notifications of the new results of an endpoint of the dashboard. The endpoint must
 // be known in memory (configuration file, external endpoints or managed endpoints in any state), so that an endpoint
 // without results yet can be watched without reading the storage.
+//
+// It returns the handler of GET and HEAD /api/v1/endpoints/:key/events, a server-sent event stream that is never
+// compressed.
+//
+// Authentication: protected group (security middleware, when security is configured).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased. The Last-Event-ID header or, without it, the query parameter lastEventId is the last sequence the client
+// saw (an unsigned integer; missing or invalid is 0).
+// Responses: 200 with Content-Type: text/event-stream, Cache-Control: no-cache, no-store, no-transform and
+// X-Accel-Buffering: no. The stream starts with "retry: 3000" and the current sequence as the id, sends at once an event
+// "result" when the client missed one, then an event "result" (id: the sequence, data: {}) per new result and a comment
+// ": ping" at every ping interval, until the client leaves, the live updates are closed or the maximum duration of a
+// stream is reached. A HEAD answers 200 with the same headers, without opening a stream or taking a slot. 401 without a
+// valid authentication (and 429 with security.basic while the client is blocked); 404 with
+// {"error": "endpoint not found"} when the key cannot be unescaped or is not a known endpoint; 429 with Retry-After: 30
+// and {"error": "too many requests"} when 500 streams are open or 10 from the IP address of the client; 503 with
+// {"error": "live updates temporarily unavailable"} while the live updates are closed. The 429 and the 503 have
+// Cache-Control: no-store.
 func endpointEventsHandler(cfg *config.Config) echo.HandlerFunc {
 	trustedProxies := cfg.StatusPages.TrustedProxyPrefixes()
 	return func(c *echo.Context) error {
@@ -89,6 +110,20 @@ func endpointEventsHandler(cfg *config.Config) echo.HandlerFunc {
 // statusPageEndpointEventsHandler streams the notifications of the new results of an endpoint of a published status
 // page. Like the details of the endpoint, a page that is not published or does not show the endpoint gets the identical
 // 404 of the status pages, before any limit and without reading the storage.
+//
+// It returns the handler of GET and HEAD /api/v1/status-pages/:slug/endpoints/:key/events, a server-sent event stream
+// that is never compressed. Only registered when status-pages.enabled is true.
+//
+// Authentication: none, or HTTP Basic with the login of the page when the page requires one (statusPageAuth).
+// Request: path parameters slug and key (the key is unescaped once with url.QueryUnescape and not lower-cased);
+// Last-Event-ID header or lastEventId query parameter, as in endpointEventsHandler.
+// Responses: 200 with the same stream and headers as endpointEventsHandler, plus the headers of the public status pages
+// (X-Robots-Tag, X-Content-Type-Options, Referrer-Policy, Vary: Accept-Encoding); for a page with a login,
+// Cache-Control is private, no-cache, no-store, no-transform and Vary has Authorization. A HEAD answers 200 with the
+// headers only. 401 with WWW-Authenticate: Basic when the page requires a login and the credential is missing or wrong;
+// 404 with {"error": "status page not found"} when the page is not published or does not show the endpoint; 429 with
+// Retry-After when the client exceeded the rate limit of the 404s, failed the login of the page too many times, or
+// when 500 streams are open or 10 from its IP address (Retry-After: 30); 503 while the live updates are closed.
 func statusPageEndpointEventsHandler(notFound echo.HandlerFunc, trustedProxies []netip.Prefix) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		published, captured := publishedStatusPage(c)
@@ -110,6 +145,8 @@ func statusPageEndpointEventsHandler(notFound echo.HandlerFunc, trustedProxies [
 	}
 }
 
+// eventStreamClientIP returns the IP address of the client of an event stream, resolved with
+// status-pages.trusted-proxies, and lets the status pages warn about a reverse proxy that is not trusted.
 func eventStreamClientIP(c *echo.Context, trustedProxies []netip.Prefix) netip.Addr {
 	remoteIP := httpx.RemoteIP(c)
 	forwardedFor := httpx.HeaderValues(c, echo.HeaderXForwardedFor)
@@ -163,6 +200,7 @@ type eventStream struct {
 	controller *http.ResponseController
 }
 
+// newEventStream returns the event stream of the response of the request, with the controller that flushes it.
 func newEventStream(c *echo.Context) *eventStream {
 	return &eventStream{writer: c.Response(), controller: http.NewResponseController(c.Response())}
 }
@@ -183,6 +221,9 @@ func (stream *eventStream) send(text string) bool {
 	return stream.controller.Flush() == nil
 }
 
+// setEventStreamHeaders sets the headers of an event stream: Content-Type: text/event-stream, a Cache-Control that
+// forbids caching and transforming (private for a status page with a login) and X-Accel-Buffering: no, so that nginx
+// does not buffer the events.
 func setEventStreamHeaders(c *echo.Context) {
 	httpx.SetHeader(c, echo.HeaderContentType, "text/event-stream")
 	// Fork: the stream of a page that requires a login is private, so that no shared cache keeps it

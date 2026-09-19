@@ -1,3 +1,5 @@
+// Package ifttt implements the alerting provider that triggers an IFTTT applet through the Webhooks service
+// of IFTTT (maker.ifttt.com).
 package ifttt
 
 import (
@@ -14,17 +16,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrWebhookKeyNotSet when the key of the Webhooks
+// service is missing, ErrEventNameNotSet when the event name is missing, and ErrDuplicateGroupOverride when an
+// override has an empty or already used group.
 var (
 	ErrWebhookKeyNotSet       = errors.New("webhook-key not set")
 	ErrEventNameNotSet        = errors.New("event-name not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the key of the IFTTT Webhooks service and the name of the event to trigger.
 type Config struct {
 	WebhookKey string `yaml:"webhook-key"` // IFTTT Webhook key
 	EventName  string `yaml:"event-name"`  // IFTTT event name
 }
 
+// Validate checks that WebhookKey and EventName are set.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookKey) == 0 {
 		return ErrWebhookKeyNotSet
@@ -35,6 +42,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.WebhookKey) > 0 {
 		cfg.WebhookKey = override.WebhookKey
@@ -104,6 +112,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON payload posted to the IFTTT webhook, limited by IFTTT to three free-form values.
 type Body struct {
 	Value1 string `json:"value1"` // Alert status/title
 	Value2 string `json:"value2"` // Alert message

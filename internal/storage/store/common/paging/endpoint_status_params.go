@@ -1,3 +1,4 @@
+// Package paging holds the parameters that select the page of results and events returned with a status.
 package paging
 
 // EndpointStatusParams represents all parameters that can be used for paging purposes

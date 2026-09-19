@@ -1,3 +1,5 @@
+// Package memory implements the store in memory: nothing survives a restart. It is the default, and what the tests
+// use.
 package memory
 
 import (

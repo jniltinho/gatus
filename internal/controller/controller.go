@@ -1,3 +1,6 @@
+// Package controller owns the HTTP server: Handle builds the router of package api and serves it, with TLS when
+// web.tls is set, and Shutdown drains the connections before closing them. A new server is started on every
+// configuration reload.
 package controller
 
 import (

@@ -1,3 +1,4 @@
+// Package common holds the errors and the types shared by the implementations of the store and by their callers.
 package common
 
 import "errors"

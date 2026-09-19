@@ -1,3 +1,4 @@
+// Package email implements the alerting provider that sends alerts by email through an SMTP server.
 package email
 
 import (
@@ -14,6 +15,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrMissingFromOrToFields when the sender or the
+// recipients are missing, ErrInvalidPort when the port is outside 1-65535, ErrMissingHost when the SMTP host is
+// empty, and ErrDuplicateGroupOverride when an override has no recipient or an empty or already used group.
 var (
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 	ErrMissingFromOrToFields  = errors.New("from and to fields are required")
@@ -21,6 +25,8 @@ var (
 	ErrMissingHost            = errors.New("host is required")
 )
 
+// Config holds the SMTP server, the credentials and the addresses of the emails. To may hold several addresses
+// separated by commas. An empty Username means From, and an empty Password disables SMTP authentication.
 type Config struct {
 	From     string `yaml:"from"`
 	Username string `yaml:"username"`
@@ -33,6 +39,7 @@ type Config struct {
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate checks that From, To and Host are set and that Port is a valid TCP port.
 func (cfg *Config) Validate() error {
 	if len(cfg.From) == 0 || len(cfg.To) == 0 {
 		return ErrMissingFromOrToFields
@@ -46,6 +53,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; a Port of zero or less and a nil ClientConfig
+// leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig

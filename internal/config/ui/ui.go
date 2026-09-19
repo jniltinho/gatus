@@ -1,3 +1,6 @@
+// Package ui models the ui section of the YAML configuration: the texts, logo, favicons, buttons, custom CSS, theme
+// and default sorting and filtering of the dashboard. It validates the section, applies its defaults and makes sure
+// that the index template renders with it.
 package ui
 
 import (
@@ -29,8 +32,15 @@ const (
 var (
 	defaultDarkMode = true
 
+	// ErrButtonValidationFailed is returned by Button.Validate when a button has no name or no link.
 	ErrButtonValidationFailed = errors.New("invalid button configuration: missing required name or link")
-	ErrInvalidDefaultSortBy   = errors.New("invalid default-sort-by value: must be 'name', 'group', or 'health'")
+
+	// ErrInvalidDefaultSortBy is returned by Config.ValidateAndSetDefaults when default-sort-by is set to something
+	// other than name, group or health.
+	ErrInvalidDefaultSortBy = errors.New("invalid default-sort-by value: must be 'name', 'group', or 'health'")
+
+	// ErrInvalidDefaultFilterBy is returned by Config.ValidateAndSetDefaults when default-filter-by is set to
+	// something other than none, failing or unstable.
 	ErrInvalidDefaultFilterBy = errors.New("invalid default-filter-by value: must be 'none', 'failing', or 'unstable'")
 )
 
@@ -56,6 +66,7 @@ type Config struct {
 	MaximumNumberOfResults int `yaml:"-"` // MaximumNumberOfResults to display on the page, it's not configurable because we're passing it from the storage config
 }
 
+// IsDarkMode returns whether the dark theme is the default one. It is true when dark-mode is not configured.
 func (cfg *Config) IsDarkMode() bool {
 	if cfg.DarkMode != nil {
 		return *cfg.DarkMode
@@ -77,6 +88,8 @@ func (btn *Button) Validate() error {
 	return nil
 }
 
+// Favicon is the configuration of the favourite icons of the UI. Each empty value defaults to the icon bundled with
+// the application.
 type Favicon struct {
 	Default   string `yaml:"default,omitempty"`   // URL or path to default favourite icon.
 	Size16x16 string `yaml:"size16x16,omitempty"` // URL or path to favourite icon for 16x16 size.
@@ -108,6 +121,8 @@ func GetDefaultConfig() *Config {
 }
 
 // ValidateAndSetDefaults validates the UI configuration and sets the default values if necessary.
+// Every empty text, icon and option gets its default. It returns ErrInvalidDefaultSortBy, ErrInvalidDefaultFilterBy,
+// ErrButtonValidationFailed, or the error of the index template if it cannot be parsed and executed with the result.
 func (cfg *Config) ValidateAndSetDefaults() error {
 	if len(cfg.Title) == 0 {
 		cfg.Title = defaultTitle
@@ -172,8 +187,11 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 	return t.Execute(&buffer, ViewData{UI: cfg, Theme: "dark", DefaultTheme: "dark"})
 }
 
+// ViewData is the data handed to the index template when the HTML page of the application is rendered.
 type ViewData struct {
-	UI    *Config
+	// UI is the UI configuration, from which the template takes the title, the texts, the icons and the custom CSS
+	UI *Config
+	// Theme is the theme the page is rendered with: "dark", or empty for the light theme
 	Theme string
 	// DefaultTheme is the theme of ui.dark-mode, used by the browser without a valid theme cookie (fork)
 	DefaultTheme string

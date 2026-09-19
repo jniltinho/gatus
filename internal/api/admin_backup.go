@@ -26,6 +26,8 @@ const (
 	// adminbackup.MaximumPlaintextBytes with the options, below the body limit of 4 MiB of the server
 	adminRestoreMaximumBodySize = 3584 * 1024
 
+	// adminRestorePreviewPath and adminRestorePath are the full paths of the restore routes, exempted from the body limit
+	// of adminRequestProtection
 	adminRestorePreviewPath = "/api/v1/admin/restore/preview"
 	adminRestorePath        = "/api/v1/admin/restore"
 
@@ -35,25 +37,37 @@ const (
 	restorePasswordMaximumFailures = 10
 	restorePasswordMaximumKeys     = 10000
 
+	// derivationRetryAfterSeconds is the Retry-After, in seconds, of the 429 answered while too many key derivations of
+	// encrypted backups are in progress
 	derivationRetryAfterSeconds = "5"
 )
 
 // restorePasswordLimiter counts the wrong passwords of the restores per client
 var restorePasswordLimiter = security.NewFailureLimiter(restorePasswordWindow, restorePasswordMaximumFailures, restorePasswordMaximumKeys)
 
+// isAdminRestorePath returns whether path is one of the restore routes, whose body can exceed adminMaximumBodySize.
 func isAdminRestorePath(path string) bool {
 	return path == adminRestorePreviewPath || path == adminRestorePath
 }
 
+// adminBackupHandler holds the handlers of the backup and of the restore of the administration.
 type adminBackupHandler struct {
 	security *security.Config
 	restorer *adminbackup.Restorer
 }
 
+// backupRequest is the optional JSON body of POST /api/v1/admin/backup. Unknown fields are refused.
 type backupRequest struct {
+	// Password encrypts the backup when it is not empty; its length is checked by adminbackup.CheckPassword
 	Password string `json:"password"`
 }
 
+// restoreRequest is the JSON body of POST /api/v1/admin/restore/preview and POST /api/v1/admin/restore. Unknown fields
+// are refused. File is the backup file as it was downloaded, embedded as a JSON value: it is required and must not be
+// null. Password decrypts an encrypted backup, and must be empty for a backup that is not encrypted. Overwrite updates
+// the items that already exist with a different definition, instead of skipping them. DisableEndpoints creates and
+// updates the endpoints disabled. Fingerprint is the fingerprint returned by the preview: it is ignored by the preview
+// and required by the restore.
 type restoreRequest struct {
 	File             json.RawMessage `json:"file"`
 	Password         string          `json:"password"`
@@ -73,7 +87,8 @@ func registerAdminBackupRoutes(router httpx.Router, cfg *config.Config) {
 	router.POST("/restore", handler.apply, requireJSON, clientIP)
 }
 
-// requireJSON rejects the requests whose content type is not application/json, even without body
+// requireJSON rejects with 415 the requests whose content type is not application/json, even without body, and sets
+// Cache-Control: no-store on every response of the route
 func requireJSON(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")
@@ -85,6 +100,19 @@ func requireJSON(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// backup handles POST /api/v1/admin/backup: it returns a backup file with the endpoints, status pages and push keys
+// registered through the administration, encrypted when a password is given.
+//
+// Authentication: administrator (protected group, administrator permission, request protection).
+// Request: Content-Type application/json is required, even without body; the body is optional and is a backupRequest
+// ({"password": "..."}).
+// Responses: 200 with the backup file as application/json, Content-Disposition: attachment with its file name
+// (gatus-backup-<date>-<time>.json, or .enc.json when encrypted) and Cache-Control: no-store; 400 when the body is not
+// a valid backupRequest or the password has an invalid length; 415 when the Content-Type is not application/json; 422
+// when the backup exceeds the limits of size or of items; 429 with Retry-After: 5 when too many encrypted backups are
+// in progress; 501 when the storage does not support the administration; 503 while a start or a configuration reload is
+// in progress or when the registered items could not be loaded from the storage; 500 on an unexpected error, without
+// its text; the common responses of the administration (401, 403, 413, 415, 429).
 func (h *adminBackupHandler) backup(c *echo.Context) error {
 	var request backupRequest
 	if body := bytes.TrimSpace(httpx.Body(c)); len(body) > 0 {
@@ -101,6 +129,20 @@ func (h *adminBackupHandler) backup(c *echo.Context) error {
 	return httpx.Send(c, http.StatusOK, backup.Body)
 }
 
+// preview handles POST /api/v1/admin/restore/preview: it returns what the restore of a backup file would do, without
+// any effect.
+//
+// Authentication: administrator (protected group, administrator permission, request protection, with a body limit of
+// its own).
+// Request: Content-Type application/json is required; the body is a restoreRequest with file and, when the backup is
+// encrypted, password; overwrite and disableEndpoints are the options of the restore; fingerprint is ignored.
+// Responses: 200 with adminbackup.Plan (summary, notices, items and the fingerprint to send to the restore) and
+// Cache-Control: no-store; 400 when the body is not a valid restoreRequest, the file is missing or invalid, the password
+// is wrong, missing for an encrypted file or given for a file that is not encrypted; 413 when the body exceeds 3584 KiB;
+// 415 when the Content-Type is not application/json; 422 when the backup exceeds the limits of size or of items; 429
+// with Retry-After after too many wrong passwords from the client (10 in 15 minutes) or, with Retry-After: 5, when too
+// many key derivations are in progress; 503 when the registered items could not be loaded from the storage; 500 on an
+// unexpected error, without its text; the common responses of the administration (401, 403, 415, 429).
 func (h *adminBackupHandler) preview(c *echo.Context) error {
 	request, plaintext, sent, err := h.readRestore(c)
 	if sent {
@@ -113,6 +155,18 @@ func (h *adminBackupHandler) preview(c *echo.Context) error {
 	return httpx.JSON(c, http.StatusOK, plan)
 }
 
+// apply handles POST /api/v1/admin/restore: it applies the restore of a backup file that was previewed. The cached
+// endpoint statuses are dropped.
+//
+// Authentication: administrator (protected group, administrator permission, request protection, with a body limit of
+// its own). The author of the changes is the authenticated user.
+// Request: Content-Type application/json is required; the body is a restoreRequest with the same file, password and
+// options of the preview, and the fingerprint the preview returned.
+// Responses: 200 with adminbackup.Result (the result of each item and their count) and Cache-Control: no-store, even
+// when items failed or were skipped because a configuration reload started; 400 as in preview, and when the fingerprint
+// is missing; 409 when the backup, the options or the registered items changed since the preview; 413, 415, 422 and 429
+// as in preview; 503 when the registered items could not be loaded from the storage; 500 on an unexpected error,
+// without its text; the common responses of the administration (401, 403, 415, 429).
 func (h *adminBackupHandler) apply(c *echo.Context) error {
 	request, plaintext, sent, err := h.readRestore(c)
 	if sent {
@@ -174,6 +228,11 @@ func decodeAdminJSON(body []byte, target any) error {
 	return nil
 }
 
+// backupError maps the errors of the backup and of the restore to their HTTP status and answers {"error": "..."}: 429
+// with Retry-After when too many key derivations are in progress; 422 when the backup is too large; 409 when the
+// fingerprint does not match; 503 during a start or reload, or when the registries are unavailable; 501 when the storage
+// does not support the administration; 400 for an invalid file or password; 500 for anything else, which is logged and
+// answered without its text.
 func backupError(c *echo.Context, err error) error {
 	switch {
 	case errors.Is(err, adminbackup.ErrBusy):

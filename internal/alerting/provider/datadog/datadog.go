@@ -1,3 +1,5 @@
+// Package datadog implements the alerting provider that publishes alerts as events in Datadog through the
+// Datadog Events REST API.
 package datadog
 
 import (
@@ -15,17 +17,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrAPIKeyNotSet when the Datadog API key is missing
+// and ErrDuplicateGroupOverride when an override has an empty or already used group.
 var (
 	ErrAPIKeyNotSet           = errors.New("api-key not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the API key, the Datadog site and the extra tags of the events. An empty Site means
+// datadoghq.com.
 type Config struct {
 	APIKey string   `yaml:"api-key"`        // Datadog API key
 	Site   string   `yaml:"site,omitempty"` // Datadog site (e.g., datadoghq.com, datadoghq.eu)
 	Tags   []string `yaml:"tags,omitempty"` // Additional tags to include
 }
 
+// Validate checks that the API key is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.APIKey) == 0 {
 		return ErrAPIKeyNotSet
@@ -33,6 +40,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; Tags are replaced as a whole, not appended.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.APIKey) > 0 {
 		cfg.APIKey = override.APIKey
@@ -110,6 +118,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return nil
 }
 
+// Body is the JSON payload of the event posted to the Datadog Events API.
 type Body struct {
 	Title        string   `json:"title"`
 	Text         string   `json:"text"`

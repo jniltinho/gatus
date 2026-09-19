@@ -46,27 +46,70 @@ var (
 	previewSemaphore = make(chan struct{}, 1)
 )
 
-// Item summarizes a status page for the administration list
+// Item summarizes a status page for the administration: it is an item of the statusPages field of Listing, answered
+// by GET /api/v1/admin/status-pages, and its fields are at the top level of Detail. It is output-only.
 type Item struct {
-	Slug           string `json:"slug"`
-	Title          string `json:"title,omitempty"`
-	Origin         Origin `json:"origin"`
-	Enabled        bool   `json:"enabled"`
-	Published      bool   `json:"published"`
-	Conflict       bool   `json:"conflict"`
+	// Slug is the slug of the page, the one of its public path /status/{slug} and of its administration routes: 1 to 64
+	// lowercase letters, digits or hyphens.
+	Slug string `json:"slug"`
+
+	// Title is the title of the page, with 1 to 100 characters. It is omitted when the definition of a managed status
+	// page is invalid and cannot be read.
+	Title string `json:"title,omitempty"`
+
+	// Origin is where the page is defined: "config" for the configuration file, read-only in the administration, and
+	// "admin" for a status page managed through the administration API.
+	Origin Origin `json:"origin"`
+
+	// Enabled is the enabled of the definition of the page. A page of the configuration file without enabled is enabled,
+	// a managed status page without enabled is disabled. It is false when the definition cannot be read.
+	Enabled bool `json:"enabled"`
+
+	// Published is whether the page is served to the visitors: status-pages.enabled is true and the page is valid, not in
+	// conflict and enabled.
+	Published bool `json:"published"`
+
+	// Conflict is whether the slug of the managed status page is also used by the configuration file, in which case the
+	// managed status page is not published.
+	Conflict bool `json:"conflict"`
+
+	// ConflictOrigin describes what uses the same slug, in English: currently always "the configuration file". It is
+	// omitted when the page is not in conflict.
 	ConflictOrigin string `json:"conflictOrigin,omitempty"`
-	Error          string `json:"error,omitempty"`
-	Endpoints      int    `json:"endpoints"`
+
+	// Error is the text of the validation error of a managed status page whose stored definition is invalid, in which
+	// case the page is not published. It is omitted for a valid page.
+	Error string `json:"error,omitempty"`
+
+	// Endpoints is the number of endpoints that the page shows at this moment, featured ones included, at most 200. It
+	// is 0 when the definition cannot be read.
+	Endpoints int `json:"endpoints"`
+
 	// RequiresLogin is whether the page has a login of its own (fork)
-	RequiresLogin bool       `json:"requiresLogin"`
-	Path          string     `json:"path"`
-	Version       int64      `json:"version,omitempty"`
-	CreatedAt     *time.Time `json:"createdAt,omitempty"`
-	UpdatedAt     *time.Time `json:"updatedAt,omitempty"`
-	UpdatedBy     string     `json:"updatedBy,omitempty"`
+	RequiresLogin bool `json:"requiresLogin"`
+
+	// Path is the public path of the page, /status/{slug}, relative to the root of the installation.
+	Path string `json:"path"`
+
+	// Version is the version of the managed status page, which starts at 1 and is incremented on every change. It is
+	// also answered in the ETag header and must be sent in the If-Match header of every change. It is omitted for a
+	// page of the configuration file.
+	Version int64 `json:"version,omitempty"`
+
+	// CreatedAt is the instant at which the managed status page was created, as a RFC 3339 timestamp. It is omitted for
+	// a page of the configuration file.
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+
+	// UpdatedAt is the instant of the last change of the managed status page, as a RFC 3339 timestamp. It is omitted
+	// for a page of the configuration file.
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+
+	// UpdatedBy is the author of the last change of the managed status page: the username of the basic authentication
+	// or the OIDC subject. It is omitted for a page of the configuration file and when the author is unknown.
+	UpdatedBy string `json:"updatedBy,omitempty"`
 }
 
-// Listing is the administration list of the status pages
+// Listing is the administration list of the status pages, the body of GET /api/v1/admin/status-pages
 type Listing struct {
 	// PublicationEnabled is status-pages.enabled: when false, no page is published
 	PublicationEnabled bool `json:"publicationEnabled"`
@@ -77,10 +120,15 @@ type Listing struct {
 	// SharedRateLimitWarning is the untrusted proxy IP address from which every visitor seems to come, if any
 	SharedRateLimitWarning string `json:"sharedRateLimitWarning,omitempty"`
 
+	// StatusPages are the pages of the configuration file, then the managed status pages, each ordered by slug. It is
+	// an empty array, never null, without page.
 	StatusPages []*Item `json:"statusPages"`
 }
 
-// Detail is a status page with its definition
+// Detail is a status page with its definition, and the fields of Item at the same level. It is the body answered by
+// GET and PUT /api/v1/admin/status-pages/{slug}, by POST /api/v1/admin/status-pages (201) and by
+// POST /api/v1/admin/status-pages/{slug}/enable and /disable. It is output-only: the body of the requests is the
+// definition itself, in YAML or JSON.
 type Detail struct {
 	Item
 
@@ -91,51 +139,98 @@ type Detail struct {
 	YAML string `json:"yaml"`
 }
 
-// Warning is a group or an endpoint key selected by a page without match
+// Warning is a group or an endpoint key selected by a page without match, or the notice of a deprecated field. It is
+// an item of the warnings field of Validation.
 type Warning struct {
-	// Type is "group" or "endpoint"
-	Type  string `json:"type"`
+	// Type is what has no match: "group" for a group, "endpoint" for an endpoint key and "featured" for the key of a
+	// featured endpoint. It is "charts" when the definition still has the deprecated charts, which are ignored.
+	Type string `json:"type"`
+
+	// Value is the name of the group or the key of the endpoint, in the lowercase group_name form, without match. For
+	// the type "charts" it is the keys of the charts joined by ", ".
 	Value string `json:"value"`
 }
 
-// Validation is the result of a successful validation
+// Validation is the result of a successful validation, the body of POST /api/v1/admin/status-pages/validate. The
+// definition is sent in YAML or JSON as the body of the request, and nothing is persisted.
 type Validation struct {
+	// Definition is the submitted definition once normalized: texts and group names trimmed, endpoint keys in
+	// lowercase, and enabled set to false when it was not sent. The hash of the password of the login of the page is
+	// answered masked as "********", never the hash itself.
 	Definition *pageconfig.Page `json:"definition"`
-	Warnings   []Warning        `json:"warnings"`
-	Endpoints  int              `json:"endpoints"`
+
+	// Warnings are the groups and endpoint keys selected by the definition that match no endpoint at this moment, and
+	// the notice of the deprecated charts. They do not prevent saving. It is an empty array, never null, without warning.
+	Warnings []Warning `json:"warnings"`
+
+	// Endpoints is the number of endpoints that the page would show at this moment, featured ones included, at most 200.
+	Endpoints int `json:"endpoints"`
 }
 
-// Options lists what a status page can select
+// Options lists what a status page can select, the body of GET /api/v1/admin/status-pages/options
 type Options struct {
-	Groups    []GroupOption    `json:"groups"`
+	// Groups are the groups with at least one endpoint that can be published, ordered by name. Endpoints without group
+	// are not counted in any group. It is an empty array, never null, without group.
+	Groups []GroupOption `json:"groups"`
+
+	// Endpoints are the endpoints that can be published, ordered by group and then by key: the enabled endpoints and
+	// external endpoints of the configuration file and the enabled managed endpoints. It is an empty array, never null.
 	Endpoints []EndpointOption `json:"endpoints"`
 }
 
-// GroupOption is a group with the number of endpoints that can be published
+// GroupOption is a group with the number of endpoints that can be published, an item of the groups field of Options
 type GroupOption struct {
-	Name      string `json:"name"`
-	Endpoints int    `json:"endpoints"`
+	// Name is the name of the group, trimmed. It is the value to put in the groups of a definition.
+	Name string `json:"name"`
+
+	// Endpoints is the number of endpoints of the group that can be published.
+	Endpoints int `json:"endpoints"`
 }
 
-// EndpointOption is an endpoint that can be published
+// EndpointOption is an endpoint that can be published, an item of the endpoints field of Options
 type EndpointOption struct {
-	Key   string `json:"key"`
-	Name  string `json:"name"`
+	// Key is the key of the endpoint, in the lowercase group_name form in which the characters "/", "_", ".", ",", " ",
+	// "#", "+" and "&" of the group and of the name are replaced by "-". It is the value to put in the endpoints and
+	// the featured of a definition.
+	Key string `json:"key"`
+
+	// Name is the display name of the endpoint, as configured.
+	Name string `json:"name"`
+
+	// Group is the name of the group of the endpoint, as configured, or an empty string for an endpoint without group.
 	Group string `json:"group"`
 }
 
-// Exposure lists the status pages on which an endpoint would appear
+// Exposure lists the status pages on which an endpoint would appear, the body of
+// GET /api/v1/admin/status-pages/exposure, whose query parameters group and key identify the endpoint (at least one
+// of them is required)
 type Exposure struct {
+	// StatusPages are the valid and not in conflict pages that select the endpoint, published or not: the pages of the
+	// configuration file, then the managed status pages, each ordered by slug. It is an empty array, never null,
+	// without page.
 	StatusPages []ExposureItem `json:"statusPages"`
 }
 
-// ExposureItem is a status page on which an endpoint would appear, by group or by key
+// ExposureItem is a status page on which an endpoint would appear, by group or by key. It is an item of the
+// statusPages field of Exposure.
 type ExposureItem struct {
-	Slug      string `json:"slug"`
-	Title     string `json:"title"`
-	Origin    Origin `json:"origin"`
-	Published bool   `json:"published"`
-	Reason    string `json:"reason"`
+	// Slug is the slug of the page, the one of its public path /status/{slug}.
+	Slug string `json:"slug"`
+
+	// Title is the title of the page, with 1 to 100 characters.
+	Title string `json:"title"`
+
+	// Origin is where the page is defined: "config" for the configuration file and "admin" for a status page managed
+	// through the administration API.
+	Origin Origin `json:"origin"`
+
+	// Published is whether the page is served to the visitors at this moment: status-pages.enabled is true and the page
+	// is enabled. When false, the endpoint would only appear once the page is published.
+	Published bool `json:"published"`
+
+	// Reason is why the endpoint would appear on the page: "group" when the page selects the group of the query, else
+	// "key" when the key of the query is among the endpoints or the featured endpoints of the page.
+	Reason string `json:"reason"`
 }
 
 // Service administers the status pages

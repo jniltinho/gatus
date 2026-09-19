@@ -1,3 +1,5 @@
+// Package custom implements the alerting provider that sends alerts through a user-defined HTTP request,
+// whose URL, method, headers and body are configured and may contain placeholders.
 package custom
 
 import (
@@ -15,9 +17,13 @@ import (
 )
 
 var (
+	// ErrURLNotSet is returned when the URL of the request is missing.
 	ErrURLNotSet = errors.New("url not set")
 )
 
+// Config describes the HTTP request sent for an alert. An empty Method means GET. URL and Body may contain
+// placeholders such as [ENDPOINT_NAME] or [ALERT_TRIGGERED_OR_RESOLVED]; Placeholders maps a placeholder name
+// to the text that replaces each of its values, for instance TRIGGERED and RESOLVED.
 type Config struct {
 	URL          string                       `yaml:"url"`
 	Method       string                       `yaml:"method,omitempty"`
@@ -29,6 +35,7 @@ type Config struct {
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate checks that the URL is set.
 func (cfg *Config) Validate() error {
 	if len(cfg.URL) == 0 {
 		return ErrURLNotSet
@@ -36,6 +43,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every field set in override over cfg; Headers and Placeholders are replaced as a whole, not
+// merged key by key, and empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -80,6 +89,8 @@ func (provider *AlertProvider) Validate() error {
 	return provider.DefaultConfig.Validate()
 }
 
+// Send builds the request with the placeholders replaced and executes it. It returns an error carrying the
+// response body when the status code is 400 or above.
 func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) error {
 	cfg, err := provider.GetConfig(ep.Group, alert)
 	if err != nil {

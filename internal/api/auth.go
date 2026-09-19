@@ -45,7 +45,9 @@ func registerAuthRoutes(unprotectedAPIRouter httpx.Router, cfg *config.Config, c
 }
 
 // authRequestProtection applies the origin rules of the administration to the login and logout requests, against CSRF
-// and login CSRF, see adminRequestProtection
+// and login CSRF, see adminRequestProtection. It sets Cache-Control: no-store on every response and answers, with the
+// body {"error": "..."}: 404 when the login screen is not used (no security.basic, or OIDC); 403 when Sec-Fetch-Site is
+// cross-site; 403 when the Origin or, without it, the origin of the Referer is present and not allowed.
 func authRequestProtection(cfg *config.Config) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -64,8 +66,19 @@ func authRequestProtection(cfg *config.Config) echo.MiddlewareFunc {
 	}
 }
 
-// login creates a login session from the JSON credentials of the login screen. Neither the password nor the token is
-// logged.
+// login returns the handler of POST /api/v1/auth/login: it creates a login session from the JSON credentials of the
+// login screen and sets its cookie. Neither the password nor the token is logged.
+//
+// Authentication: none (public group); the credentials are in the body. The origin rules of authRequestProtection apply
+// and the failures are counted per IP address of the client.
+// Request: Content-Type application/json is required; the body is {"username": "...", "password": "..."} of at most
+// 4 KiB. The session cookie of the request, if any, is ignored.
+// Responses: 204 without body, with the Set-Cookie of the new login session; 400 when the body is not valid JSON; 401
+// when the username or the password is wrong; 403 for a cross-site request or an origin that is not allowed; 404 when
+// security.basic is not configured or OIDC is; 413 when the body exceeds 4 KiB; 415 when the Content-Type is not
+// application/json; 429 with Retry-After (seconds) after too many failed attempts from the client; 500 when the
+// session could not be created, e.g. when the storage does not support login sessions. Errors are
+// {"error": "..."}, and every response has Cache-Control: no-store.
 func login(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		body := httpx.Body(c)
@@ -103,7 +116,15 @@ func login(cfg *config.Config) echo.HandlerFunc {
 	}
 }
 
-// logout deletes the login session of the request, if any, and expires its cookie
+// logout returns the handler of POST /api/v1/auth/logout: it deletes the login session of the request, if any, and
+// expires its cookie.
+//
+// Authentication: none (public group): a request without session succeeds as well. The origin rules of
+// authRequestProtection apply.
+// Request: no body; the login session is read from its cookie.
+// Responses: 204 without body, with a Set-Cookie that expires the session cookie; 403 for a cross-site request or an
+// origin that is not allowed; 404 when security.basic is not configured or OIDC is; 500 when the session could not be
+// deleted (the cookie is expired anyway). Errors are {"error": "..."}, and every response has Cache-Control: no-store.
 func logout(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		clientIP := c.Get(security.LocalsClientIP)

@@ -1,3 +1,5 @@
+// Package clickup implements the alerting provider that opens a task in a ClickUp list when an alert is
+// triggered and closes the matching tasks when it is resolved, through the ClickUp REST API.
 package clickup
 
 import (
@@ -14,6 +16,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Errors returned by the validation of the configuration: ErrListIDNotSet and ErrTokenNotSet when the list ID
+// or the API token is missing, ErrInvalidPriority when the priority is not one of the accepted names, and
+// ErrDuplicateGroupOverride when an override has an empty or already used group.
 var (
 	ErrListIDNotSet           = errors.New("list-id not set")
 	ErrTokenNotSet            = errors.New("token not set")
@@ -29,6 +34,9 @@ var priorityMap = map[string]int{
 	"none":   0,
 }
 
+// Config holds the ClickUp credentials and the content of the tasks created by the provider.
+// Name and MarkdownContent are templates in which the [ENDPOINT_GROUP], [ENDPOINT_NAME], [ALERT_DESCRIPTION]
+// and [RESULT_ERRORS] placeholders are replaced; MarkdownContent is read from the content key.
 type Config struct {
 	APIURL          string   `yaml:"api-url"`
 	ListID          string   `yaml:"list-id"`
@@ -41,6 +49,8 @@ type Config struct {
 	MarkdownContent string   `yaml:"content,omitempty"`
 }
 
+// Validate checks that ListID and Token are set and that Priority is known, and fills the defaults of the
+// empty fields: normal priority, notify-all enabled, the public API URL and the task name and content templates.
 func (cfg *Config) Validate() error {
 	if cfg.ListID == "" {
 		return ErrListIDNotSet
@@ -70,6 +80,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every field set in override over cfg; empty strings, an empty Assignees list and a nil
+// NotifyAll leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if override.APIURL != "" {
 		cfg.APIURL = override.APIURL
@@ -131,6 +143,8 @@ func (provider *AlertProvider) Validate() error {
 	return provider.DefaultConfig.Validate()
 }
 
+// Send creates a task for a triggered alert, after replacing the placeholders of its name and content,
+// or closes the tasks of the endpoint when resolved is true. The priority is omitted when it is none.
 func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) error {
 	cfg, err := provider.GetConfig(ep.Group, alert)
 	if err != nil {
@@ -159,6 +173,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return provider.CreateTask(cfg, body)
 }
 
+// CreateTask posts body as a new task in the configured list and returns an error when the API answers
+// with a status of 400 or above.
 func (provider *AlertProvider) CreateTask(cfg *Config, body map[string]interface{}) error {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -183,6 +199,8 @@ func (provider *AlertProvider) CreateTask(cfg *Config, body map[string]interface
 	return nil
 }
 
+// CloseTask sets the status closed on every open task of the list whose name contains both the group and
+// the name of the endpoint. It returns an error when no task matches.
 func (provider *AlertProvider) CloseTask(cfg *Config, ep *endpoint.Endpoint) error {
 	fetchURL := fmt.Sprintf("%s/list/%s/task?include_closed=false", cfg.APIURL, cfg.ListID)
 	req, err := http.NewRequest("GET", fetchURL, nil)
@@ -225,6 +243,8 @@ func (provider *AlertProvider) CloseTask(cfg *Config, ep *endpoint.Endpoint) err
 	return nil
 }
 
+// UpdateTaskStatus changes the status of the task taskID and returns an error when the API answers with a
+// status of 400 or above.
 func (provider *AlertProvider) UpdateTaskStatus(cfg *Config, taskID, status string) error {
 	updateURL := fmt.Sprintf("%s/task/%s", cfg.APIURL, taskID)
 	body := map[string]interface{}{"status": status}
@@ -250,6 +270,7 @@ func (provider *AlertProvider) UpdateTaskStatus(cfg *Config, taskID, status stri
 	return nil
 }
 
+// GetDefaultAlert returns the provider's default alert configuration, or nil when none is configured.
 func (provider *AlertProvider) GetDefaultAlert() *alert.Alert {
 	return provider.DefaultAlert
 }
@@ -279,6 +300,7 @@ func (provider *AlertProvider) GetConfig(group string, alert *alert.Alert) (*Con
 	return &cfg, err
 }
 
+// ValidateOverrides validates the alert's provider override and, if present, the group override.
 func (provider *AlertProvider) ValidateOverrides(group string, alert *alert.Alert) error {
 	_, err := provider.GetConfig(group, alert)
 	return err

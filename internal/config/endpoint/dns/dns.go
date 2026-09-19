@@ -1,3 +1,5 @@
+// Package dns holds the dns section of an endpoint of the YAML configuration, which turns the endpoint into a DNS
+// query, and validates its query name and query type.
 package dns
 
 import (
@@ -24,6 +26,9 @@ type Config struct {
 	QueryName string `yaml:"query-name"`
 }
 
+// ValidateAndSetDefault validates the DNS configuration and appends the trailing dot to QueryName if it is missing.
+// It returns ErrDNSWithNoQueryName if QueryName is empty and ErrDNSWithInvalidQueryType if QueryType is not a record
+// type known to the DNS library.
 func (d *Config) ValidateAndSetDefault() error {
 	if len(d.QueryName) == 0 {
 		return ErrDNSWithNoQueryName

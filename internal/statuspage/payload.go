@@ -64,54 +64,114 @@ const (
 	StatusUnknown = "unknown"
 )
 
-// Payload is the public representation of a status page. It only has the fields that can be published: no key, URL,
-// hostname, IP address, HTTP status, error, condition or event.
+// Payload is the public representation of a status page, the body of GET /api/v1/status-pages/{slug} and of the
+// preview of the administration, GET /api/v1/admin/status-pages/{slug}/preview. It only has the fields that can be
+// published: no key, URL, hostname, IP address, HTTP status, error, condition or event. The public route answers it
+// from a cache of 30 seconds.
 type Payload struct {
-	Slug        string    `json:"slug"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-	Truncated   bool      `json:"truncated"`
+	// Slug is the slug of the page, the one of its public path /status/{slug}: 1 to 64 lowercase letters, digits or
+	// hyphens.
+	Slug string `json:"slug"`
+
+	// Title is the title of the page, with 1 to 100 characters.
+	Title string `json:"title"`
+
+	// Description is the plain text shown below the title, with at most 1000 characters. It is an empty string when the
+	// page has no description.
+	Description string `json:"description"`
+
+	// Status is the aggregated status of the endpoints of the page, ignoring the unknown ones: "operational" when all are
+	// up, "down" when all are down, "degraded" otherwise (including when some are pending) and "unknown" when no
+	// endpoint has a result.
+	Status string `json:"status"`
+
+	// UpdatedAt is the instant at which the payload was assembled, as a RFC 3339 timestamp in UTC. Because of the cache
+	// it can be up to 30 seconds old.
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// Truncated is whether endpoints were left out because the page selects more than 200 of them. The featured
+	// endpoints are kept first, then the groups in display order.
+	Truncated bool `json:"truncated"`
 
 	// Summary counts the endpoints of the page by status, so that the page does not have to be counted in the browser
 	// (fork)
 	Summary SummaryPayload `json:"summary"`
 
+	// Featured are the featured endpoints, in the order of the definition of the page, at most 10. They are not
+	// repeated in Groups. It is an empty array, never null, when the page has none.
 	Featured []FeaturedEndpointPayload `json:"featured"`
-	Groups   []GroupPayload            `json:"groups"`
+
+	// Groups are the sections of the page: first the groups selected by the page, in the order of its definition, then
+	// the groups only reached through endpoint keys, in alphabetical order, then the endpoints without group. Groups
+	// without endpoint to show are left out. It is an empty array, never null.
+	Groups []GroupPayload `json:"groups"`
 }
 
-// SummaryPayload counts the endpoints of a status page by status (fork). On a truncated page it counts the endpoints
-// that are published, which are the ones the page shows next to the notice of the first 200.
+// SummaryPayload counts the endpoints of a status page by status (fork), in the summary field of Payload. On a
+// truncated page it counts the endpoints that are published, which are the ones the page shows next to the notice of
+// the first 200.
 type SummaryPayload struct {
-	Total   int `json:"total"`
-	Up      int `json:"up"`
-	Down    int `json:"down"`
+	// Total is the number of published endpoints, featured ones included: the sum of Up, Down, Pending and Unknown.
+	Total int `json:"total"`
+
+	// Up is the number of endpoints whose status is "up".
+	Up int `json:"up"`
+
+	// Down is the number of endpoints whose status is "down".
+	Down int `json:"down"`
+
+	// Pending is the number of endpoints whose status is "pending".
 	Pending int `json:"pending"`
+
+	// Unknown is the number of endpoints whose status is "unknown", which have no result yet.
 	Unknown int `json:"unknown"`
 }
 
-// GroupPayload is a section of a public status page. Endpoints without group are in a group with an empty name.
+// GroupPayload is a section of a public status page, an item of the groups field of Payload. Endpoints without group
+// are in a group with an empty name.
 type GroupPayload struct {
-	Name      string            `json:"name"`
-	Status    string            `json:"status"`
+	// Name is the name of the group, trimmed, or an empty string for the section of the endpoints without group.
+	Name string `json:"name"`
+
+	// Status is the aggregated status of the endpoints of the group, ignoring the unknown ones: "operational" when all
+	// are up, "down" when all are down, "degraded" otherwise (including when some are pending) and "unknown" when no
+	// endpoint has a result.
+	Status string `json:"status"`
+
+	// Endpoints are the endpoints of the group that are not featured, ordered by name ignoring case. It is never empty.
 	Endpoints []EndpointPayload `json:"endpoints"`
 }
 
-// FeaturedEndpointPayload is a featured endpoint, with the name of its group
+// FeaturedEndpointPayload is a featured endpoint, with the name of its group. It is an item of the featured field of
+// Payload, with the fields of EndpointPayload at the same level.
 type FeaturedEndpointPayload struct {
 	EndpointPayload
+
+	// Group is the name of the group of the endpoint as it is configured, or an empty string for an endpoint without
+	// group.
 	Group string `json:"group"`
 }
 
-// EndpointPayload is the public representation of an endpoint
+// EndpointPayload is the public representation of an endpoint: an item of the endpoints field of GroupPayload, and the
+// fields embedded at the top level of FeaturedEndpointPayload and of EndpointDetailsPayload. It has neither the key nor
+// the URL of the endpoint.
 type EndpointPayload struct {
-	Name         string              `json:"name"`
-	Status       string              `json:"status"`
-	Uptime       UptimePayload       `json:"uptime"`
+	// Name is the display name of the endpoint, as configured. The key of the endpoint is not published here.
+	Name string `json:"name"`
+
+	// Status is the status of the endpoint, from its most recent result: "up" when it succeeded, "pending" when it is
+	// pending, "down" when it failed, and "unknown" when the endpoint has no result yet.
+	Status string `json:"status"`
+
+	// Uptime is the uptime of the endpoint over the last 24 hours, 7 days and 30 days.
+	Uptime UptimePayload `json:"uptime"`
+
+	// ResponseTime is the average response time of the endpoint over the last 24 hours, 7 days and 30 days.
 	ResponseTime ResponseTimePayload `json:"responseTime"`
-	Results      []ResultPayload     `json:"results"`
+
+	// Results are the latest results of the endpoint, from the oldest to the most recent: at most 50, or
+	// storage.maximum-number-of-results when it is lower. It is an empty array, never null, without result.
+	Results []ResultPayload `json:"results"`
 
 	// CertificateExpiresInDays is the number of whole days until the TLS certificate of the endpoint expires, negative
 	// once it expired. It is only set when the page shows the certificate expiration and a published result has a
@@ -123,58 +183,116 @@ type EndpointPayload struct {
 	CertificateExpiresAt *time.Time `json:"certificateExpiresAt,omitempty"`
 }
 
-// UptimePayload is the uptime of an endpoint, between 0 and 1, or null without execution during the period
+// UptimePayload is the uptime of an endpoint, between 0 and 1, or null without execution during the period. It is the
+// uptime field of EndpointPayload, and also of the status of an endpoint answered by the dashboard API,
+// GET /api/v1/endpoints/{key}/statuses.
 type UptimePayload struct {
+	// Last24Hours is the ratio of successful executions over the last 24 hours, from 0 to 1 (1 is 100%), or null
+	// without execution during the period.
 	Last24Hours *float64 `json:"24h"`
-	Last7Days   *float64 `json:"7d"`
-	Last30Days  *float64 `json:"30d"`
+
+	// Last7Days is the ratio of successful executions over the last 7 days, from 0 to 1 (1 is 100%), or null without
+	// execution during the period.
+	Last7Days *float64 `json:"7d"`
+
+	// Last30Days is the ratio of successful executions over the last 30 days, from 0 to 1 (1 is 100%), or null without
+	// execution during the period.
+	Last30Days *float64 `json:"30d"`
 }
 
 // ResponseTimePayload is the average response time of an endpoint in milliseconds, or null without execution during
-// the period
+// the period. It is the responseTime field of EndpointPayload, and also of the status of an endpoint answered by the
+// dashboard API, GET /api/v1/endpoints/{key}/statuses.
 type ResponseTimePayload struct {
+	// Last24Hours is the average response time over the last 24 hours, in whole milliseconds, or null without execution
+	// during the period.
 	Last24Hours *int `json:"24h"`
-	Last7Days   *int `json:"7d"`
-	Last30Days  *int `json:"30d"`
+
+	// Last7Days is the average response time over the last 7 days, in whole milliseconds, or null without execution
+	// during the period.
+	Last7Days *int `json:"7d"`
+
+	// Last30Days is the average response time over the last 30 days, in whole milliseconds, or null without execution
+	// during the period.
+	Last30Days *int `json:"30d"`
 }
 
-// ResultPayload is the public representation of a result
+// ResultPayload is the public representation of a result, an item of the results field of EndpointPayload. It has
+// neither the errors, nor the condition results, nor the hostname, nor the IP address of the result, and the HTTP
+// status is only published inside Message.
 type ResultPayload struct {
-	Timestamp  time.Time `json:"timestamp"`
-	Success    bool      `json:"success"`
-	DurationMs int64     `json:"durationMs"`
+	// Timestamp is the instant of the result, as a RFC 3339 timestamp in UTC: the end of the evaluation of a check, or
+	// the reception of a push.
+	Timestamp time.Time `json:"timestamp"`
 
-	// Pending is whether the result is pending (fork)
+	// Success is whether the result is healthy: every condition passed, or the push reported the status up.
+	Success bool `json:"success"`
+
+	// DurationMs is the response time of the result in whole milliseconds, rounded down. It is 0 when the request could
+	// not be made and for a push that did not report a duration.
+	DurationMs int64 `json:"durationMs"`
+
+	// Pending is whether the result is pending (fork). A pending result has Success false and is not a failure. It is
+	// omitted when false.
 	Pending bool `json:"pending,omitempty"`
 
-	// Message and Origin are only set on the details page of an endpoint of a page that shows messages (fork)
+	// Message is the text of the result that can be published (fork): the message of a push or of a heartbeat (at most
+	// 1024 bytes), else "HTTP " followed by the HTTP status code of the check, else, for a failed check that did not
+	// answer, one of the closed set "Certificate error", "DNS error", "Timeout", "Connection failed" and "Check failed".
+	// The text of the errors is never published. It is only set on the details page of an endpoint of a page that shows
+	// messages, and omitted everywhere else and when there is nothing to say (a successful or pending check without
+	// HTTP status).
 	Message string `json:"message,omitempty"`
-	Origin  string `json:"origin,omitempty"`
+
+	// Origin is where the result comes from (fork): "push" for a result received through the push API, omitted for a
+	// check made by Gatus. Like Message, it is only set on the details page of an endpoint of a page that shows
+	// messages.
+	Origin string `json:"origin,omitempty"`
 }
 
-// EndpointDetailsPayload is the public representation of an endpoint of a status page on its details page. Like
-// Payload, it has no key, URL, hostname, IP address, HTTP status, error or condition; its events only have a type and a
-// timestamp.
+// EndpointDetailsPayload is the public representation of an endpoint of a status page on its details page, the body
+// of GET /api/v1/status-pages/{slug}/endpoints/{key}. Like Payload, it has no key, URL, hostname, IP address, HTTP
+// status, error or condition; its events only have a type and a timestamp. The fields of EndpointPayload are at the
+// same level as the others. It is answered from a cache of 30 seconds that a new result of the endpoint renews.
 type EndpointDetailsPayload struct {
+	// Page identifies the status page the endpoint is shown on.
 	Page PageReferencePayload `json:"page"`
+
 	EndpointPayload
-	Group     string         `json:"group"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	Events    []EventPayload `json:"events"`
+
+	// Group is the name of the group of the endpoint as it is configured, or an empty string for an endpoint without
+	// group.
+	Group string `json:"group"`
+
+	// UpdatedAt is the instant at which the payload was assembled, as a RFC 3339 timestamp in UTC.
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// Events are the latest events of the endpoint, at most 50, from the oldest to the most recent. Events of an unknown
+	// type are left out. It is an empty array, never null, for an endpoint without event or not in the storage yet.
+	Events []EventPayload `json:"events"`
 }
 
-// PageReferencePayload identifies the status page of an endpoint details page
+// PageReferencePayload identifies the status page of an endpoint details page, in the page field of
+// EndpointDetailsPayload
 type PageReferencePayload struct {
-	Slug  string `json:"slug"`
+	// Slug is the slug of the page, the one of its public path /status/{slug}.
+	Slug string `json:"slug"`
+
+	// Title is the title of the page, with 1 to 100 characters.
 	Title string `json:"title"`
 
 	// ShowMessages is whether the details page shows the messages of the results (fork)
 	ShowMessages bool `json:"showMessages"`
 }
 
-// EventPayload is the public representation of an event: START, HEALTHY or UNHEALTHY
+// EventPayload is the public representation of an event: START, HEALTHY or UNHEALTHY. It is an item of the events
+// field of EndpointDetailsPayload.
 type EventPayload struct {
-	Type      string    `json:"type"`
+	// Type is the kind of the event: "START" when the endpoint started being monitored, "HEALTHY" when it became
+	// healthy and "UNHEALTHY" when it became unhealthy.
+	Type string `json:"type"`
+
+	// Timestamp is the instant of the event, as a RFC 3339 timestamp in UTC.
 	Timestamp time.Time `json:"timestamp"`
 }
 

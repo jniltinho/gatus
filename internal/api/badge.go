@@ -20,6 +20,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// Colours of the value of a badge, from the best to the worst.
 const (
 	badgeColorHexAwesome  = "#40cc11"
 	badgeColorHexGreat    = "#94cc11"
@@ -29,6 +30,8 @@ const (
 	badgeColorHexVeryBad  = "#c7130a"
 )
 
+// Health statuses written in the health badges, which also pick their colour: HealthStatusUp when the latest result of
+// the endpoint succeeded, HealthStatusDown when it failed and HealthStatusUnknown when the endpoint has no result yet.
 const (
 	HealthStatusUp      = "up"
 	HealthStatusDown    = "down"
@@ -36,12 +39,25 @@ const (
 )
 
 var (
+	// badgeColors are the colours of the five response time thresholds of an endpoint, in the order of the thresholds
 	badgeColors = []string{badgeColorHexAwesome, badgeColorHexGreat, badgeColorHexGood, badgeColorHexPassable, badgeColorHexBad}
 )
 
 // UptimeBadge handles the automatic generation of badge based on the group name and endpoint name passed.
 //
 // Valid values for :duration -> 30d, 7d, 24h, 1h
+//
+// It handles GET and HEAD /api/v1/endpoints/:key/uptimes/:duration/badge.svg: the uptime of an endpoint over the
+// duration, as an SVG badge whose colour depends on the uptime.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint (group_name), unescaped once with url.QueryUnescape and
+// not lower-cased; the path parameter duration is one of 1h, 24h, 7d or 30d (1h reads the last two hours, because the
+// uptime is stored by hour).
+// Responses: 200 with the badge as image/svg+xml, Cache-Control: no-cache, no-store, must-revalidate and Expires: 0;
+// 400 when the duration is not supported, the key cannot be unescaped or the time range is invalid; 404 when no
+// endpoint has the key; 500 on an error of the storage. Errors are text/plain, and the 500 carries the text of the
+// error.
 func UptimeBadge(c *echo.Context) error {
 	duration := c.Param("duration")
 	var from time.Time
@@ -79,6 +95,19 @@ func UptimeBadge(c *echo.Context) error {
 // ResponseTimeBadge handles the automatic generation of badge based on the group name and endpoint name passed.
 //
 // Valid values for :duration -> 30d, 7d, 24h, 1h
+//
+// It returns the handler of GET and HEAD /api/v1/endpoints/:key/response-times/:duration/badge.svg: the average
+// response time of an endpoint over the duration, in milliseconds, as an SVG badge whose colour depends on the
+// thresholds of the endpoint (ui.badge.response-time.thresholds). The same handler serves GET and HEAD
+// /api/v1/status-pages/:slug/endpoints/:key/response-times/:duration/badge.svg through statusPageBadgeHandler.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased; the path parameter duration is one of 1h, 24h, 7d or 30d (1h reads the last two hours).
+// Responses: 200 with the badge as image/svg+xml, Expires: 0 and Cache-Control: no-cache, no-store, must-revalidate
+// (private, no-store and Vary: Authorization for a status page with a login); 400 when the duration is not supported,
+// the key cannot be unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the
+// storage. Errors are text/plain, and the 500 carries the text of the error.
 func ResponseTimeBadge(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		duration := c.Param("duration")
@@ -116,6 +145,18 @@ func ResponseTimeBadge(cfg *config.Config) echo.HandlerFunc {
 }
 
 // HealthBadge handles the automatic generation of badge based on the group name and endpoint name passed.
+//
+// It handles GET and HEAD /api/v1/endpoints/:key/health/badge.svg: the health of an endpoint from its latest result
+// (up, down or ? without results), as an SVG badge. The same handler serves GET and HEAD
+// /api/v1/status-pages/:slug/endpoints/:key/health/badge.svg through statusPageBadgeHandler.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased.
+// Responses: 200 with the badge as image/svg+xml, Expires: 0 and Cache-Control: no-cache, no-store, must-revalidate
+// (private, no-store and Vary: Authorization for a status page with a login); 400 when the key cannot be unescaped or
+// the time range is invalid; 404 when no endpoint has the key; 500 on an error of the storage. Errors are text/plain,
+// and the 500 carries the text of the error.
 func HealthBadge(c *echo.Context) error {
 	key, err := url.QueryUnescape(c.Param("key"))
 	if err != nil {
@@ -145,6 +186,16 @@ func HealthBadge(c *echo.Context) error {
 	return httpx.Send(c, 200, generateHealthBadgeSVG(healthStatus))
 }
 
+// HealthBadgeShields handles GET and HEAD /api/v1/endpoints/:key/health/badge.shields: the health of an endpoint from
+// its latest result, in the JSON format of the endpoint badge of shields.io.
+//
+// Authentication: none (public group).
+// Request: the path parameter key is the key of the endpoint, unescaped once with url.QueryUnescape and not
+// lower-cased.
+// Responses: 200 with the JSON object {"schemaVersion": 1, "label": "gatus", "message": "up"|"down"|"?",
+// "color": "brightgreen"|"red"|"yellow"}, Cache-Control: no-cache, no-store, must-revalidate and Expires: 0; 400 when
+// the key cannot be unescaped or the time range is invalid; 404 when no endpoint has the key; 500 on an error of the
+// storage or of the encoding. Errors are text/plain, and the 500 carries the text of the error.
 func HealthBadgeShields(c *echo.Context) error {
 	key, err := url.QueryUnescape(c.Param("key"))
 	if err != nil {
@@ -178,6 +229,8 @@ func HealthBadgeShields(c *echo.Context) error {
 	return httpx.Send(c, 200, jsonData)
 }
 
+// generateUptimeBadgeSVG returns the SVG of the uptime badge of a duration: the label "uptime <duration>" and the
+// uptime, a ratio between 0 and 1, as a percentage with at most two decimals.
 func generateUptimeBadgeSVG(duration string, uptime float64) []byte {
 	var labelWidth, valueWidth, valueWidthAdjustment int
 	switch duration {
@@ -231,6 +284,8 @@ func generateUptimeBadgeSVG(duration string, uptime float64) []byte {
 	return svg
 }
 
+// getBadgeColorFromUptime returns the colour of an uptime, a ratio between 0 and 1: from awesome at 97.5% or more down
+// to very bad below 65%.
 func getBadgeColorFromUptime(uptime float64) string {
 	if uptime >= 0.975 {
 		return badgeColorHexAwesome
@@ -246,6 +301,8 @@ func getBadgeColorFromUptime(uptime float64) string {
 	return badgeColorHexVeryBad
 }
 
+// generateResponseTimeBadgeSVG returns the SVG of the response time badge of a duration: the label "response time
+// <duration>" and the average response time in milliseconds, coloured with the thresholds of the endpoint with the key.
 func generateResponseTimeBadgeSVG(duration string, averageResponseTime int, key string, cfg *config.Config) []byte {
 	var labelWidth, valueWidth int
 	switch duration {
@@ -296,6 +353,9 @@ func generateResponseTimeBadgeSVG(duration string, averageResponseTime int, key 
 	return svg
 }
 
+// getBadgeColorFromResponseTime returns the colour of a response time in milliseconds: the colour of the first of the
+// five thresholds of the endpoint it does not exceed, or very bad above all of them. The thresholds come from the
+// endpoint of the configuration file, then from the managed endpoint, then from the default configuration.
 func getBadgeColorFromResponseTime(responseTime int, key string, cfg *config.Config) string {
 	thresholds := ui.GetDefaultConfig().Badge.ResponseTime.Thresholds
 	if endpoint := cfg.GetEndpointByKey(key); endpoint != nil {
@@ -312,6 +372,7 @@ func getBadgeColorFromResponseTime(responseTime int, key string, cfg *config.Con
 	return badgeColorHexVeryBad
 }
 
+// generateHealthBadgeSVG returns the SVG of the health badge: the label "health" and the health status (up, down or ?).
 func generateHealthBadgeSVG(healthStatus string) []byte {
 	var labelWidth, valueWidth int
 	switch healthStatus {
@@ -361,6 +422,8 @@ func generateHealthBadgeSVG(healthStatus string) []byte {
 	return svg
 }
 
+// generateHealthBadgeShields returns the JSON of the health badge in the endpoint badge format of shields.io:
+// schemaVersion 1, the label "gatus", the health status as the message and its colour.
 func generateHealthBadgeShields(healthStatus string) ([]byte, error) {
 	color := getBadgeShieldsColorFromHealth(healthStatus)
 	data := map[string]interface{}{
@@ -372,6 +435,8 @@ func generateHealthBadgeShields(healthStatus string) ([]byte, error) {
 	return json.Marshal(data)
 }
 
+// getBadgeColorFromHealth returns the hexadecimal colour of a health status: awesome for up, very bad for down and
+// passable for anything else.
 func getBadgeColorFromHealth(healthStatus string) string {
 	if healthStatus == HealthStatusUp {
 		return badgeColorHexAwesome
@@ -381,6 +446,8 @@ func getBadgeColorFromHealth(healthStatus string) string {
 	return badgeColorHexPassable
 }
 
+// getBadgeShieldsColorFromHealth returns the shields.io colour name of a health status: brightgreen for up, red for
+// down and yellow for anything else.
 func getBadgeShieldsColorFromHealth(healthStatus string) string {
 	if healthStatus == HealthStatusUp {
 		return "brightgreen"

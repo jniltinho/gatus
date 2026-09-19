@@ -1,3 +1,5 @@
+// Package matrix implements the alerting provider that sends alerts as messages to a Matrix room through the
+// client-server API of a homeserver.
 package matrix
 
 import (
@@ -18,12 +20,16 @@ import (
 
 const defaultServerURL = "https://matrix-client.matrix.org"
 
+// Errors returned by the validation of the configuration: ErrAccessTokenNotSet when the access token is
+// missing, ErrInternalRoomID when the internal room ID is missing, and ErrDuplicateGroupOverride when an override
+// lacks the access token or the room ID or has an empty or already used group.
 var (
 	ErrAccessTokenNotSet      = errors.New("access-token not set")
 	ErrInternalRoomID         = errors.New("internal-room-id not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config holds the homeserver, the access token of the bot user and the room that receives the alerts.
 type Config struct {
 	// ServerURL is the custom homeserver to use (optional)
 	ServerURL string `yaml:"server-url"`
@@ -35,6 +41,8 @@ type Config struct {
 	InternalRoomID string `yaml:"internal-room-id"`
 }
 
+// Validate sets ServerURL to the matrix.org homeserver when it is empty and checks that AccessToken and
+// InternalRoomID are set.
 func (cfg *Config) Validate() error {
 	if len(cfg.ServerURL) == 0 {
 		cfg.ServerURL = defaultServerURL
@@ -48,6 +56,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge copies every non-empty field of override over cfg; empty fields of override leave cfg untouched.
 func (cfg *Config) Merge(override *Config) {
 	if len(override.ServerURL) > 0 {
 		cfg.ServerURL = override.ServerURL
@@ -126,6 +135,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the JSON content of the m.room.message event: the plain text in Body and its HTML version in
+// FormattedBody.
 type Body struct {
 	MsgType       string `json:"msgtype"`
 	Format        string `json:"format"`

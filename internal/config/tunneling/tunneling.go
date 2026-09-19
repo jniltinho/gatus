@@ -1,3 +1,5 @@
+// Package tunneling models the tunneling section of the YAML configuration: the named SSH tunnels that the clients
+// of the endpoints can go through. It validates the tunnels and keeps one shared connection per tunnel name.
 package tunneling
 
 import (
@@ -17,7 +19,8 @@ type Config struct {
 	connections map[string]*sshtunnel.SSHTunnel `yaml:"-"`
 }
 
-// ValidateAndSetDefaults validates the tunneling configuration and sets defaults
+// ValidateAndSetDefaults validates the tunneling configuration and sets defaults. It returns the error of the first
+// invalid tunnel, prefixed by its name.
 func (tc *Config) ValidateAndSetDefaults() error {
 	if tc.connections == nil {
 		tc.connections = make(map[string]*sshtunnel.SSHTunnel)
@@ -30,7 +33,8 @@ func (tc *Config) ValidateAndSetDefaults() error {
 	return nil
 }
 
-// GetTunnel returns the SSH tunnel for the given name, creating it if necessary
+// GetTunnel returns the SSH tunnel for the given name, creating it if necessary. The tunnel is not connected yet. It
+// returns an error if the name is empty or is not a configured tunnel.
 func (tc *Config) GetTunnel(name string) (*sshtunnel.SSHTunnel, error) {
 	if name == "" {
 		return nil, fmt.Errorf("tunnel name cannot be empty")
@@ -52,7 +56,8 @@ func (tc *Config) GetTunnel(name string) (*sshtunnel.SSHTunnel, error) {
 	return tunnel, nil
 }
 
-// Close closes all SSH tunnel connections
+// Close closes all SSH tunnel connections and forgets them. It returns a single error listing the tunnels that
+// failed to close.
 func (tc *Config) Close() error {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()

@@ -1,3 +1,6 @@
+// Package metrics publishes the results of the endpoints and suites as Prometheus metrics, when metrics is enabled in
+// the configuration. The metrics are registered again on every configuration reload, because the extra labels may
+// change.
 package metrics
 
 import (
@@ -81,6 +84,9 @@ func UnregisterPrometheusMetrics() {
 	registeredExtraLabels.Store(nil)
 }
 
+// InitializePrometheusMetrics registers the Gatus metrics on reg (the default registerer when nil), with the extra
+// labels of the configuration. Metrics registered by a previous call are unregistered first, so it is safe to call on
+// every configuration reload.
 func InitializePrometheusMetrics(cfg *config.Config, reg prometheus.Registerer) {
 	// If metrics are already initialized, unregister them first
 	if metricsInitialized {

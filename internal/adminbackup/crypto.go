@@ -58,29 +58,60 @@ var (
 )
 
 // envelopeHeader is the header of an encrypted backup, whose JSON encoding, with the fields in this order, is the
-// additional authenticated data of the encryption
+// additional authenticated data of the encryption. It is not encrypted, but changing any of its fields makes the
+// decryption fail.
 type envelopeHeader struct {
-	Format  string         `json:"format"`
-	Version int            `json:"version"`
-	KDF     envelopeKDF    `json:"kdf"`
-	Cipher  envelopeCipher `json:"cipher"`
+	// Format identifies an encrypted backup file. It is always "gatus-admin-backup-encrypted".
+	Format string `json:"format"`
+
+	// Version is the version of the format of the envelope. It must be exactly 1.
+	Version int `json:"version"`
+
+	// KDF are the parameters of the derivation of the encryption key from the password.
+	KDF envelopeKDF `json:"kdf"`
+
+	// Cipher are the parameters of the encryption of the backup file.
+	Cipher envelopeCipher `json:"cipher"`
 }
 
+// envelopeKDF are the key derivation parameters of an encrypted backup. Only the values written by Encrypt are
+// accepted by Decrypt, so that a forged envelope cannot make the server derive a more expensive key.
 type envelopeKDF struct {
-	Name      string `json:"name"`
-	Time      uint32 `json:"time"`
+	// Name is the key derivation function. It is always "argon2id".
+	Name string `json:"name"`
+
+	// Time is the number of passes of Argon2id. It is always 2.
+	Time uint32 `json:"time"`
+
+	// MemoryKiB is the memory used by Argon2id, in KiB. It is always 19456 (19 MiB).
 	MemoryKiB uint32 `json:"memoryKiB"`
-	Threads   uint8  `json:"threads"`
-	Salt      string `json:"salt"`
+
+	// Threads is the parallelism of Argon2id. It is always 1.
+	Threads uint8 `json:"threads"`
+
+	// Salt is the random salt of the derivation, of 16 bytes, in standard base64 with padding. It is not secret.
+	Salt string `json:"salt"`
 }
 
+// envelopeCipher are the encryption parameters of an encrypted backup
 type envelopeCipher struct {
-	Name  string `json:"name"`
+	// Name is the authenticated cipher. It is always "aes-256-gcm", with the 32-byte key derived from the password.
+	Name string `json:"name"`
+
+	// Nonce is the random nonce of the encryption, of 12 bytes, in standard base64 with padding. It is not secret.
 	Nonce string `json:"nonce"`
 }
 
+// envelope is an encrypted backup file: the body of the response of POST /api/v1/admin/backup when a password of
+// MinimumPasswordBytes (12) to MaximumPasswordBytes (1024) bytes is sent, and an accepted value of the file property of
+// the restore routes, together with that password. The fields of the header are flattened into the same JSON object,
+// and unknown fields are refused.
 type envelope struct {
 	envelopeHeader
+
+	// Data is the encrypted backup file (a File encoded in JSON) followed by the 16-byte authentication tag of GCM, in
+	// standard base64 with padding. It is the only encrypted part of the envelope, and it is refused when it decodes to
+	// more than MaximumPlaintextBytes plus 64 bytes.
 	Data string `json:"data"`
 }
 

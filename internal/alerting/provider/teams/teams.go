@@ -1,3 +1,5 @@
+// Package teams implements the alerting provider that sends alerts to Microsoft Teams as a MessageCard
+// through an incoming webhook connector.
 package teams
 
 import (
@@ -14,11 +16,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrWebhookURLNotSet is returned by Config.Validate when webhook-url is empty.
+// ErrDuplicateGroupOverride is returned by AlertProvider.Validate when two overrides share the same group or an
+// override has no group.
 var (
 	ErrWebhookURLNotSet       = errors.New("webhook-url not set")
 	ErrDuplicateGroupOverride = errors.New("duplicate group override")
 )
 
+// Config is the configuration of the Teams provider. It is both the default configuration and the shape of the
+// group overrides and of an alert's provider-override.
 type Config struct {
 	WebhookURL string `yaml:"webhook-url"`
 	Title      string `yaml:"title,omitempty"` // Title of the message that will be sent
@@ -27,6 +34,7 @@ type Config struct {
 	ClientConfig *client.Config `yaml:"client,omitempty"`
 }
 
+// Validate returns ErrWebhookURLNotSet when the webhook URL is empty.
 func (cfg *Config) Validate() error {
 	if len(cfg.WebhookURL) == 0 {
 		return ErrWebhookURLNotSet
@@ -34,6 +42,8 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
+// Merge overwrites WebhookURL and Title with the values of override that are not empty, and ClientConfig
+// when override has one.
 func (cfg *Config) Merge(override *Config) {
 	if override.ClientConfig != nil {
 		cfg.ClientConfig = override.ClientConfig
@@ -48,6 +58,7 @@ func (cfg *Config) Merge(override *Config) {
 
 // AlertProvider is the configuration necessary for sending an alert using Teams
 type AlertProvider struct {
+	// DefaultConfig is the configuration used when no group override and no alert provider-override changes it.
 	DefaultConfig Config `yaml:",inline"`
 
 	// DefaultAlert is the default alert configuration to use for endpoints with an alert of the appropriate type
@@ -101,6 +112,8 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 	return err
 }
 
+// Body is the MessageCard posted to the Teams webhook. ThemeColor is green when resolved and red when
+// triggered, and Title falls back to a Gatus default.
 type Body struct {
 	Type       string    `json:"@type"`
 	Context    string    `json:"@context"`
@@ -110,6 +123,7 @@ type Body struct {
 	Sections   []Section `json:"sections,omitempty"`
 }
 
+// Section is a titled block of a MessageCard; the provider uses one to list the condition results.
 type Section struct {
 	ActivityTitle string `json:"activityTitle"`
 	Text          string `json:"text"`

@@ -53,28 +53,53 @@ var (
 	mutex sync.Mutex
 )
 
-// Key describes a global push key, without its token
+// Key describes a global push key, without its token. It is an item of the keys field of Listing, answered by
+// GET /api/v1/admin/push-keys, and its fields are at the top level of Created. It is output-only: the token and its
+// SHA-256 hash are never part of it.
 type Key struct {
 	// ID is the id of a push key created through the administration, 0 for the configuration file
-	ID        int64      `json:"id,omitempty"`
-	Name      string     `json:"name"`
-	Hint      string     `json:"hint"`
-	Origin    string     `json:"origin"`
+	ID int64 `json:"id,omitempty"`
+
+	// Name identifies who uses the key, e.g. the name of the sender. It is trimmed and has 1 to 64 characters, and a key
+	// cannot be created with the name of an existing key of either origin.
+	Name string `json:"name"`
+
+	// Hint is the last 4 characters of the token, shown instead of the token so that a key can be recognized.
+	Hint string `json:"hint"`
+
+	// Origin is where the key is defined: "config" for a key of the configuration file, read-only in the
+	// administration, and "admin" for a key created through the administration API.
+	Origin string `json:"origin"`
+
+	// CreatedAt is the instant at which the key was created through the administration, as a RFC 3339 timestamp. It is
+	// omitted for a key of the configuration file.
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
-	CreatedBy string     `json:"createdBy,omitempty"`
+
+	// CreatedBy is the author of the key: the username of the basic authentication or the OIDC subject. It is omitted
+	// for a key of the configuration file and when the author is unknown.
+	CreatedBy string `json:"createdBy,omitempty"`
 }
 
-// Created is a push key that was just created, with its token, which is never available again
+// Created is a push key that was just created, with its token, which is never available again. It is the body of the
+// 201 answer of POST /api/v1/admin/push-keys, whose request is a JSON object with the name of the key, and has the
+// fields of Key at the same level.
 type Created struct {
 	Key
+
+	// Token is the generated secret of the key, 32 random letters and digits, used in the path of the push API,
+	// /api/push/{token}/{endpoint-key}. It is only answered here: only its SHA-256 hash is stored, so it cannot be read
+	// again.
 	Token string `json:"token"`
 }
 
-// Listing is the administration list of the push keys
+// Listing is the administration list of the push keys, the body of GET /api/v1/admin/push-keys
 type Listing struct {
 	// ManagedUnavailable is whether the push keys created through the administration could not be loaded
-	ManagedUnavailable bool   `json:"managedUnavailable"`
-	Keys               []*Key `json:"keys"`
+	ManagedUnavailable bool `json:"managedUnavailable"`
+
+	// Keys are the keys of the configuration file, then the keys created through the administration, each ordered by
+	// name. It is an empty array, never null, without key.
+	Keys []*Key `json:"keys"`
 }
 
 type snapshot struct {
