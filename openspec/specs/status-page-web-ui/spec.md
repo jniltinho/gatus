@@ -8,8 +8,8 @@ A rota `/status/:slug` do frontend MUST mostrar:
 - logo e cabeçalho da configuração `ui`, título e descrição da página;
 - uma faixa com o estado geral em texto e cor ("All systems operational", "Partial outage", "Major outage" ou "No data");
 - na mesma faixa, a contagem dos endpoints da página por estado, com os que estão no ar e os que não estão sempre presentes (`12 up · 2 down`), e os pendentes e sem dados somente quando houver algum;
-- uma seção por grupo com o estado do grupo, com a seção sem grupo rotulada "Other services";
-- para cada endpoint: nome, indicador de estado, uptime de 24h, 7d e 30d ("—" quando indisponível) e barras dos últimos resultados, com tooltip de horário, sucesso e duração em milissegundos.
+- uma seção por grupo cujo cabeçalho é um botão que recolhe e expande o grupo e mostra o nome, o estado do grupo e a contagem do `summary` do grupo, omitindo os estados com zero, com a seção sem grupo rotulada "Other services";
+- para cada endpoint de um grupo expandido e para cada destaque: nome, indicador de estado, uptime de 24h, 7d e 30d ("—" quando indisponível) e barras dos últimos resultados, com tooltip de horário, sucesso e duração em milissegundos.
 
 A contagem MUST vir do payload, e não ser somada no navegador, para continuar certa numa página truncada. Ela MUST ficar legível nas duas versões do tema e MUST NOT provocar rolagem horizontal a partir de 360 px.
 
@@ -33,12 +33,18 @@ Com `truncated: true` no payload, a página MUST mostrar o aviso "Showing the fi
 - **WHEN** a página `jobs` tem 3 endpoints no ar, 1 pendente e nenhum fora
 - **THEN** a faixa mostra `3 up`, `0 down` e `1 pending`
 
+#### Scenario: Grupo recolhido
+- **WHEN** o grupo `sites`, operacional, está recolhido
+- **THEN** o cabeçalho mostra "sites", "Operational" e a contagem do grupo
+- **AND** nenhuma linha de endpoint de `sites` existe no documento, e os destaques continuam visíveis
+
 ### Requirement: Acessibilidade da página pública
 A página pública MUST:
-- oferecer para cada endpoint um resumo textual acessível a leitores de tela com nome, estado, verificações com sucesso e uptime de 24h;
+- oferecer para cada endpoint exibido — os destaques e os endpoints dos grupos expandidos — um resumo textual acessível a leitores de tela com nome, estado, verificações com sucesso e uptime de 24h;
+- oferecer para cada grupo, recolhido ou expandido, o nome, o estado e a contagem do grupo como texto do botão do cabeçalho, que é o que um leitor de tela anuncia no lugar das linhas de um grupo recolhido;
 - marcar as barras de histórico com `aria-hidden`;
 - permitir abrir o tooltip por teclado e por toque;
-- manter na página a região `aria-live` que anuncia o detalhe da verificação, mesmo quando não há verificação ativa, com o tooltip visível escondido dos leitores de tela para não repetir o texto;
+- manter, em cada endpoint exibido, a região `aria-live` que anuncia o detalhe da verificação, mesmo quando não há verificação ativa, com o tooltip visível escondido dos leitores de tela para não repetir o texto;
 - usar `role="status"` só na faixa de estado geral, com o contador "Atualizado há X" fora de regiões `aria-live`;
 - respeitar `prefers-reduced-motion`.
 
@@ -50,6 +56,16 @@ A página pública MUST:
 #### Scenario: Tooltip por teclado
 - **WHEN** o visitante navega com Tab até o histórico de um endpoint e aciona um resultado
 - **THEN** o tooltip com horário, sucesso e duração aparece
+
+#### Scenario: Grupo recolhido no leitor de tela
+- **WHEN** um leitor de tela chega ao cabeçalho do grupo `sites`, recolhido, com três endpoints no ar
+- **THEN** ele anuncia um botão recolhido com um texto como "sites, Operational, 3 up"
+- **AND** nenhum endpoint de `sites` é anunciado
+
+#### Scenario: Todos os grupos recolhidos, sem destaques
+- **WHEN** a página não tem destaques, o visitante recolhe todos os grupos e depois expande `sites` com o teclado
+- **THEN** a faixa de estado geral continua anunciada enquanto tudo está recolhido
+- **AND** as linhas de `sites` voltam com seus resumos e com a região de anúncio do detalhe da verificação, e o tooltip abre pelo teclado
 
 ### Requirement: Layout público sem login
 As rotas públicas (`/status/:slug` e o catch-all `/status/*`) MUST ter `meta.public` e MUST ser renderizadas num layout próprio que reage à rota atual, inclusive em navegação dentro da SPA. No layout público, o frontend MUST NOT:
@@ -122,6 +138,7 @@ O formulário MUST ter:
 - slug (somente leitura na edição), título, descrição e `enabled`;
 - a opção "Show certificate expiration" (`show-certificate-expiration`), desmarcada por padrão, com explicação curta;
 - a opção "Show messages" (`show-messages`), desmarcada por padrão, ao lado da anterior, com a explicação de que as mensagens dos envios e o status HTTP ficam públicos e os erros das verificações não;
+- a opção "Start with the groups collapsed" (`groups-collapsed`), desmarcada por padrão, com a explicação de que um grupo com problema aparece sempre aberto;
 - seleção de grupos e de endpoints a partir de `/options`, com busca nos endpoints;
 - avisos da validação e pré-visualização do payload público;
 - a opção "Require login to view this page", desmarcada por padrão, com usuário e senha mostrados apenas quando ela estiver marcada. Na edição de uma página que já exige login, o campo da senha MUST vir vazio, com a explicação de que deixá-lo vazio mantém a senha atual. A tela MUST NOT mostrar a senha nem o hash em nenhum momento, e o texto da opção "Published" MUST dizer que uma página protegida é visível **com login** no endereço público.
@@ -202,6 +219,11 @@ Uma página nova MUST começar desabilitada. As páginas do YAML MUST aparecer s
 - **WHEN** o administrador marca "Require login to view this page" na página `clientes`, preenche usuário e senha e salva
 - **THEN** a lista marca `clientes` como página que exige login
 - **AND** ao reabrir o formulário o usuário aparece preenchido e a senha vazia, com a explicação de que vazio mantém a senha atual
+
+#### Scenario: Grupos recolhidos por padrão
+- **WHEN** um administrador marca "Start with the groups collapsed" na página `clientes` e salva
+- **THEN** a definição salva tem `groups-collapsed: true`
+- **AND** a pré-visualização mostra os grupos operacionais recolhidos, sem ler nem gravar as escolhas guardadas da página pública
 
 ### Requirement: Aviso de exposição no formulário de endpoints
 O formulário de endpoints da administração MUST consultar `/api/v1/admin/status-pages/exposure` com o grupo e a chave do endpoint ao abrir e quando o grupo ou o nome mudarem, e MUST mostrar em quais páginas públicas o endpoint vai aparecer, indicando as desabilitadas.

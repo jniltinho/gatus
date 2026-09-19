@@ -27,4 +27,4 @@
 ## 5. Entrega
 
 - [x] 5.1 `docs/status-pages.md` (campo, comportamento, atraso de até 90 s, D5), screenshots (`docs/screenshots/capture.sh`) e `AGENTS.fork.md`.
-- [ ] 5.2 PR com CI verde; release com notas em inglês (campos novos no payload e o aviso de volta de versão da D5), `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
+- [x] 5.2 PR com CI verde; release com notas em inglês (campos novos no payload e o aviso de volta de versão da D5), `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
