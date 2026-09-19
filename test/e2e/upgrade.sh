@@ -16,19 +16,19 @@ USERNAME=admin
 PASSWORD='upgrade-test-password'
 BACKUP_PASSWORD='upgrade-backup-password'
 SUFFIX=$$
-CONTAINERS=()
 
 mkdir -p "$WORK"/{old,new,inplace}
-# The images run as a user other than the one of this script
-chmod 777 "$WORK"/{old,new,inplace}
+# The containers run as the user of this script (see start), so that it can remove what they write
 
 passed=0
 ok() { passed=$((passed + 1)); echo "  ok: $1"; }
 fail() { echo "  FAILED: $1"; exit 1; }
 step() { echo "==> $1"; }
+# The containers are found by name and not kept in a variable: start runs in a command substitution, which is a
+# subshell, and what it appends to an array never reaches this shell.
 cleanup() {
-  for container in "${CONTAINERS[@]}"; do docker rm -f "$container" >/dev/null 2>&1 || true; done
-  rm -rf "$WORK" 2>/dev/null || true
+  docker ps -aq --filter "name=^gatus-upgrade-(old|new|inplace)-$SUFFIX\$" | xargs -r docker rm -f >/dev/null 2>&1 || true
+  rm -rf "$WORK"
 }
 trap cleanup EXIT
 
@@ -70,8 +70,7 @@ CONFIG
 
 start() { # name image directory -> prints the base URL
   local name="gatus-upgrade-$1-$SUFFIX"
-  docker run -d --name "$name" -p 127.0.0.1::8080 -v "$3:/data" -v "$3/config.yaml:/config/config.yaml:ro" "$2" >/dev/null
-  CONTAINERS+=("$name")
+  docker run -d --name "$name" --user "$(id -u):$(id -g)" -p 127.0.0.1::8080 -v "$3:/data" -v "$3/config.yaml:/config/config.yaml:ro" "$2" >/dev/null
   local port
   port=$(docker port "$name" 8080/tcp | head -1 | sed 's/.*://')
   for _ in $(seq 1 60); do
