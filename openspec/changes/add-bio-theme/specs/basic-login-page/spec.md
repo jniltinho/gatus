@@ -4,7 +4,7 @@
 Com `security.basic` configurado e sem `security.oidc`, o frontend MUST oferecer a rota `/login`, atendida pela SPA sem o cabeçalho do dashboard. A tela MUST mostrar:
 - um cartão com o logo, o título de `ui.header`, os campos de usuário e de senha e o botão de entrar;
 - o cartão centralizado na horizontal, com a borda superior a 15% da altura da janela;
-- o tema (claro, escuro ou Bionexo) lido do mesmo cookie de tema das outras telas, com o mesmo seletor de tema das outras telas;
+- o tema (claro, escuro ou Bio) lido do mesmo cookie de tema das outras telas, com o mesmo seletor de tema das outras telas;
 - o visual quadrado do fork e variantes `dark:`.
 
 Com credenciais erradas, a tela MUST mostrar uma mensagem genérica que não indique se o usuário existe. Com o limite de falhas estourado, a tela MUST pedir para tentar mais tarde.
