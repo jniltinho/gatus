@@ -49,15 +49,16 @@ func (a *API) Router() *echo.Echo {
 func (a *API) createRouter(cfg *config.Config) *echo.Echo {
 	app := echo.NewWithConfig(echo.Config{
 		HTTPErrorHandler: httpErrorHandler,
-		// The router is the default one on purpose. It matches the path as it was sent (URL.RawPath when there is one) and
-		// does not unescape the parameters, so every handler unescapes its key once, as it did with Fiber, and a key with
-		// %2F or %252F means what it always meant. RouterConfig.UseEscapedPathForMatching does the opposite of what its
-		// name suggests in v5.3: turning it on matches the DECODED path, and core%2Fapi becomes two segments.
+		// The router is the default one on purpose. It matches URL.RawPath when there is one and does not unescape the
+		// parameters; httpx.NormalizePath makes sure there always is one, so every handler unescapes its key once, as it
+		// did with Fiber. RouterConfig.UseEscapedPathForMatching does the opposite of what its name suggests in v5.3:
+		// turning it on matches the DECODED path, and core%2Fapi becomes two segments.
 		// IPExtractor is never set: the IP address of a client only comes from the connection, see httpx.RemoteIP.
 		// RouterConfig.AutoHandleHEAD stays off: it would open an event stream for a HEAD, see httpx.GetAndHead.
 	})
-	// Fiber ignored a trailing slash. It has to be a Pre middleware: once the router has picked a route it is too late.
-	app.Pre(middleware.RemoveTrailingSlash())
+	// Before the router: the path is always matched as it was sent, so that every handler unescapes its key exactly once,
+	// and a trailing slash is ignored as Fiber did. Not echo's RemoveTrailingSlash, see httpx.NormalizePath.
+	app.Pre(httpx.NormalizePath)
 	if os.Getenv("ENVIRONMENT") == "dev" {
 		app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 			AllowOrigins:     []string{"http://localhost:8081"},

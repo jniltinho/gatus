@@ -134,7 +134,7 @@ func streamEndpointEvents(c *echo.Context, key string, clientIP netip.Addr, send
 		httpx.SetHeader(c, echo.HeaderRetryAfter, eventStreamRetryAfterSeconds)
 		return sendError(http.StatusTooManyRequests, statusPageTooManyRequestsBody)
 	}
-	lastEventID := parseLastEventID(httpx.Header(c, "Last-Event-ID"), c.QueryParam("lastEventId"))
+	lastEventID := parseLastEventID(httpx.Header(c, "Last-Event-ID"), httpx.Query(c, "lastEventId"))
 	// The handler is the loop of the stream: there is no writer goroutine anymore, so the slot and the subscription are
 	// released on every way out of it, a panic included
 	defer func() {

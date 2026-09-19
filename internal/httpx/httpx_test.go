@@ -234,3 +234,76 @@ func TestGetAndHead(t *testing.T) {
 		t.Errorf("expected the handler to run for GET and HEAD only, got %d calls", calls)
 	}
 }
+
+// TestNormalizePath covers the two things echo's own RemoveTrailingSlash leaves behind: a parameter must always reach
+// its handler escaped, whatever the escaping of the request was, and a trailing slash must not break an escaped path
+func TestNormalizePath(t *testing.T) {
+	e := echo.New()
+	e.Pre(NormalizePath)
+	e.GET("/k/:key/badge", func(c *echo.Context) error {
+		return SendString(c, http.StatusOK, c.Param("key")+" "+Path(c))
+	})
+	e.GET("/", func(c *echo.Context) error { return SendString(c, http.StatusOK, "root") })
+	scenarios := map[string]string{
+		// Canonical escaping: net/url leaves RawPath empty, and echo would hand the handler "core_100%"
+		"/k/core_100%25/badge": "core_100%25 /k/core_100%25/badge",
+		// An escaped escape must not be unescaped by the router: the handler would unescape it again into core_api
+		"/k/core_%2561pi/badge": "core_%2561pi /k/core_%2561pi/badge",
+		"/k/%63ore_api/badge":   "%63ore_api /k/%63ore_api/badge",
+		"/k/core%2Fapi/badge":   "core%2Fapi /k/core%2Fapi/badge",
+		"/k/plain/badge":        "plain /k/plain/badge",
+		// A trailing slash is ignored, with an escaped path too
+		"/k/%63ore_api/badge/":   "%63ore_api /k/%63ore_api/badge",
+		"/k/core_100%25/badge/":  "core_100%25 /k/core_100%25/badge",
+		"/k/plain/badge//":       "plain /k/plain/badge",
+		"/k/plain/badge/?a=1%2F": "plain /k/plain/badge",
+		"/":                      "root",
+	}
+	for target, expected := range scenarios {
+		recorder := httptest.NewRecorder()
+		e.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, target, nil))
+		if recorder.Code != http.StatusOK || recorder.Body.String() != expected {
+			t.Errorf("%s: expected %q, got %d %q", target, expected, recorder.Code, recorder.Body.String())
+		}
+	}
+	// An escaped slash is not a separator
+	recorder := httptest.NewRecorder()
+	e.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/k/a%2Fb%2Fbadge", nil))
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("expected an escaped slash not to split the path, got %d", recorder.Code)
+	}
+}
+
+// TestQuery covers the pairs net/url drops: for the push a missing status means "up", so dropping ?status=down;x would
+// record a success
+func TestQuery(t *testing.T) {
+	scenarios := []struct {
+		query, name, first, last string
+		present                  bool
+	}{
+		{query: "status=down;maintenance&msg=disk;full", name: "status", first: "down;maintenance", last: "down;maintenance", present: true},
+		{query: "status=down;maintenance&msg=disk;full", name: "msg", first: "disk;full", last: "disk;full", present: true},
+		{query: "ping=%zz&status=down", name: "ping", first: "%zz", last: "%zz", present: true},
+		{query: "ping=%zz&status=down", name: "status", first: "down", last: "down", present: true},
+		{query: "msg=Disk%20full+now", name: "msg", first: "Disk full now", last: "Disk full now", present: true},
+		{query: "msg=100%25", name: "msg", first: "100%", last: "100%", present: true},
+		{query: "msg=50%", name: "msg", first: "50%", last: "50%", present: true},
+		{query: "success=true&success=invalid", name: "success", first: "true", last: "invalid", present: true},
+		{query: "msg=", name: "msg", first: "", last: "", present: true},
+		{query: "flag", name: "flag", first: "", last: "", present: true},
+		{query: "a=1", name: "missing", first: "", last: "", present: false},
+		{query: "", name: "missing", first: "", last: "", present: false},
+		{query: "m%73g=x", name: "msg", first: "x", last: "x", present: true},
+	}
+	for _, scenario := range scenarios {
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
+		request.URL.RawQuery = scenario.query
+		c := echo.New().NewContext(request, httptest.NewRecorder())
+		if first := Query(c, scenario.name); first != scenario.first {
+			t.Errorf("%q %s: expected the first value %q, got %q", scenario.query, scenario.name, scenario.first, first)
+		}
+		if last, present := QueryLast(c, scenario.name); last != scenario.last || present != scenario.present {
+			t.Errorf("%q %s: expected the last value %q (present=%v), got %q (present=%v)", scenario.query, scenario.name, scenario.last, scenario.present, last, present)
+		}
+	}
+}

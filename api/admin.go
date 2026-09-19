@@ -76,7 +76,7 @@ func (h *adminHandler) parse(c *echo.Context) error {
 }
 
 func (h *adminHandler) validate(c *echo.Context) error {
-	validation, err := h.service.Validate(httpx.Body(c), strings.ToLower(c.QueryParam("key")))
+	validation, err := h.service.Validate(httpx.Body(c), strings.ToLower(httpx.Query(c, "key")))
 	if err != nil {
 		return adminServiceError(c, err)
 	}
@@ -84,7 +84,7 @@ func (h *adminHandler) validate(c *echo.Context) error {
 }
 
 func (h *adminHandler) test(c *echo.Context) error {
-	result, err := h.service.Test(httpx.Body(c), strings.ToLower(c.QueryParam("key")))
+	result, err := h.service.Test(httpx.Body(c), strings.ToLower(httpx.Query(c, "key")))
 	if err != nil {
 		return adminServiceError(c, err)
 	}

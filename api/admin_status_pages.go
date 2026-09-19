@@ -43,7 +43,7 @@ func (h *adminStatusPageHandler) options(c *echo.Context) error {
 }
 
 func (h *adminStatusPageHandler) exposure(c *echo.Context) error {
-	exposure, err := h.service.Exposure(c.QueryParam("group"), c.QueryParam("key"))
+	exposure, err := h.service.Exposure(httpx.Query(c, "group"), httpx.Query(c, "key"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
@@ -51,7 +51,7 @@ func (h *adminStatusPageHandler) exposure(c *echo.Context) error {
 }
 
 func (h *adminStatusPageHandler) validate(c *echo.Context) error {
-	validation, err := h.service.Validate(httpx.Body(c), c.QueryParam("slug"))
+	validation, err := h.service.Validate(httpx.Body(c), httpx.Query(c, "slug"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}

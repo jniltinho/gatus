@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/tls"
 	"math/rand"
 	"net"
 	"net/http"
@@ -185,5 +186,85 @@ func TestHandle_HeaderLimit(t *testing.T) {
 				t.Errorf("expected %d, got %d", scenario.expected, response.StatusCode)
 			}
 		})
+	}
+}
+
+// TestHandle_TLS opens a real TLS connection, which TestHandleTLS never does: with ROUTER_TEST the server does not listen.
+// net/http negotiates HTTP/2 over TLS by itself, which the fasthttp of Fiber never spoke.
+func TestHandle_TLS(t *testing.T) {
+	port := freePort(t)
+	cfg := &config.Config{
+		Web:       &web.Config{Address: "127.0.0.1", Port: port, ReadBufferSize: web.DefaultReadBufferSize, TLS: &web.TLSConfig{CertificateFile: "../testdata/cert.pem", PrivateKeyFile: "../testdata/cert.key"}},
+		Endpoints: []*endpoint.Endpoint{{Name: "frontend", Group: "core"}},
+	}
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		Handle(cfg)
+	}()
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, ForceAttemptHTTP2: true}, Timeout: 5 * time.Second} //nolint:gosec // self-signed test certificate
+	var response *http.Response
+	var err error
+	for i := 0; i < 100; i++ {
+		if response, err = client.Get("https://" + cfg.Web.SocketAddress() + "/health"); err == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("expected the TLS server to answer, got %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.TLS == nil {
+		t.Errorf("expected 200 over TLS, got %d (tls=%v)", response.StatusCode, response.TLS != nil)
+	}
+	if response.ProtoMajor != 2 {
+		t.Errorf("expected HTTP/2 to be negotiated over TLS, got %s", response.Proto)
+	}
+	Shutdown()
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Handle did not return after Shutdown")
+	}
+}
+
+// TestShutdown_ClosesAConnectionThatDoesNotEnd is a reload with an open stream that ignores the shutdown: past the
+// deadline the connection is closed, because http.Server.Shutdown alone waits for it forever
+func TestShutdown_ClosesAConnectionThatDoesNotEnd(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	defer close(release)
+	stuck := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = http.NewResponseController(w).Flush()
+		<-release
+	})}
+	done := make(chan struct{})
+	mutex.Lock()
+	server, stopped = stuck, done
+	mutex.Unlock()
+	go func() {
+		defer close(done)
+		_ = stuck.Serve(listener)
+	}()
+	response, err := http.Get("http://" + listener.Addr().String() + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	previous := shutdownTimeout
+	shutdownTimeout = 300 * time.Millisecond
+	defer func() { shutdownTimeout = previous }()
+	started := time.Now()
+	Shutdown()
+	if elapsed := time.Since(started); elapsed > 3*time.Second {
+		t.Errorf("expected Shutdown to give up on the open connection after its deadline, took %s", elapsed)
+	}
+	if _, err = http.Get("http://" + listener.Addr().String() + "/"); err == nil {
+		t.Error("expected the server to have stopped listening")
 	}
 }

@@ -130,8 +130,11 @@ func statusPageBadgeHandler(notFound echo.HandlerFunc, badge echo.HandlerFunc) e
 			return notFound(c)
 		}
 		setPublicHeaders(c)
-		// Said before the badge is written, never changed afterwards: see setBadgeCacheControl
+		// Said before the badge is written, never changed afterwards. The headers are set here for the answers the badge
+		// handler gives without reaching setBadgeCacheControl — an invalid duration, a failure of the storage —, and the
+		// mark is for the badge itself, which would otherwise overwrite them.
 		if published.Page.RequiresLogin() {
+			setProtectedPageCacheControl(c, true, "")
 			c.Set(localsPrivateBadge, true)
 		}
 		if err = badge(c); err != nil {

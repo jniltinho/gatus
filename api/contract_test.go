@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -100,7 +101,8 @@ func contractConfig(t *testing.T) *config.Config {
 		return base64.URLEncoding.EncodeToString(hashed)
 	}
 	newEndpoint := func(name, group string) *endpoint.Endpoint {
-		ep := &endpoint.Endpoint{Name: name, Group: group, URL: "https://example.org/" + name, Interval: time.Hour, Conditions: []endpoint.Condition{"[STATUS] == 200"}}
+		// The name may have a "%", which is not valid in the URL of the endpoint
+		ep := &endpoint.Endpoint{Name: name, Group: group, URL: "https://example.org/" + url.PathEscape(name), Interval: time.Hour, Conditions: []endpoint.Condition{"[STATUS] == 200"}}
 		if err := ep.ValidateAndSetDefaults(); err != nil {
 			t.Fatal(err)
 		}
@@ -120,11 +122,13 @@ func contractConfig(t *testing.T) *config.Config {
 		t.Fatal(err)
 	}
 	return &config.Config{
-		Security:          &security.Config{Basic: &security.BasicConfig{Username: "admin", PasswordBcryptHashBase64Encoded: hash("secret")}},
-		Admin:             &admin.Config{Enabled: true},
-		Maintenance:       &maintenance.Config{Enabled: &disabled},
-		Storage:           &storage.Config{Type: storage.TypeSQLite, Path: filepath.Join(t.TempDir(), "gatus.db"), MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50},
-		Endpoints:         []*endpoint.Endpoint{newEndpoint("api", "core"), newEndpoint("db", "core")},
+		Security:    &security.Config{Basic: &security.BasicConfig{Username: "admin", PasswordBcryptHashBase64Encoded: hash("secret")}},
+		Admin:       &admin.Config{Enabled: true},
+		Maintenance: &maintenance.Config{Enabled: &disabled},
+		Storage:     &storage.Config{Type: storage.TypeSQLite, Path: filepath.Join(t.TempDir(), "gatus.db"), MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50},
+		// "100%" and "%61pi" are there for the escaping: %61 is "a", so a key unescaped once too many becomes core_api,
+		// which is ANOTHER endpoint, with another state
+		Endpoints:         []*endpoint.Endpoint{newEndpoint("api", "core"), newEndpoint("db", "core"), newEndpoint("100%", "core"), newEndpoint("%61pi", "core")},
 		ExternalEndpoints: []*endpoint.ExternalEndpoint{external},
 		StatusPages:       statusPages,
 	}
@@ -164,6 +168,9 @@ func setupContract(t *testing.T) string {
 	}{
 		{cfg.Endpoints[0], &endpoint.Result{Success: true, HTTPStatus: 200, Connected: true, Duration: 120 * time.Millisecond, Timestamp: now.Add(-2 * time.Minute), ConditionResults: []*endpoint.ConditionResult{{Condition: "[STATUS] == 200", Success: true}}}},
 		{cfg.Endpoints[0], &endpoint.Result{Success: true, HTTPStatus: 200, Connected: true, Duration: 80 * time.Millisecond, Timestamp: now.Add(-time.Minute), ConditionResults: []*endpoint.ConditionResult{{Condition: "[STATUS] == 200", Success: true}}}},
+		// core_100% is up and core_%61pi is down, while core_api is up: the badge tells which endpoint answered
+		{cfg.Endpoints[2], &endpoint.Result{Success: true, HTTPStatus: 200, Connected: true, Duration: 10 * time.Millisecond, Timestamp: now.Add(-time.Minute)}},
+		{cfg.Endpoints[3], &endpoint.Result{Success: false, Duration: 10 * time.Millisecond, Timestamp: now.Add(-time.Minute)}},
 		{cfg.Endpoints[1], &endpoint.Result{Success: false, Duration: 5 * time.Millisecond, Timestamp: now.Add(-time.Minute), Errors: []string{`Get "https://example.org/db": dial tcp 10.0.0.5:443: connect: connection refused`}, ConditionResults: []*endpoint.ConditionResult{{Condition: "[STATUS] (0) == 200", Success: false}}}},
 	}
 	for _, entry := range results {
@@ -238,10 +245,17 @@ func contractCases() []contractCase {
 		{Name: "key with encoded slash", Method: "GET", Path: "/api/v1/endpoints/core%2Fapi/health/badge.svg"},
 		{Name: "key with double encoded slash", Method: "GET", Path: "/api/v1/endpoints/core%252Fapi/health/badge.svg"},
 		{Name: "key with plus", Method: "GET", Path: "/api/v1/endpoints/core+api/health/badge.svg"},
+		// Keys that exist: a wrong number of unescapes answers the badge of another endpoint, or none
+		{Name: "key with a percent sign", Method: "GET", Path: "/api/v1/endpoints/core_100%25/health/badge.svg"},
+		{Name: "key with an escaped escape", Method: "GET", Path: "/api/v1/endpoints/core_%2561pi/health/badge.svg"},
+		{Name: "key with a needless escape", Method: "GET", Path: "/api/v1/endpoints/%63ore_api/health/badge.svg"},
+		{Name: "key with a needless escape and a trailing slash", Method: "GET", Path: "/api/v1/endpoints/%63ore_api/health/badge.svg/"},
+		{Name: "key with a percent sign and a trailing slash", Method: "GET", Path: "/api/v1/endpoints/core_100%25/health/badge.svg/"},
 		{Name: "key with invalid escape", Method: "GET", Path: "/api/v1/endpoints/core%zzapi/health/badge.svg", RawPath: true},
 		{Name: "external result without token", Method: "POST", Path: "/api/v1/endpoints/jobs_backup/external?success=true"},
 		{Name: "external result wrong token", Method: "POST", Path: "/api/v1/endpoints/jobs_backup/external?success=true", Headers: map[string]string{"Authorization": "Bearer wrong"}},
 		{Name: "external result", Method: "POST", Path: "/api/v1/endpoints/jobs_backup/external?success=false&error=disk+full", Headers: map[string]string{"Authorization": "Bearer contract-token-0000000000000000"}},
+		{Name: "external result with success repeated", Method: "POST", Path: "/api/v1/endpoints/jobs_backup/external?success=true&success=invalid", Headers: map[string]string{"Authorization": "Bearer contract-token-0000000000000000"}},
 		{Name: "external result unknown key", Method: "POST", Path: "/api/v1/endpoints/jobs_missing/external?success=true", Headers: map[string]string{"Authorization": "Bearer contract-token-0000000000000000"}},
 
 		// Push compatible with the Uptime Kuma
@@ -250,6 +264,9 @@ func contractCases() []contractCase {
 		{Name: "push unknown token", Method: "GET", Path: "/api/push/unknown-token-000000000000000000"},
 		{Name: "push invalid ping", Method: "GET", Path: "/api/push/contract-token-0000000000000000?ping=-1"},
 		{Name: "push repeated query", Method: "GET", Path: "/api/push/contract-token-0000000000000000?status=up&status=down&msg="},
+		// A ";" is part of the value and an invalid escape is kept: net/url drops such pairs, and a missing status means up
+		{Name: "push with a semicolon", Method: "GET", Path: "/api/push/contract-token-0000000000000000?status=down;maintenance&msg=disk;full"},
+		{Name: "push with an invalid escape in the ping", Method: "GET", Path: "/api/push/contract-token-0000000000000000?ping=%zz&status=up"},
 		{Name: "push root", Method: "GET", Path: "/api/push"},
 		{Name: "push too deep", Method: "GET", Path: "/api/push/a/b/c"},
 		{Name: "push body above the limit", Method: "POST", Path: "/api/push/contract-token-0000000000000000?status=up", Body: strings.Repeat("a", 5<<20)},
@@ -297,6 +314,7 @@ func contractCases() []contractCase {
 		{Name: "protected page html head without credentials", Method: "HEAD", Path: "/status/clients"},
 		{Name: "protected page html nested without credentials", Method: "GET", Path: "/status/clients/endpoints/core_api"},
 		{Name: "protected page html trailing slash without credentials", Method: "GET", Path: "/status/clients/"},
+		{Name: "protected page badge invalid duration", Method: "GET", Path: "/api/v1/status-pages/clients/endpoints/core_api/response-times/invalid/badge.svg", Credentials: pageCredentials},
 		{Name: "protected page badge without credentials", Method: "GET", Path: "/api/v1/status-pages/clients/endpoints/core_api/health/badge.svg"},
 		// The tenth failure of this client on this page was the one above: from here on the page answers 429, even to the
 		// right credentials, and only this page
@@ -312,6 +330,8 @@ func contractCases() []contractCase {
 		{Name: "statuses head", Method: "HEAD", Path: "/api/v1/endpoints/statuses", Credentials: adminCredentials},
 		{Name: "statuses paged", Method: "GET", Path: "/api/v1/endpoints/statuses?page=1&pageSize=1", Credentials: adminCredentials},
 		{Name: "endpoint status", Method: "GET", Path: "/api/v1/endpoints/core_api/statuses", Credentials: adminCredentials},
+		// What the pushes above RECORDED, and not only what they answered
+		{Name: "what the pushes recorded", Method: "GET", Path: "/api/v1/endpoints/jobs_backup/statuses", Credentials: adminCredentials},
 		{Name: "endpoint status unknown key", Method: "GET", Path: "/api/v1/endpoints/core_missing/statuses", Credentials: adminCredentials},
 		{Name: "endpoint status without credentials", Method: "GET", Path: "/api/v1/endpoints/core_api/statuses"},
 		{Name: "endpoint events head", Method: "HEAD", Path: "/api/v1/endpoints/core_api/events", Credentials: adminCredentials},
@@ -431,7 +451,7 @@ func runContractCase(t *testing.T, client *http.Client, base string, testCase co
 
 func contractAnswerOf(response *http.Response, testCase contractCase) contractAnswer {
 	defer response.Body.Close()
-	raw, _ := io.ReadAll(response.Body)
+	raw, readErr := io.ReadAll(response.Body)
 	answer := contractAnswer{Status: response.StatusCode, Headers: map[string][]string{}}
 	for _, name := range contractHeaders {
 		values := response.Header.Values(name)
@@ -446,6 +466,10 @@ func contractAnswerOf(response *http.Response, testCase contractCase) contractAn
 			normalized = append(normalized, normalizeContract(value))
 		}
 		answer.Headers[name] = normalized
+	}
+	if readErr != nil {
+		answer.Body = "error reading the body: " + readErr.Error()
+		return answer
 	}
 	if !testCase.OnlyStatusAndHeaders {
 		answer.Body = normalizeContract(string(raw))

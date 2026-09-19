@@ -81,7 +81,7 @@ func registerPushRoutes(unprotectedAPIRouter httpx.Router, cfg *config.Config) {
 func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []netip.Prefix) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		// Like the Uptime Kuma, the ping is checked before the monitor
-		ping, err := parsePushPing(c.QueryParam("ping"))
+		ping, err := parsePushPing(httpx.Query(c, "ping"))
 		if err != nil {
 			return rejectPush(c, trustedProxies, err.Error())
 		}
@@ -93,11 +93,11 @@ func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []n
 		if !ok {
 			return rejectPush(c, trustedProxies, pushNotFoundMessage)
 		}
-		status := c.QueryParam("status")
+		status := httpx.Query(c, "status")
 		if len(status) == 0 {
 			status = "up"
 		}
-		message := c.QueryParam("msg")
+		message := httpx.Query(c, "msg")
 		if len(message) == 0 {
 			message = "OK"
 		}

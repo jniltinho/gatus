@@ -18,8 +18,9 @@ import (
 func CreateExternalEndpointResult(cfg *config.Config) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		// Check if the success query parameter is present
-		query := c.QueryParams()
-		success, exists := query.Get("success"), query.Has("success")
+		// The LAST occurrence is the one that is validated and the FIRST is the one that counts, exactly as before:
+		// ?success=true&success=invalid is refused
+		success, exists := httpx.QueryLast(c, "success")
 		if !exists || (success != "true" && success != "false") {
 			return httpx.SendString(c, 400, "missing or invalid success query parameter")
 		}
@@ -46,19 +47,19 @@ func CreateExternalEndpointResult(cfg *config.Config) echo.HandlerFunc {
 		// shows messages never turns the text sent in error= into a reason of its own
 		result := &endpoint.Result{
 			Timestamp: time.Now(),
-			Success:   success == "true",
+			Success:   httpx.Query(c, "success") == "true",
 			Errors:    []string{},
 			Origin:    endpoint.ResultOriginPush,
 		}
-		if len(c.QueryParam("duration")) > 0 {
-			parsedDuration, err := time.ParseDuration(c.QueryParam("duration"))
+		if len(httpx.Query(c, "duration")) > 0 {
+			parsedDuration, err := time.ParseDuration(httpx.Query(c, "duration"))
 			if err != nil {
-				logr.Errorf("[api.CreateExternalEndpointResult] Invalid duration from string=%s with error: %s", c.QueryParam("duration"), err.Error())
+				logr.Errorf("[api.CreateExternalEndpointResult] Invalid duration from string=%s with error: %s", httpx.Query(c, "duration"), err.Error())
 				return httpx.SendString(c, 400, "invalid duration: "+err.Error())
 			}
 			result.Duration = parsedDuration
 		}
-		if errorFromQuery := c.QueryParam("error"); !result.Success && len(errorFromQuery) > 0 {
+		if errorFromQuery := httpx.Query(c, "error"); !result.Success && len(errorFromQuery) > 0 {
 			result.AddError(errorFromQuery)
 		}
 		// Fork: stores the result, publishes its metrics and handles its alerts one result at a time, like the pushes and

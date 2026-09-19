@@ -218,7 +218,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/db\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\",\"type\":\"PUSH\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"acceptsPush\":true}]"
+    "body": "[{\"key\":\"core_%61pi\",\"name\":\"%61pi\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/%2561pi\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_100%\",\"name\":\"100%\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/100%25\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/db\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\",\"type\":\"PUSH\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"acceptsPush\":true}]"
   },
   "admin metadata": {
     "status": 200,
@@ -335,7 +335,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
+    "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
   },
   "admin status page create short password": {
     "status": 400,
@@ -359,7 +359,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
   },
   "admin status page preview": {
     "status": 200,
@@ -374,7 +374,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":4,\"up\":2,\"down\":2,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"%61pi\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":10}]},{\"name\":\"100%\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":10}]},{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
   },
   "admin status pages exposure": {
     "status": 200,
@@ -410,7 +410,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
+    "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":4,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
   },
   "admin status pages options": {
     "status": 200,
@@ -422,7 +422,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "{\"groups\":[{\"name\":\"core\",\"endpoints\":2},{\"name\":\"jobs\",\"endpoints\":1}],\"endpoints\":[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\"},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\"},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\"}]}"
+    "body": "{\"groups\":[{\"name\":\"core\",\"endpoints\":4},{\"name\":\"jobs\",\"endpoints\":1}],\"endpoints\":[{\"key\":\"core_%61pi\",\"name\":\"%61pi\",\"group\":\"core\"},{\"key\":\"core_100%\",\"name\":\"100%\",\"group\":\"core\"},{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\"},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\"},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\"}]}"
   },
   "admin unknown path": {
     "status": 404,
@@ -811,6 +811,18 @@
     },
     "body": "not found"
   },
+  "external result with success repeated": {
+    "status": 400,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "missing or invalid success query parameter"
+  },
   "external result without token": {
     "status": 401,
     "headers": {
@@ -905,6 +917,81 @@
         "Accept-Encoding"
       ]
     }
+  },
+  "key with a needless escape": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "key with a needless escape and a trailing slash": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "key with a percent sign": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "key with a percent sign and a trailing slash": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "key with an escaped escape": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-cache, no-store, must-revalidate"
+      ],
+      "Content-Type": [
+        "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"92\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"92\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#c7130a\" d=\"M48 0h44v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h92v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"70\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      down\n    \u003c/text\u003e\n    \u003ctext x=\"70\" y=\"14\"\u003e\n      down\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
   },
   "key with double encoded slash": {
     "status": 404,
@@ -1137,7 +1224,7 @@
         "noindex, nofollow"
       ]
     },
-    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+    "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":4,\"up\":2,\"down\":2,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"%61pi\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":10}]},{\"name\":\"100%\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":10}]},{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
   },
   "protected page after ten failures": {
     "status": 429,
@@ -1189,6 +1276,30 @@
       ]
     },
     "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
+  },
+  "protected page badge invalid duration": {
+    "status": 400,
+    "headers": {
+      "Cache-Control": [
+        "private, no-store"
+      ],
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Referrer-Policy": [
+        "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding, Authorization"
+      ],
+      "X-Content-Type-Options": [
+        "nosniff"
+      ],
+      "X-Robots-Tag": [
+        "noindex, nofollow"
+      ]
+    },
+    "body": "Durations supported: 30d, 7d, 24h, 1h"
   },
   "protected page badge response time": {
     "status": 200,
@@ -1717,6 +1828,36 @@
     },
     "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
   },
+  "push with a semicolon": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "{\"ok\":true}"
+  },
+  "push with an invalid escape in the ping": {
+    "status": 200,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "{\"ok\":true}"
+  },
   "raw response time": {
     "status": 200,
     "headers": {
@@ -1950,7 +2091,7 @@
         "noindex, nofollow"
       ]
     },
-    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"down\",\"endpoints\":[{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":4,\"up\":2,\"down\":2,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"%61pi\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":10}]},{\"name\":\"100%\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":10}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
   },
   "status page badge": {
     "status": 200,
@@ -2452,7 +2593,7 @@
         "noindex, nofollow"
       ]
     },
-    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"down\",\"endpoints\":[{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
+    "body": "{\"slug\":\"infra\",\"title\":\"Infra\",\"description\":\"Public page\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":4,\"up\":2,\"down\":2,\"pending\":0,\"unknown\":0},\"featured\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}],\"group\":\"core\"}],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"%61pi\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":10}]},{\"name\":\"100%\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":10,\"7d\":10,\"30d\":10},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":10}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
   },
   "status page uppercase slug": {
     "status": 404,
@@ -2512,7 +2653,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"errors\":[\"disk full\"],\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":12000000,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"Disk full\"],\"message\":\"Disk full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
+    "body": "[{\"name\":\"%61pi\",\"group\":\"core\",\"key\":\"core_%61pi\",\"results\":[{\"duration\":10000000,\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"100%\",\"group\":\"core\",\"key\":\"core_100%\",\"results\":[{\"status\":200,\"duration\":10000000,\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"errors\":[\"disk full\"],\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":12000000,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"Disk full\"],\"message\":\"Disk full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"disk;full\"],\"message\":\"disk;full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
   },
   "statuses browser without credentials": {
     "status": 401,
@@ -2562,7 +2703,7 @@
         "Accept-Encoding"
       ]
     },
-    "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
+    "body": "[{\"name\":\"%61pi\",\"group\":\"core\",\"key\":\"core_%61pi\",\"results\":[{\"duration\":10000000,\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"100%\",\"group\":\"core\",\"key\":\"core_100%\",\"results\":[{\"status\":200,\"duration\":10000000,\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
   },
   "statuses without credentials": {
     "status": 401,
@@ -2719,5 +2860,17 @@
       ]
     },
     "body": "Cannot GET /HEALTH"
+  },
+  "what the pushes recorded": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"errors\":[\"disk full\"],\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":12000000,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"Disk full\"],\"message\":\"Disk full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"disk;full\"],\"message\":\"disk;full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}],\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"UNHEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"UNHEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"UNHEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}],\"push\":true,\"uptime\":{\"24h\":0.5,\"7d\":0.5,\"30d\":0.5},\"responseTime\":{\"24h\":2,\"7d\":2,\"30d\":2},\"currentResponseTime\":null}"
   }
 }

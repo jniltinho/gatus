@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -234,4 +235,102 @@ type Router interface {
 func GetAndHead(router Router, path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) {
 	router.Add(http.MethodGet, path, handler, middleware...)
 	router.Add(http.MethodHead, path, handler, middleware...)
+}
+
+// NormalizePath is a Pre middleware that makes the router always see the path as it was sent, and ignore a trailing
+// slash as Fiber did. It replaces echo's RemoveTrailingSlash, and fixes two things that one leaves behind:
+//
+//   - net/url only keeps URL.RawPath when the escaping is not the canonical one, and echo's router matches the DECODED
+//     path without it. A key would then reach its handler escaped or not depending on how it was written: core_100%25
+//     arrives as "core_100%", which no longer unescapes, and core_%2561pi arrives as "core_%61pi", which the handler
+//     unescapes again into the key of ANOTHER endpoint. With RawPath always set, every parameter is escaped, and every
+//     handler unescapes it exactly once.
+//   - RemoveTrailingSlash changes URL.Path and leaves URL.RawPath alone, so an escaped path with a trailing slash matched
+//     nothing, and fell to the 404 of the protected group.
+func NormalizePath(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		request := c.Request()
+		escaped := request.URL.EscapedPath()
+		for len(escaped) > 1 && strings.HasSuffix(escaped, "/") {
+			escaped = strings.TrimSuffix(escaped, "/")
+		}
+		if unescaped, err := url.PathUnescape(escaped); err == nil {
+			request.URL.Path, request.URL.RawPath = unescaped, escaped
+			request.RequestURI = escaped
+			if len(request.URL.RawQuery) > 0 {
+				request.RequestURI += "?" + request.URL.RawQuery
+			}
+		}
+		return next(c)
+	}
+}
+
+// Query returns the first value of a parameter of the query, read as fasthttp read it. net/url drops a whole pair when
+// it has a ";" or an invalid escape, and for the push a missing status means "up": `?status=down;maintenance` would
+// record a success. Here the pairs are only split on "&", a ";" is part of the value, "+" is a space and an invalid
+// escape is kept as it is.
+func Query(c *echo.Context, name string) string {
+	values := queryValues(c.Request().URL.RawQuery, name)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+// QueryLast returns the last value of a parameter of the query, and whether the parameter is present
+func QueryLast(c *echo.Context, name string) (string, bool) {
+	values := queryValues(c.Request().URL.RawQuery, name)
+	if len(values) == 0 {
+		return "", false
+	}
+	return values[len(values)-1], true
+}
+
+func queryValues(rawQuery, name string) []string {
+	var values []string
+	for _, pair := range strings.Split(rawQuery, "&") {
+		if len(pair) == 0 {
+			continue
+		}
+		key, value, _ := strings.Cut(pair, "=")
+		if decodeQueryComponent(key) == name {
+			values = append(values, decodeQueryComponent(value))
+		}
+	}
+	return values
+}
+
+// decodeQueryComponent decodes "+" and the valid escapes, and keeps an invalid escape as it is
+func decodeQueryComponent(component string) string {
+	if !strings.ContainsAny(component, "%+") {
+		return component
+	}
+	decoded := make([]byte, 0, len(component))
+	for i := 0; i < len(component); i++ {
+		switch {
+		case component[i] == '+':
+			decoded = append(decoded, ' ')
+		case component[i] == '%' && i+2 < len(component) && isHex(component[i+1]) && isHex(component[i+2]):
+			decoded = append(decoded, unhex(component[i+1])<<4|unhex(component[i+2]))
+			i += 2
+		default:
+			decoded = append(decoded, component[i])
+		}
+	}
+	return string(decoded)
+}
+
+func isHex(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+func unhex(c byte) byte {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0'
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10
+	default:
+		return c - 'A' + 10
+	}
 }

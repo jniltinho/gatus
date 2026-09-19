@@ -14,11 +14,12 @@ import (
 	"github.com/TwiN/logr"
 )
 
-const (
-	// shutdownTimeout is how long Shutdown waits for the open connections, e.g. an event stream blocked by a slow client.
-	// Past it the connections are closed: http.Server.Shutdown alone never closes an active one.
-	shutdownTimeout = 10 * time.Second
+// shutdownTimeout is how long Shutdown waits for the open connections, e.g. an event stream blocked by a slow client.
+// Past it the connections are closed: http.Server.Shutdown alone never closes an active one. It is a variable for the
+// tests.
+var shutdownTimeout = 10 * time.Second
 
+const (
 	// serverTimeout is the read, write and idle timeout of the ordinary requests. The event streams give themselves a
 	// longer write deadline, per request, before their first byte (see api/live_updates.go).
 	serverTimeout = 15 * time.Second

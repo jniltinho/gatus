@@ -159,7 +159,7 @@ func endpointResponseTimeChartHandler(cfg *config.Config) echo.HandlerFunc {
 		if err != nil || (cfg.GetEndpointByKey(key) == nil && cfg.GetExternalEndpointByKey(key) == nil && managedendpoint.Get(key) == nil) {
 			return httpx.JSON(c, http.StatusNotFound, map[string]any{"error": "endpoint not found"})
 		}
-		period := c.QueryParam("period")
+		period := httpx.Query(c, "period")
 		if !isResponseTimeChartPeriod(period) {
 			httpx.SetHeader(c, echo.HeaderContentType, echo.MIMEApplicationJSON)
 			return httpx.SendString(c, http.StatusBadRequest, responseTimeChartInvalidPeriodBody)
@@ -192,7 +192,7 @@ func statusPageResponseTimeChartHandler(cfg *config.Config, notFound echo.Handle
 		if err != nil || !statuspage.IsEndpointShownOf(published, key) {
 			return notFound(c)
 		}
-		period := c.QueryParam("period")
+		period := httpx.Query(c, "period")
 		if !isResponseTimeChartPeriod(period) {
 			return sendStatusPageError(c, http.StatusBadRequest, responseTimeChartInvalidPeriodBody)
 		}
