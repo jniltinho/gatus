@@ -36,6 +36,20 @@ The module path of the fork is `gatus/v5` (upstream: `github.com/TwiN/gatus/v5`)
 - **Release notes are written in English**, like the rest of what the users of the fork read (interface, `README.md` and `docs/`). Commit messages, pull requests and the OpenSpec artifacts stay in Portuguese. Write the notes from what the user sees — what changed on the screen, what the administrator has to do, what the default is — and not from the names of the files that were touched.
 - Screens of the fork are published in [docs/screenshots](docs/screenshots): curated images, committed to the repository, linked from the `README.md`. They are captured by hand with `agent-browser` at 1280×900, from a local instance with `admin.enabled` and `security.basic`, and have to be retaken whenever a screen changes shape. The screenshots of `test/e2e/*.sh` are a different thing: they go to `dist/prints/`, which stays out of git.
 
+## Command line
+
+Change: `openspec/changes/migrate-to-echo-and-cobra/` (milestone 1; documentation in `docs/cli.md`).
+
+- **`main.go` stays at the root of the project** and only calls `cmd.Execute()`. The `cmd` package has one file per command with its tests next to it, in the layout of `jniltinho/go-ispconfig`: `root.go`, `serve.go` (the lifecycle that used to be in `main.go`), `reload.go`, `version.go`, `config.go`, `password.go`, `healthcheck.go` and `options.go`.
+- `gatus` without a command is `gatus serve`: `rootCmd.RunE` is `runServe`. The `ENTRYPOINT ["/gatus"]` of the images depends on it.
+- Precedence flag > environment > default, decided with `Flags().Changed` and never by the value of the flag: an empty default would shadow the environment. `--config` and `--log-level` are persistent flags of the root.
+- `serveConfigPath` keeps the path resolved at start, and **every reload uses it again**. Resolving it only once would make a reload go back to `GATUS_CONFIG_PATH`.
+- A path typed with `--config` must exist (`config.RequireConfigPath`): `config.LoadConfiguration` falls back on the default paths, which is right for the environment and wrong for a typo.
+- `gatus healthcheck` reads only the `web` section (`config.LoadWebConfiguration`): it must never validate the whole configuration, load the TLS certificates, open the storage or apply `GATUS_DELAY_START_SECONDS`.
+- `gatus password hash` never takes the password as an argument (`cobra.NoArgs`), and only drops the line break of a piped line.
+- `cmd.Version`, `cmd.GitCommit` and `cmd.BuildDate` come from `-ldflags -X gatus/v5/cmd.<name>=...` in the `Makefile` (`LDFLAGS`) and in the `Dockerfile`; the release workflow goes through `make release-cross`.
+- The commands are global, and so are their flags: the tests reset them before every run (`resetFlags` in `cmd/cmd_test.go`), because `Changed` would stay true.
+
 ## Endpoint administration
 
 Change (archived): `openspec/changes/archive/2026-09-15-add-admin-endpoint-management/` (read `design.md` before touching these areas); specs in `openspec/specs/admin-*`, `config-hot-reload`, `ui-square-style`, `ci-release-pipeline` and `agent-skills`.
@@ -186,7 +200,7 @@ Change (archived): `openspec/changes/archive/2026-09-15-add-basic-login-page/` (
 
 - Use the `agent-browser` skill. With the standalone binary, set `AGENT_BROWSER_SKILLS_DIR` to the `skill-data` of the installed version before `agent-browser skills get core`.
 - Screenshots go to `dist/prints/`. `dist/` is in `.gitignore`: **never** commit screenshots.
-- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh`, `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`) and `test/e2e/login.sh`. The scripts sign in through the login screen (`login_screen`), not with `set credentials`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
+- Scripts: `test/e2e/admin.sh`, `test/e2e/status-pages.sh`, `test/e2e/push.sh`, `test/e2e/certificate.sh` (local HTTPS server with a self-signed certificate; needs `openssl` and `python3`), `test/e2e/login.sh`, `test/e2e/admin-backup.sh` and `test/e2e/cli.sh` (no browser: the commands of the binary, the reload of the file of `--config` and SIGTERM, about a minute and a half because the configuration is only checked every 30 seconds). The scripts sign in through the login screen (`login_screen`), not with `set credentials`. Wait for a selector (`wait "[data-testid=...]"`) instead of a text when the previous screen has the same text (for example, the "New status page" button and the title of the form).
 
 ## Syncing with upstream
 

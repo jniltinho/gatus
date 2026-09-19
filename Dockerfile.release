@@ -16,4 +16,6 @@ ENV GATUS_CONFIG_PATH=""
 ENV GATUS_LOG_LEVEL="INFO"
 ENV PORT="8080"
 EXPOSE ${PORT}
+# The image has no shell, so the binary checks itself: the address, the port and the TLS come from the configuration
+HEALTHCHECK --interval=30s --timeout=6s --start-period=30s --retries=3 CMD ["/gatus", "healthcheck"]
 ENTRYPOINT ["/gatus"]

@@ -6,6 +6,10 @@ DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 VERSION ?= dev
 DIST := dist
 RELEASE_ARCHS := amd64 arm64
+# Versão, commit e data gravados no binário, mostrados por `gatus version`
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -s -w -X gatus/v5/cmd.Version=$(VERSION) -X gatus/v5/cmd.GitCommit=$(GIT_COMMIT) -X gatus/v5/cmd.BuildDate=$(BUILD_DATE)
 # Arquivos Go adicionados ou alterados pelo fork desde UPSTREAM_BASE (inclui os não commitados)
 FORK_GO_FILES = $(shell { git diff --name-only --diff-filter=ACMR $(UPSTREAM_BASE) -- '*.go'; git ls-files --others --exclude-standard -- '*.go'; } 2>/dev/null | sort -u)
 
@@ -15,7 +19,7 @@ install:
 
 .PHONY: run
 run:
-	ENVIRONMENT=dev GATUS_CONFIG_PATH=./config.yaml go run main.go
+	ENVIRONMENT=dev GATUS_CONFIG_PATH=./config.yaml go run .
 
 .PHONY: run-binary
 run-binary:
@@ -32,7 +36,7 @@ test:
 .PHONY: build
 build:
 	@mkdir -p $(DIST)
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o $(DIST)/$(BINARY) .
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/$(BINARY) .
 
 .PHONY: check-upstream-base
 check-upstream-base:
@@ -57,7 +61,7 @@ release-cross:
 	@rm -rf $(DIST)/pkg
 	@for arch in $(RELEASE_ARCHS); do \
 		mkdir -p $(DIST)/pkg/linux_$$arch && \
-		CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "-s -w" -o $(DIST)/pkg/linux_$$arch/$(BINARY) . && \
+		CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/pkg/linux_$$arch/$(BINARY) . && \
 		tar -czf $(DIST)/$(BINARY)_$(VERSION)_linux_$$arch.tar.gz -C $(DIST)/pkg/linux_$$arch $(BINARY) -C $(CURDIR) config.yaml LICENSE README.md && \
 		echo "  $(DIST)/$(BINARY)_$(VERSION)_linux_$$arch.tar.gz" || exit 1; \
 	done

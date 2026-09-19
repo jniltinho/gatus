@@ -66,7 +66,7 @@ storage:
 ```
 
 The administration and the login screen need `security` and `admin.enabled: true`. The password is a bcrypt hash in
-base64, which [docs/generate-admin-password.py](docs/generate-admin-password.py) generates:
+base64, which `gatus password hash` generates (see [docs/cli.md](docs/cli.md#gatus-password-hash)):
 
 ```yaml
 security:
@@ -85,6 +85,7 @@ admin:
 | Full configuration: endpoints, conditions, alerting, storage, security, UI, suites, deployment and FAQ | [docs/README.md](docs/README.md) |
 | Endpoint administration through the web, login screen, backup and restore | [docs/admin-endpoints.md](docs/admin-endpoints.md) |
 | Public status pages and response time chart | [docs/status-pages.md](docs/status-pages.md) |
+| Command line: `serve`, `version`, `config validate`, `password hash` and `healthcheck` | [docs/cli.md](docs/cli.md) |
 | MySQL and MariaDB storage | [docs/storage-mysql.md](docs/storage-mysql.md) |
 | Push monitoring compatible with the Uptime Kuma | [docs/push-monitoring.md](docs/push-monitoring.md) |
 | Docker Compose examples | [.examples](.examples) |
