@@ -1,70 +1,73 @@
 ## Context
 
-A página pública (`web/app/src/views/public/StatusPage.vue`) lista os destaques e, abaixo, uma seção por grupo, cada uma com uma linha por endpoint (`components/public/EndpointRow.vue`) e 50 barras por linha. O payload vem de `internal/statuspage` (`Payload`, `GroupPayload`, `SummaryPayload`), é sanitizado, e é atualizado em tempo real por SSE. O limite de 200 endpoints é a constante `statuspage.MaximumEndpoints` de `internal/config/statuspage`, usada na validação (chaves escolhidas uma a uma) e na montagem (`truncated`).
+A página pública (`web/app/src/views/public/StatusPage.vue`) lista os destaques e, abaixo, uma seção por grupo, com uma linha por endpoint e até 50 barras por linha. Ela **não tem tempo real**: busca o payload a cada 60 s (`REFRESH_INTERVAL_MS`) e quando a aba volta a ficar visível, e o servidor guarda o payload em cache por 30 s (`publicCacheTTL`, chave `slug|revisão|geração`). O SSE existe só na página de detalhes de um endpoint, um stream por endpoint, com `data: {}` e teto de 10 streams por IP — não serve para atualizar a listagem.
 
-Medido no servidor de validação, com 50 resultados por endpoint: **4,1 KB por endpoint, 0,65 KB com gzip**. Com 200 endpoints, 820 KB (130 KB comprimido) e 10 mil barras no DOM; com 1.000, 4,1 MB (650 KB) e 50 mil barras.
+O payload vem de `internal/statuspage/payload.go`. `SummaryPayload` tem cinco campos (`total`, `up`, `down`, `pending`, `unknown`). O estado agregado de um grupo é `operational`, `degraded` ou `down`. Os destaques não são listados nos grupos. Os testes do payload decodificam rejeitando campos desconhecidos, contra uma lista de campos permitidos que a spec fixa.
+
+As definições das páginas gerenciadas são decodificadas de forma estrita (`KnownFields(true)`, `internal/statuspage/definition.go`); o arquivo de configuração, de forma tolerante (`yaml.Unmarshal`).
 
 ## Goals / Non-Goals
 
-**Goals:** recolher grupos na página pública sem esconder problemas; deixar o dono escolher o estado inicial por página; tirar o 200 do código sem tirar a proteção.
+**Goals:** recolher grupos na página pública sem nunca esconder um problema; deixar quem publica escolher o estado inicial; lembrar a escolha do visitante sem guardar nada legível no navegador.
 
-**Non-Goals:** paginar o payload ou carregar grupos sob demanda (muda o contrato da API e o SSE; fica para quando 1.000 não bastar); recolher os destaques; recolher grupos no dashboard interno (já existe); limite por página individual.
+**Non-Goals:** tempo real na listagem; recolher os destaques; mexer no dashboard interno; **o limite de endpoints por página** (D6); paginar o payload.
 
 ## Decisions
 
-### D1 — Recolhido não renderiza
+### D1 — Recolhido não renderiza, e o cabeçalho é um botão de verdade
 
-Um grupo recolhido usa `v-if`, não `v-show`: as linhas e suas barras não existem no DOM. É o que faz o recolhimento ser também a resposta de desempenho para páginas grandes, e é como o dashboard já faz (`uncollapsedGroups`). O custo é redesenhar ao expandir, imperceptível para um grupo.
+`v-if`, não `v-show`: as linhas de um grupo recolhido não existem no DOM. O cabeçalho é um `<button>` com `aria-expanded` e `aria-controls`. O dashboard interno **não** é o modelo: ele guarda os grupos numa chave global (`gatus:uncollapsed-groups`), começa com tudo fechado e usa `<div @click>` sem atributos de acessibilidade. A página pública é lida por gente de fora, com leitor de tela e teclado, e a spec exige o botão.
 
-### D2 — Um problema nunca nasce escondido
+### D2 — Precedência contínua, reavaliada a cada payload
 
-O risco de recolher numa página de status é óbvio: o visitante olha, vê tudo fechado e conclui que está tudo bem. Três defesas, todas na spec:
+A pergunta que importa numa página de status é "tem algo errado?", e um grupo fechado responde "não" sem dizer nada. A regra, na spec, é uma ordem fixa aplicada a cada payload: não operacional → aberto; senão, a escolha lembrada; senão, o padrão da página. Consequências que a revisão cobrou e que ficam explícitas:
 
-- o cabeçalho recolhido mostra o estado agregado e a contagem `N up · N down` do grupo;
-- com `groups-collapsed: true`, só os grupos operacionais começam recolhidos;
-- um grupo recolhido **pelo visitante** que deixa de estar operacional é aberto, inclusive por uma atualização em tempo real, e volta a fechar quando se recupera. A escolha não é apagada: ela passa a valer de novo quando o grupo está operacional.
+- **"Reabrir" acontece no próximo payload**, não em tempo real: até 60 s do *polling* mais até 30 s do cache. É o mesmo atraso com que a página já mostra qualquer mudança; recolher não o piora, porque o cabeçalho recolhido exibe o estado e a contagem do mesmo payload.
+- **Recolher durante um incidente é permitido, mas não pega:** vale até o próximo payload e não é gravado. Proibir o clique seria pior numa página com um grupo de 100 linhas fora do ar.
+- **A escolha lembrada sobrevive ao incidente:** expandir à força não a apaga, e ela volta a valer quando o grupo se recupera.
+- **Destaque fora do ar não abre o grupo dele**, porque o destaque não é listado no grupo: ele já está no topo, sempre visível.
 
-Alternativa rejeitada: respeitar sempre a escolha do visitante. É mais simples e mais previsível, mas troca a função da página (avisar) por uma preferência de layout.
+### D3 — Lembrar sem gravar nomes
 
-### D3 — Onde fica a escolha do visitante
+Uma página pode ter login próprio, e a resposta autenticada sai com `private, no-store` justamente para não deixar rastro. Gravar `{"Clientes VIP": "collapsed"}` no `localStorage` de um navegador compartilhado deixaria. Em vez de distinguir páginas com e sem login — o frontend não recebe esse sinal, e criá-lo aumentaria o payload —, a regra é uma só: a chave de cada escolha é `SHA-256(slug + "\n" + nome bruto do grupo)`, em hexadecimal, dentro de um único item `gatus:status-page-groups`, com o valor `c` ou `e`. Nada legível é gravado, para página nenhuma.
 
-`localStorage`, numa chave por página: `gatus:status-page:<slug>:groups` com um objeto `{ "<grupo>": "collapsed" | "expanded" }`. É o padrão que `RecentChecksTable` e o dashboard já usam (`gatus:*`). Só são gravados os grupos em que o visitante mexeu, para que uma mudança do padrão da página continue valendo para os demais. Grupos que não existem mais são descartados na leitura. `localStorage` indisponível (modo privado, bloqueio) é tratado com `try/catch`: a página funciona sem lembrar.
+- O nome é o **bruto do payload**; o grupo sem nome é `""`. O rótulo "Other services" e a chave de renderização `__without-group__` são da tela e colidiriam com um grupo de verdade.
+- O item é lido com validação de forma (objeto simples, chaves de 64 hexadecimais, valores `c`/`e`); qualquer outra coisa é descartada. Como as chaves são hashes, `__proto__` e afins não têm como aparecer.
+- `crypto.subtle` só existe em contexto seguro (HTTPS ou localhost). Numa página servida por HTTP puro, ou com o armazenamento bloqueado, a página funciona sem lembrar.
+- Só os grupos em que o visitante mexeu são gravados, e só escolhas sobre grupos operacionais (D2). O item é limitado a 500 entradas, descartando as mais antigas.
+- A pré-visualização da administração não lê nem grava: ela mostra o padrão da página.
 
-Nada disso vai ao servidor: a página continua sem estado por visitante, e o cache de 30 s do payload continua valendo para todos.
+### D4 — `groups-collapsed` na página
 
-### D4 — `groups-collapsed` na página, e não global
+O estado inicial é decisão de quem publica cada página. O campo vai em `pageconfig.Page`, passa pela validação e pela normalização das páginas gerenciadas e sai no payload como `groupsCollapsed`. O backup guarda a definição como YAML opaco e o carrega sem mudança de formato.
 
-O estado inicial é uma decisão de quem publica cada página: uma página de 8 serviços quer tudo aberto, uma de 300 quer fechado. Global seria um segundo lugar para procurar. O campo vai em `pageconfig.Page`, passa pela mesma validação e normalização das páginas gerenciadas, e sai no payload como `groupsCollapsed`. Como o backup guarda a definição inteira, ele carrega o campo sem mudança de formato nem de versão.
+### D5 — Voltar de versão
 
-### D5 — `summary` por grupo calculado no servidor
+Uma versão anterior **invalida** (não "põe em conflito": conflito é slug ocupado pelo YAML) uma página gerenciada gravada com `groups-collapsed`, por causa da decodificação estrita: a página sai do ar com erro na administração. Antes de voltar de versão é preciso tirar o campo das páginas gerenciadas, e um backup feito na versão nova não restaura essas páginas numa anterior. No arquivo de configuração é o contrário: a versão anterior ignora o campo em silêncio (conferido com `gatus config validate` da v6.0.1). As notas da release devem dizer as duas coisas.
 
-O frontend poderia contar os endpoints do grupo, mas a regra do que é `up`, `down` e `pending` já mora no servidor (`SummaryPayload`, que trata `Pending` do push). Repetir a regra em JavaScript criaria duas fontes. `GroupPayload` ganha `Summary`, calculado na mesma passada que calcula o estado agregado do grupo. Os destaques ficam fora da contagem do grupo porque não são listados nele (o `summary` da página continua contando tudo).
+### D6 — O limite de endpoints fica para outra change
 
-### D6 — O limite vira configuração global, com teto
+A primeira versão desta proposta tornava o 200 configurável. Reprovada pelas duas revisões, com razão. O que elas mostraram, para quem for escrever a próxima:
 
-`status-pages.maximum-endpoints-per-page`, padrão 200, de 1 a 1000. Global, e não por página, porque o que ele protege é o servidor (storage, memória, banda), não a página. O teto de 1.000 é o ponto em que o payload passa de 4 MB e o DOM, tudo expandido, de 50 mil barras: acima disso a resposta certa é paginar (Non-Goal), não subir o número.
-
-A constante `MaximumEndpoints` continua existindo como **padrão**; validação e montagem passam a receber o limite em vigor. Uma página gerenciada gravada com um limite maior não é recusada quando o limite cai — isso tiraria do ar uma página por causa de uma mudança noutro lugar —: ela é truncada na exibição, e a listagem da administração ganha o aviso, no mesmo mecanismo dos avisos de seleção (`Warning`).
-
-### D7 — Expandir tudo numa página grande
-
-Com o limite alto e o visitante expandindo todos os grupos, o DOM cresce. Duas medidas baratas: não há botão "expandir tudo" (cada grupo é uma decisão), e as barras de um grupo recém-expandido entram no próximo quadro (`nextTick`), para o clique responder antes do desenho. Se a medição da tarefa 4.3 mostrar travamento com 1.000 endpoints expandidos, o teto da D6 cai para o maior valor que passar.
+- o corte está em `statuspage.Select` (`selection.go`), e `findShownEndpoint` reutiliza a seleção: o limite decide também o que responde 404 nos detalhes, gráficos, badges e streams de um endpoint. Mudar o número muda autorização;
+- a carga das páginas gravadas chama `Parse` → `ValidateAndSetDefaults`, que usa o mesmo número: baixar o limite **invalidaria e despublicaria** páginas gravadas. É preciso separar um teto estrutural fixo (validação) do limite de exibição em vigor;
+- o limite teria de ser capturado no snapshot publicado, para valer junto com a geração do cache;
+- contagens da administração (`Item.Endpoints`, `Validation.Endpoints`), o texto fixo "Showing the first 200 services" e o aviso que hoje não chega à listagem (`Warning` só existe em `Validation`) entram no escopo;
+- os tamanhos medidos (4,1 KB por endpoint, 0,65 KB com gzip, no servidor de validação) precisam de uma *fixture* reproduzível, e o limitador por IP protege as respostas 404, não os downloads válidos.
 
 ## Risks / Trade-offs
 
-- **Problema escondido** → D2.
-- **Payload grande com o limite alto** → gzip já ativo, cache de 30 s e `singleflight` já existem; o limitador por IP não muda; o teto da D6.
-- **Estado do visitante divergente do da página** → D3 grava só o que ele mexeu.
-- **Acessibilidade** → botão de verdade (`<button>`), `aria-expanded`, `aria-controls`, foco visível nos dois temas; teste E2E por teclado.
-- **Contrato da API** → só campos novos; o contrato HTTP gravado ganha os casos novos.
+- **Problema escondido** → D2, e o cabeçalho recolhido sempre mostra estado e contagem.
+- **Contrato da API** → campos novos quebram clientes estritos; está na proposta e vai nas notas. A lista de campos permitidos da spec e dos testes é atualizada junto.
+- **Vazamento** → `groupsCollapsed` é um booleano da definição e o `summary` do grupo conta só endpoints já publicados naquele grupo: nada de chave, URL ou erro.
+- **Rastro no navegador** → D3.
+- **Desempenho** → com o limite atual, o pior caso é o de hoje (200 linhas, tudo expandido); recolher só melhora.
 
 ## Migration Plan
 
-Sem migração de dados: os dois campos são opcionais e os padrões são o comportamento de hoje.
-
-**Voltar de versão exige um passo.** As definições das páginas gerenciadas são decodificadas de forma estrita (`KnownFields(true)` em `internal/statuspage/definition.go`): uma versão anterior **recusa** uma página gravada com `groups-collapsed`, que fica em conflito em vez de publicada. Antes de voltar, é preciso tirar o campo das páginas gerenciadas (ou restaurar um backup anterior), e as notas da release devem dizer isso. No arquivo de configuração é o contrário: o YAML é lido de forma tolerante (`yaml.Unmarshal`), e uma versão anterior **ignora** `groups-collapsed` e `maximum-endpoints-per-page` sem erro (conferido com `gatus config validate` da v6.0.1) — a página volta a abrir expandida e o limite volta a 200, em silêncio. `test/e2e/upgrade.sh` cobre a ida; a volta fica documentada, não automatizada.
+Campo opcional, padrão igual ao comportamento atual: nada a migrar na ida. A volta está em D5.
 
 ## Open Questions
 
-- **Teto de 1.000** (D6): confirmar com a medição da tarefa 4.3.
-- **`groups-collapsed: true` deve ser o padrão para páginas novas criadas na administração?** A proposta diz não (padrão `false` em todo lugar), para não mudar o que o dono vê sem ele pedir.
+- **`groups-collapsed: true` como padrão para páginas novas criadas na administração?** A proposta diz não.
+- **Abrir a proposta do limite configurável (D6)?** Depende de o dono precisar de mais de 200 endpoints numa página.

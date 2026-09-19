@@ -1,30 +1,27 @@
-## 1. Configuração e payload
+## 1. Definição e payload
 
-- [ ] 1.1 `groups-collapsed` em `internal/config/statuspage` (campo, validação de tipo, normalização das páginas gerenciadas), com testes.
-- [ ] 1.2 `status-pages.maximum-endpoints-per-page` (padrão 200, 1 a 1000, inválido fora do intervalo), usado na validação das chaves e na montagem (`truncated`, aviso do log), com testes do padrão, de um limite maior, do intervalo e de uma página gravada acima do limite (D6).
-- [ ] 1.3 `groupsCollapsed` e `summary` por grupo no payload público (`internal/statuspage/payload.go`), com os destaques fora da contagem do grupo (D5), e testes.
-- [ ] 1.4 Aviso na administração para a página que excede o limite em vigor (`Warning`), com teste.
-- [ ] 1.5 Comentários godoc dos campos e dos manipuladores afetados, e casos novos no contrato HTTP (`internal/api/contract_test.go`).
+- [ ] 1.1 `groups-collapsed` em `internal/config/statuspage` e na normalização das páginas gerenciadas (`internal/statuspage/definition.go`), com testes de tipo errado, ausência e ida e volta.
+- [ ] 1.2 `groupsCollapsed` no payload e `summary` em cada grupo (`internal/statuspage/payload.go`), calculado na mesma passada do estado agregado, com os cinco campos; testes com pending, sem resultados, up+unknown, página truncada e destaque fora do ar fora da contagem do grupo.
+- [ ] 1.3 Lista de campos permitidos dos testes do payload (`allowedPayload`, `allowedGroup`) e contrato HTTP (`internal/api/contract_test.go`) com os campos novos; comentários godoc dos campos e dos manipuladores.
+- [ ] 1.4 Backup e restore de uma página com o campo (teste em `internal/adminbackup`, sem mudança de formato).
 
 ## 2. Página pública
 
-- [ ] 2.1 Cabeçalho do grupo como botão (`aria-expanded`, `aria-controls`, foco visível), grupo recolhido sem renderizar as linhas (D1), contagem do grupo no cabeçalho, nos temas claro e escuro.
-- [ ] 2.2 Estado inicial: `groupsCollapsed` com a exceção dos grupos não operacionais (D2).
-- [ ] 2.3 Escolha do visitante em `localStorage` por página e por grupo, tolerante a armazenamento indisponível e a grupos que sumiram (D3).
-- [ ] 2.4 Grupo recolhido pelo visitante que deixa de estar operacional é aberto, inclusive por SSE, e volta a fechar quando se recupera (D2).
+- [ ] 2.1 Cabeçalho do grupo como `<button>` (`aria-expanded`, `aria-controls`, foco visível nos dois temas), grupo recolhido sem renderizar as linhas, contagem do grupo no cabeçalho omitindo zeros, aviso de truncamento sempre visível.
+- [ ] 2.2 Precedência da D2 aplicada a cada payload (carga, *polling* de 60 s e volta da aba), com o recolhimento durante incidente valendo só até o próximo payload.
+- [ ] 2.3 Armazenamento da D3: hash SHA-256 de slug e nome bruto, validação de forma na leitura, teto de 500 entradas, e funcionamento sem `crypto.subtle` ou sem armazenamento.
 
 ## 3. Administração
 
-- [ ] 3.1 Opção "Start with the groups collapsed" no formulário da página, na validação e na pré-visualização.
-- [ ] 3.2 Backup e restore de uma página com o campo novo (teste de `adminbackup`, sem mudança de formato).
+- [ ] 3.1 Opção "Start with the groups collapsed" no formulário, na validação e na pré-visualização, que não lê nem grava as escolhas da página pública.
 
 ## 4. Verificação
 
-- [ ] 4.1 `test/e2e/status-pages.sh`: recolher e expandir por clique e por teclado, lembrar ao recarregar, página com `groups-collapsed: true` e um grupo com falha aberto, grupo que falha enquanto está recolhido, tema escuro, `localStorage` bloqueado.
-- [ ] 4.2 `go test ./... -race`, `make lint`, contrato HTTP e as demais suítes E2E.
-- [ ] 4.3 Medição com 1.000 endpoints: tamanho do payload, tempo de montagem, e tempo de resposta do navegador com tudo recolhido e com tudo expandido; ajustar o teto da D6 se for preciso.
+- [ ] 4.1 `make frontend-build` antes de qualquer teste com o binário.
+- [ ] 4.2 `test/e2e/status-pages.sh`: recolher e expandir por clique, Enter e Espaço; lembrar ao recarregar; páginas diferentes não se afetam; `groups-collapsed: true` com um grupo `degraded` aberto; grupo recolhido que passa a falhar é aberto no payload seguinte e volta a fechar ao se recuperar (forçando a busca pela volta da aba, sem esperar 60 s); recolher durante incidente não é lembrado; grupo sem nome e grupo chamado "Other services"; página com login sem nome de grupo no armazenamento; armazenamento bloqueado; tema escuro.
+- [ ] 4.3 `go test ./... -race`, `make lint`, contrato HTTP e as demais suítes E2E.
 
 ## 5. Entrega
 
-- [ ] 5.1 `docs/status-pages.md`, tabela de `status-pages` em `docs/README.md`, screenshots (`docs/screenshots/capture.sh`) e `AGENTS.fork.md`.
-- [ ] 5.2 PR com CI verde; release com notas em inglês (incluindo o aviso de reversão do Migration Plan), `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
+- [ ] 5.1 `docs/status-pages.md` (campo, comportamento, atraso de até 90 s, D5), screenshots (`docs/screenshots/capture.sh`) e `AGENTS.fork.md`.
+- [ ] 5.2 PR com CI verde; release com notas em inglês (campos novos no payload e o aviso de volta de versão da D5), `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
