@@ -19,7 +19,8 @@ import (
 	"gatus/v5/statuspage"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -46,7 +47,7 @@ func statusPagesTestConfig(enabled bool, rateLimit int) *pageconfig.Config {
 	}
 }
 
-func newStatusPageTestApp(t *testing.T, securityConfig *security.Config, statusPages *pageconfig.Config) *fiber.App {
+func newStatusPageTestApp(t *testing.T, securityConfig *security.Config, statusPages *pageconfig.Config) *echo.Echo {
 	t.Helper()
 	if err := store.Initialize(&storage.Config{Type: storage.TypeMemory, MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50}); err != nil {
 		t.Fatal(err)
@@ -67,9 +68,9 @@ func newStatusPageTestApp(t *testing.T, securityConfig *security.Config, statusP
 	return New(cfg).Router()
 }
 
-func doStatusPageRequest(t *testing.T, app *fiber.App, method, target string) (*http.Response, string) {
+func doStatusPageRequest(t *testing.T, app *echo.Echo, method, target string) (*http.Response, string) {
 	t.Helper()
-	response, err := app.Test(httptest.NewRequest(method, target, nil), -1)
+	response, err := testHTTP(app, httptest.NewRequest(method, target, nil))
 	if err != nil {
 		t.Fatalf("%s %s failed: %v", method, target, err)
 	}

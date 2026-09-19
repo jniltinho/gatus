@@ -140,7 +140,7 @@ func TestEndpointStatus(t *testing.T) {
 			if scenario.Gzip {
 				request.Header.Set("Accept-Encoding", "gzip")
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}
@@ -211,7 +211,7 @@ func TestEndpointStatuses(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
 			request := httptest.NewRequest("GET", scenario.Path, http.NoBody)
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}

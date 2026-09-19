@@ -10,17 +10,19 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	"gatus/v5/config/remote"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"gatus/v5/storage/store/common/paging"
+
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 // EndpointStatuses handles requests to retrieve all EndpointStatus
 // Due to how intensive this operation can be on the storage, this function leverages a cache.
-func EndpointStatuses(cfg *config.Config) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func EndpointStatuses(cfg *config.Config) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, cfg.Storage.MaximumNumberOfResults)
 		value, exists := cache.Get(fmt.Sprintf("endpoint-status-%d-%d", page, pageSize))
 		var data []byte
@@ -28,7 +30,7 @@ func EndpointStatuses(cfg *config.Config) fiber.Handler {
 			endpointStatuses, err := store.Get().GetAllEndpointStatuses(paging.NewEndpointStatusParams().WithResults(page, pageSize))
 			if err != nil {
 				logr.Errorf("[api.EndpointStatuses] Failed to retrieve endpoint statuses: %s", err.Error())
-				return c.Status(500).SendString(err.Error())
+				return httpx.SendString(c, 500, err.Error())
 			}
 			// ALPHA: Retrieve endpoint statuses from remote instances
 			if endpointStatusesFromRemote, err := getEndpointStatusesFromRemoteInstances(cfg.Remote); err != nil {
@@ -40,14 +42,14 @@ func EndpointStatuses(cfg *config.Config) fiber.Handler {
 			data, err = json.Marshal(endpointStatuses)
 			if err != nil {
 				logr.Errorf("[api.EndpointStatuses] Unable to marshal object to JSON: %s", err.Error())
-				return c.Status(500).SendString("unable to marshal object to JSON")
+				return httpx.SendString(c, 500, "unable to marshal object to JSON")
 			}
 			cache.SetWithTTL(fmt.Sprintf("endpoint-status-%d-%d", page, pageSize), data, cacheTTL)
 		} else {
 			data = value.([]byte)
 		}
-		c.Set("Content-Type", "application/json")
-		return c.Status(200).Send(data)
+		httpx.SetHeader(c, "Content-Type", "application/json")
+		return httpx.Send(c, 200, data)
 	}
 }
 
@@ -84,32 +86,32 @@ func getEndpointStatusesFromRemoteInstances(remoteConfig *remote.Config) ([]*end
 }
 
 // EndpointStatus retrieves a single endpoint.Status by group and endpoint name
-func EndpointStatus(cfg *config.Config) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func EndpointStatus(cfg *config.Config) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		page, pageSize := extractPageAndPageSizeFromRequest(c, cfg.Storage.MaximumNumberOfResults)
-		key, err := url.QueryUnescape(c.Params("key"))
+		key, err := url.QueryUnescape(c.Param("key"))
 		if err != nil {
 			logr.Errorf("[api.EndpointStatus] Failed to decode key: %s", err.Error())
-			return c.Status(400).SendString("invalid key encoding")
+			return httpx.SendString(c, 400, "invalid key encoding")
 		}
 		endpointStatus, err := store.Get().GetEndpointStatusByKey(key, paging.NewEndpointStatusParams().WithResults(page, pageSize).WithEvents(1, cfg.Storage.MaximumNumberOfEvents))
 		if err != nil {
 			if errors.Is(err, common.ErrEndpointNotFound) {
-				return c.Status(404).SendString(err.Error())
+				return httpx.SendString(c, 404, err.Error())
 			}
 			logr.Errorf("[api.EndpointStatus] Failed to retrieve endpoint status: %s", err.Error())
-			return c.Status(500).SendString(err.Error())
+			return httpx.SendString(c, 500, err.Error())
 		}
 		if endpointStatus == nil { // XXX: is this check necessary?
 			logr.Errorf("[api.EndpointStatus] Endpoint with key=%s not found", key)
-			return c.Status(404).SendString("not found")
+			return httpx.SendString(c, 404, "not found")
 		}
 		output, err := json.Marshal(newEndpointStatusResponse(cfg, key, endpointStatus))
 		if err != nil {
 			logr.Errorf("[api.EndpointStatus] Unable to marshal object to JSON: %s", err.Error())
-			return c.Status(500).SendString("unable to marshal object to JSON")
+			return httpx.SendString(c, 500, "unable to marshal object to JSON")
 		}
-		c.Set("Content-Type", "application/json")
-		return c.Status(200).Send(output)
+		httpx.SetHeader(c, "Content-Type", "application/json")
+		return httpx.Send(c, 200, output)
 	}
 }

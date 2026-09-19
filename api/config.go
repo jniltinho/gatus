@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"gatus/v5/config"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/security"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 type ConfigHandler struct {
@@ -14,7 +16,7 @@ type ConfigHandler struct {
 	config         *config.Config
 }
 
-func (handler ConfigHandler) GetConfig(c *fiber.Ctx) error {
+func (handler ConfigHandler) GetConfig(c *echo.Context) error {
 	hasOIDC := false
 	login := ""
 	isAuthenticated := true // Default to true if no security config is set
@@ -48,10 +50,10 @@ func (handler ConfigHandler) GetConfig(c *fiber.Ctx) error {
 	}
 
 	// Return the config as JSON
-	c.Set("Content-Type", "application/json")
+	httpx.SetHeader(c, "Content-Type", "application/json")
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
-		return c.Status(500).SendString(fmt.Sprintf(`{"error":"Failed to marshal response: %s"}`, err.Error()))
+		return httpx.SendString(c, 500, fmt.Sprintf(`{"error":"Failed to marshal response: %s"}`, err.Error()))
 	}
-	return c.Status(200).Send(responseBytes)
+	return httpx.Send(c, 200, responseBytes)
 }

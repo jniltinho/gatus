@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"regexp"
@@ -13,11 +14,13 @@ import (
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/push"
 	"gatus/v5/statuspage"
 	"gatus/v5/watchdog"
+
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -60,41 +63,41 @@ type pushResponse struct {
 // registerPushRoutes registers the push routes compatible with the Uptime Kuma (fork). They must be registered before
 // the static files and the security middleware: the catch-alls make sure that no path under /api/push asks for
 // authentication.
-func registerPushRoutes(unprotectedAPIRouter fiber.Router, cfg *config.Config) {
+func registerPushRoutes(unprotectedAPIRouter httpx.Router, cfg *config.Config) {
 	resolver := push.NewResolver(cfg)
 	trustedProxies := cfg.StatusPages.TrustedProxyPrefixes()
 	handler := pushHandler(cfg, resolver, trustedProxies)
-	unprotectedAPIRouter.All("/push/:token", handler)
-	unprotectedAPIRouter.All("/push/:token/:key", handler)
-	notFound := func(c *fiber.Ctx) error {
+	unprotectedAPIRouter.Any("/push/:token", handler)
+	unprotectedAPIRouter.Any("/push/:token/:key", handler)
+	notFound := func(c *echo.Context) error {
 		return rejectPush(c, trustedProxies, pushNotFoundMessage)
 	}
-	unprotectedAPIRouter.All("/push", notFound)
-	unprotectedAPIRouter.All("/push/*", notFound)
+	unprotectedAPIRouter.Any("/push", notFound)
+	unprotectedAPIRouter.Any("/push/*", notFound)
 }
 
 // pushHandler receives a push with the parameters of the Uptime Kuma: status (up or anything else), msg and ping. The
 // status pending is an extension of the fork: it records a pending result, while the Uptime Kuma records a failure.
-func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []netip.Prefix) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []netip.Prefix) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		// Like the Uptime Kuma, the ping is checked before the monitor
-		ping, err := parsePushPing(c.Query("ping"))
+		ping, err := parsePushPing(httpx.Query(c, "ping"))
 		if err != nil {
 			return rejectPush(c, trustedProxies, err.Error())
 		}
-		endpointKey, err := url.PathUnescape(c.Params("key"))
+		endpointKey, err := url.PathUnescape(c.Param("key"))
 		if err != nil {
 			return rejectPush(c, trustedProxies, pushNotFoundMessage)
 		}
-		target, globalKeyName, ok := resolver.Resolve(c.Params("token"), endpointKey)
+		target, globalKeyName, ok := resolver.Resolve(c.Param("token"), endpointKey)
 		if !ok {
 			return rejectPush(c, trustedProxies, pushNotFoundMessage)
 		}
-		status := c.Query("status")
+		status := httpx.Query(c, "status")
 		if len(status) == 0 {
 			status = "up"
 		}
-		message := c.Query("msg")
+		message := httpx.Query(c, "msg")
 		if len(message) == 0 {
 			message = "OK"
 		}
@@ -124,14 +127,14 @@ func pushHandler(cfg *config.Config, resolver *push.Resolver, trustedProxies []n
 		}
 		if err != nil {
 			logr.Errorf("[api.pushHandler] Failed to store the push of endpoint with key=%s: %s", target.Key, err.Error())
-			return sendPushResponse(c, fiber.StatusNotFound, pushResponse{Message: pushStorageErrorMessage})
+			return sendPushResponse(c, http.StatusNotFound, pushResponse{Message: pushStorageErrorMessage})
 		}
 		if len(globalKeyName) > 0 {
 			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s with the global key %s; success=%v; pending=%v", target.Key, globalKeyName, result.Success, result.Pending)
 		} else {
 			logr.Infof("[api.pushHandler] Received push for endpoint with key=%s; success=%v; pending=%v", target.Key, result.Success, result.Pending)
 		}
-		return sendPushResponse(c, fiber.StatusOK, pushResponse{OK: true})
+		return sendPushResponse(c, http.StatusOK, pushResponse{OK: true})
 	}
 }
 
@@ -162,22 +165,23 @@ func parsePushPing(value string) (*float64, error) {
 
 // rejectPush answers 404 with the given message, or 429 once the client exceeded the rejections allowed per minute.
 // Valid pushes are never limited.
-func rejectPush(c *fiber.Ctx, trustedProxies []netip.Prefix, message string) error {
-	remoteIP, _ := netip.AddrFromSlice(c.Context().RemoteIP())
-	clientIP := statuspage.ClientIP(remoteIP, c.Request().Header.PeekAll(fiber.HeaderXForwardedFor), trustedProxies)
+func rejectPush(c *echo.Context, trustedProxies []netip.Prefix, message string) error {
+	remoteIP := httpx.RemoteIP(c)
+	clientIP := statuspage.ClientIP(remoteIP, httpx.HeaderValues(c, echo.HeaderXForwardedFor), trustedProxies)
 	if allowed, retryAfter := pushLimiter.Hit(clientIP, time.Now()); !allowed {
-		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
-		return sendPushResponse(c, fiber.StatusTooManyRequests, pushResponse{Message: pushTooManyRequestsMessage})
+		httpx.SetHeader(c, echo.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+		return sendPushResponse(c, http.StatusTooManyRequests, pushResponse{Message: pushTooManyRequestsMessage})
 	}
-	return sendPushResponse(c, fiber.StatusNotFound, pushResponse{Message: message})
+	return sendPushResponse(c, http.StatusNotFound, pushResponse{Message: message})
 }
 
-func sendPushResponse(c *fiber.Ctx, status int, response pushResponse) error {
+func sendPushResponse(c *echo.Context, status int, response pushResponse) error {
 	body, err := json.Marshal(response)
 	if err != nil {
 		return err
 	}
-	c.Set(fiber.HeaderCacheControl, "no-store")
-	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
-	return c.Status(status).Send(body)
+	httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")
+	// Written out: the constant of echo says "charset=UTF-8", and the clients of the Uptime Kuma got it in lowercase
+	httpx.SetHeader(c, echo.HeaderContentType, "application/json; charset=utf-8")
+	return httpx.Send(c, status, body)
 }

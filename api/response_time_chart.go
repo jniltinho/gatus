@@ -3,16 +3,19 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 	"time"
 
 	"gatus/v5/config"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/managedendpoint"
 	"gatus/v5/statuspage"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
+
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -149,17 +152,17 @@ func buildResponseTimeChart(cfg *config.Config, key, period string, maximumResul
 
 // endpointResponseTimeChartHandler serves the response time chart of an endpoint of the dashboard. The endpoint must be
 // known in memory, like for the event streams, so that an unknown key does not read the storage.
-func endpointResponseTimeChartHandler(cfg *config.Config) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		c.Set(fiber.HeaderCacheControl, "no-store")
-		key, err := url.QueryUnescape(c.Params("key"))
+func endpointResponseTimeChartHandler(cfg *config.Config) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")
+		key, err := url.QueryUnescape(c.Param("key"))
 		if err != nil || (cfg.GetEndpointByKey(key) == nil && cfg.GetExternalEndpointByKey(key) == nil && managedendpoint.Get(key) == nil) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "endpoint not found"})
+			return httpx.JSON(c, http.StatusNotFound, map[string]any{"error": "endpoint not found"})
 		}
-		period := c.Query("period")
+		period := httpx.Query(c, "period")
 		if !isResponseTimeChartPeriod(period) {
-			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-			return c.Status(fiber.StatusBadRequest).SendString(responseTimeChartInvalidPeriodBody)
+			httpx.SetHeader(c, echo.HeaderContentType, echo.MIMEApplicationJSON)
+			return httpx.SendString(c, http.StatusBadRequest, responseTimeChartInvalidPeriodBody)
 		}
 		maximumResults := maximumRecentChartResults
 		if cfg.Storage != nil && cfg.Storage.MaximumNumberOfResults > 0 && cfg.Storage.MaximumNumberOfResults < maximumResults {
@@ -168,30 +171,30 @@ func endpointResponseTimeChartHandler(cfg *config.Config) fiber.Handler {
 		body, err := buildResponseTimeChart(cfg, key, period, maximumResults, time.Now())
 		if err != nil {
 			logr.Errorf("[api.endpointResponseTimeChartHandler] Failed to build the response time chart of endpoint with key=%s: %s", key, err.Error())
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to load the response time chart"})
+			return httpx.JSON(c, http.StatusInternalServerError, map[string]any{"error": "failed to load the response time chart"})
 		}
-		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		return c.Status(fiber.StatusOK).Send(body)
+		httpx.SetHeader(c, echo.HeaderContentType, echo.MIMEApplicationJSON)
+		return httpx.Send(c, http.StatusOK, body)
 	}
 }
 
 // statusPageResponseTimeChartHandler serves the response time chart of an endpoint of a published status page. The
 // identical 404 is answered before the period is validated, and the payload is cached, see
 // statuspage.PublicResponseTimeChart.
-func statusPageResponseTimeChartHandler(cfg *config.Config, notFound fiber.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		slug := c.Params("slug")
+func statusPageResponseTimeChartHandler(cfg *config.Config, notFound echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		slug := c.Param("slug")
 		published, captured := publishedStatusPage(c)
 		if !captured {
 			return notFound(c)
 		}
-		key, err := url.QueryUnescape(c.Params("key"))
+		key, err := url.QueryUnescape(c.Param("key"))
 		if err != nil || !statuspage.IsEndpointShownOf(published, key) {
 			return notFound(c)
 		}
-		period := c.Query("period")
+		period := httpx.Query(c, "period")
 		if !isResponseTimeChartPeriod(period) {
-			return sendStatusPageError(c, fiber.StatusBadRequest, responseTimeChartInvalidPeriodBody)
+			return sendStatusPageError(c, http.StatusBadRequest, responseTimeChartInvalidPeriodBody)
 		}
 		now := time.Now()
 		body, err := statuspage.PublicResponseTimeChart(slug, key, period, now, func(maximumResults int) ([]byte, error) {
@@ -201,12 +204,12 @@ func statusPageResponseTimeChartHandler(cfg *config.Config, notFound fiber.Handl
 		case err == nil:
 			setPublicAPIHeaders(c)
 			setProtectedPageCacheControl(c, published.Page.RequiresLogin(), "no-cache")
-			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-			return c.Status(fiber.StatusOK).Send(body)
+			httpx.SetHeader(c, echo.HeaderContentType, echo.MIMEApplicationJSON)
+			return httpx.Send(c, http.StatusOK, body)
 		case errors.Is(err, statuspage.ErrPageNotFound):
 			return notFound(c)
 		default:
-			return sendStatusPageError(c, fiber.StatusServiceUnavailable, statusPageUnavailableBody)
+			return sendStatusPageError(c, http.StatusServiceUnavailable, statusPageUnavailableBody)
 		}
 	}
 }

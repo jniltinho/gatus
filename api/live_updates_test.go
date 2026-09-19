@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -15,7 +16,10 @@ import (
 	"gatus/v5/watchdog"
 )
 
-// newEventStreamTestServer starts the router of the status page tests on a real listener, because app.Test reads the
+// eventStreamTestWriteTimeout is the write timeout of the server of the event stream tests
+const eventStreamTestWriteTimeout = 300 * time.Millisecond
+
+// newEventStreamTestServer starts the router of the status page tests on a real listener, because a recorder reads the
 // whole body and cannot test a stream
 func newEventStreamTestServer(t *testing.T) string {
 	t.Helper()
@@ -29,10 +33,18 @@ func newEventStreamTestServer(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() { _ = app.Listener(listener) }()
+	// A write timeout far shorter than the streams of these tests, as the 15 seconds of the real server are far shorter
+	// than a stream of minutes: every test that reads an event after it proves that the stream gave itself a longer
+	// deadline before its first byte
+	server := &http.Server{Handler: app, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: eventStreamTestWriteTimeout}
+	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() {
 		liveupdates.Close()
-		_ = app.ShutdownWithTimeout(2 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			_ = server.Close()
+		}
 		liveupdates.Open()
 		liveupdates.PingInterval, liveupdates.MaximumStreamDuration = previousPing, previousMaximum
 	})
@@ -267,4 +279,37 @@ func TestPublicEndpointDetails_RenewedByNewResult(t *testing.T) {
 	if strings.Count(after, `"timestamp"`) <= strings.Count(before, `"timestamp"`) || !strings.Contains(after, `"status":"down"`) {
 		t.Errorf("expected the cached details to be renewed by the new result, got %s", after)
 	}
+}
+
+// TestEndpointEvents_OutlivesTheWriteTimeoutOfTheServer is the reason of the write deadline the stream gives itself before
+// its first byte: http.Server.WriteTimeout is for ordinary answers, and would cut the stream. The cut would look like a
+// client that left, because it also ends the context of the request. An event is read well past the write timeout of
+// the server of these tests, and the same request without the longer deadline is the control: it must NOT survive.
+func TestEndpointEvents_OutlivesTheWriteTimeoutOfTheServer(t *testing.T) {
+	base := newEventStreamTestServer(t)
+	response := eventStreamRequest(t, http.MethodGet, base+"/api/v1/endpoints/core_api/events", map[string]string{"Last-Event-ID": strconv.FormatUint(liveupdates.Sequence("core_api"), 10)}, true)
+	defer response.Body.Close()
+	reader := bufio.NewReader(response.Body)
+	if first := readEventMessage(t, reader, 2*time.Second); !strings.HasPrefix(first, "retry: 3000") {
+		t.Fatalf("expected the stream to start, got %q", first)
+	}
+	time.Sleep(4 * eventStreamTestWriteTimeout)
+	watchdog.UpdateEndpointStatus(&endpoint.Endpoint{Name: "api", Group: "core"}, &endpoint.Result{Success: true, Timestamp: time.Now()})
+	if message := readEventMessage(t, reader, 2*time.Second); !strings.HasPrefix(message, "event: result") {
+		t.Fatalf("expected an event well past the write timeout of the server, got %q", message)
+	}
+	// The control: the same server cuts an answer that does not extend its deadline
+	previous := liveupdates.StreamWriteTimeout
+	liveupdates.StreamWriteTimeout = eventStreamTestWriteTimeout / 3
+	defer func() { liveupdates.StreamWriteTimeout = previous }()
+	cut := eventStreamRequest(t, http.MethodGet, base+"/api/v1/endpoints/core_api/events", map[string]string{"Last-Event-ID": strconv.FormatUint(liveupdates.Sequence("core_api"), 10)}, true)
+	defer cut.Body.Close()
+	deadline := time.Now().Add(3 * time.Second)
+	buffer := make([]byte, 1024)
+	for time.Now().Before(deadline) {
+		if _, err := cut.Body.Read(buffer); err != nil {
+			return
+		}
+	}
+	t.Error("expected a stream with a short write deadline to be cut, which is what proves the deadline is what keeps the other one alive")
 }

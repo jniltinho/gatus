@@ -11,11 +11,13 @@ import (
 
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint/ui"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/managedendpoint"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"gatus/v5/storage/store/common/paging"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -40,8 +42,8 @@ var (
 // UptimeBadge handles the automatic generation of badge based on the group name and endpoint name passed.
 //
 // Valid values for :duration -> 30d, 7d, 24h, 1h
-func UptimeBadge(c *fiber.Ctx) error {
-	duration := c.Params("duration")
+func UptimeBadge(c *echo.Context) error {
+	duration := c.Param("duration")
 	var from time.Time
 	switch duration {
 	case "30d":
@@ -53,33 +55,33 @@ func UptimeBadge(c *fiber.Ctx) error {
 	case "1h":
 		from = time.Now().Add(-2 * time.Hour) // Because uptime metrics are stored by hour, we have to cheat a little
 	default:
-		return c.Status(400).SendString("Durations supported: 30d, 7d, 24h, 1h")
+		return httpx.SendString(c, 400, "Durations supported: 30d, 7d, 24h, 1h")
 	}
-	key, err := url.QueryUnescape(c.Params("key"))
+	key, err := url.QueryUnescape(c.Param("key"))
 	if err != nil {
-		return c.Status(400).SendString("invalid key encoding")
+		return httpx.SendString(c, 400, "invalid key encoding")
 	}
 	uptime, err := store.Get().GetUptimeByKey(key, from, time.Now())
 	if err != nil {
 		if errors.Is(err, common.ErrEndpointNotFound) {
-			return c.Status(404).SendString(err.Error())
+			return httpx.SendString(c, 404, err.Error())
 		} else if errors.Is(err, common.ErrInvalidTimeRange) {
-			return c.Status(400).SendString(err.Error())
+			return httpx.SendString(c, 400, err.Error())
 		}
-		return c.Status(500).SendString(err.Error())
+		return httpx.SendString(c, 500, err.Error())
 	}
-	c.Set("Content-Type", "image/svg+xml")
-	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Set("Expires", "0")
-	return c.Status(200).Send(generateUptimeBadgeSVG(duration, uptime))
+	httpx.SetHeader(c, "Content-Type", "image/svg+xml")
+	setBadgeCacheControl(c)
+	httpx.SetHeader(c, "Expires", "0")
+	return httpx.Send(c, 200, generateUptimeBadgeSVG(duration, uptime))
 }
 
 // ResponseTimeBadge handles the automatic generation of badge based on the group name and endpoint name passed.
 //
 // Valid values for :duration -> 30d, 7d, 24h, 1h
-func ResponseTimeBadge(cfg *config.Config) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		duration := c.Params("duration")
+func ResponseTimeBadge(cfg *config.Config) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		duration := c.Param("duration")
 		var from time.Time
 		switch duration {
 		case "30d":
@@ -91,43 +93,43 @@ func ResponseTimeBadge(cfg *config.Config) fiber.Handler {
 		case "1h":
 			from = time.Now().Add(-2 * time.Hour) // Because response time metrics are stored by hour, we have to cheat a little
 		default:
-			return c.Status(400).SendString("Durations supported: 30d, 7d, 24h, 1h")
+			return httpx.SendString(c, 400, "Durations supported: 30d, 7d, 24h, 1h")
 		}
-		key, err := url.QueryUnescape(c.Params("key"))
+		key, err := url.QueryUnescape(c.Param("key"))
 		if err != nil {
-			return c.Status(400).SendString("invalid key encoding")
+			return httpx.SendString(c, 400, "invalid key encoding")
 		}
 		averageResponseTime, err := store.Get().GetAverageResponseTimeByKey(key, from, time.Now())
 		if err != nil {
 			if errors.Is(err, common.ErrEndpointNotFound) {
-				return c.Status(404).SendString(err.Error())
+				return httpx.SendString(c, 404, err.Error())
 			} else if errors.Is(err, common.ErrInvalidTimeRange) {
-				return c.Status(400).SendString(err.Error())
+				return httpx.SendString(c, 400, err.Error())
 			}
-			return c.Status(500).SendString(err.Error())
+			return httpx.SendString(c, 500, err.Error())
 		}
-		c.Set("Content-Type", "image/svg+xml")
-		c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		c.Set("Expires", "0")
-		return c.Status(200).Send(generateResponseTimeBadgeSVG(duration, averageResponseTime, key, cfg))
+		httpx.SetHeader(c, "Content-Type", "image/svg+xml")
+		setBadgeCacheControl(c)
+		httpx.SetHeader(c, "Expires", "0")
+		return httpx.Send(c, 200, generateResponseTimeBadgeSVG(duration, averageResponseTime, key, cfg))
 	}
 }
 
 // HealthBadge handles the automatic generation of badge based on the group name and endpoint name passed.
-func HealthBadge(c *fiber.Ctx) error {
-	key, err := url.QueryUnescape(c.Params("key"))
+func HealthBadge(c *echo.Context) error {
+	key, err := url.QueryUnescape(c.Param("key"))
 	if err != nil {
-		return c.Status(400).SendString("invalid key encoding")
+		return httpx.SendString(c, 400, "invalid key encoding")
 	}
 	pagingConfig := paging.NewEndpointStatusParams()
 	status, err := store.Get().GetEndpointStatusByKey(key, pagingConfig.WithResults(1, 1))
 	if err != nil {
 		if errors.Is(err, common.ErrEndpointNotFound) {
-			return c.Status(404).SendString(err.Error())
+			return httpx.SendString(c, 404, err.Error())
 		} else if errors.Is(err, common.ErrInvalidTimeRange) {
-			return c.Status(400).SendString(err.Error())
+			return httpx.SendString(c, 400, err.Error())
 		}
-		return c.Status(500).SendString(err.Error())
+		return httpx.SendString(c, 500, err.Error())
 	}
 	healthStatus := HealthStatusUnknown
 	if len(status.Results) > 0 {
@@ -137,26 +139,26 @@ func HealthBadge(c *fiber.Ctx) error {
 			healthStatus = HealthStatusDown
 		}
 	}
-	c.Set("Content-Type", "image/svg+xml")
-	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Set("Expires", "0")
-	return c.Status(200).Send(generateHealthBadgeSVG(healthStatus))
+	httpx.SetHeader(c, "Content-Type", "image/svg+xml")
+	setBadgeCacheControl(c)
+	httpx.SetHeader(c, "Expires", "0")
+	return httpx.Send(c, 200, generateHealthBadgeSVG(healthStatus))
 }
 
-func HealthBadgeShields(c *fiber.Ctx) error {
-	key, err := url.QueryUnescape(c.Params("key"))
+func HealthBadgeShields(c *echo.Context) error {
+	key, err := url.QueryUnescape(c.Param("key"))
 	if err != nil {
-		return c.Status(400).SendString("invalid key encoding")
+		return httpx.SendString(c, 400, "invalid key encoding")
 	}
 	pagingConfig := paging.NewEndpointStatusParams()
 	status, err := store.Get().GetEndpointStatusByKey(key, pagingConfig.WithResults(1, 1))
 	if err != nil {
 		if errors.Is(err, common.ErrEndpointNotFound) {
-			return c.Status(404).SendString(err.Error())
+			return httpx.SendString(c, 404, err.Error())
 		} else if errors.Is(err, common.ErrInvalidTimeRange) {
-			return c.Status(400).SendString(err.Error())
+			return httpx.SendString(c, 400, err.Error())
 		}
-		return c.Status(500).SendString(err.Error())
+		return httpx.SendString(c, 500, err.Error())
 	}
 	healthStatus := HealthStatusUnknown
 	if len(status.Results) > 0 {
@@ -166,14 +168,14 @@ func HealthBadgeShields(c *fiber.Ctx) error {
 			healthStatus = HealthStatusDown
 		}
 	}
-	c.Set("Content-Type", "application/json")
-	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Set("Expires", "0")
+	httpx.SetHeader(c, "Content-Type", "application/json")
+	setBadgeCacheControl(c)
+	httpx.SetHeader(c, "Expires", "0")
 	jsonData, err := generateHealthBadgeShields(healthStatus)
 	if err != nil {
-		return c.Status(500).SendString(err.Error())
+		return httpx.SendString(c, 500, err.Error())
 	}
-	return c.Status(200).Send(jsonData)
+	return httpx.Send(c, 200, jsonData)
 }
 
 func generateUptimeBadgeSVG(duration string, uptime float64) []byte {
@@ -386,4 +388,16 @@ func getBadgeShieldsColorFromHealth(healthStatus string) string {
 		return "red"
 	}
 	return "yellow"
+}
+
+// setBadgeCacheControl sets the Cache-Control of a badge before its body is written. The badge of a status page with a
+// login of its own is private: with net/http a header set after the first byte never reaches the client, so the handler
+// of the page says it beforehand instead of changing the header afterwards, see statusPageBadgeHandler.
+func setBadgeCacheControl(c *echo.Context) {
+	if private, _ := c.Get(localsPrivateBadge).(bool); private {
+		httpx.SetHeader(c, "Cache-Control", "private, no-store")
+		httpx.Vary(c, echo.HeaderAuthorization)
+		return
+	}
+	httpx.SetHeader(c, "Cache-Control", "no-cache, no-store, must-revalidate")
 }

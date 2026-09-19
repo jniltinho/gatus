@@ -17,7 +17,8 @@ import (
 	"gatus/v5/security"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -62,7 +63,7 @@ type authTestResponse struct {
 	body    map[string]any
 }
 
-func doAuthTestRequest(t *testing.T, app *fiber.App, method, path, body string, prepares ...func(*http.Request)) authTestResponse {
+func doAuthTestRequest(t *testing.T, app *echo.Echo, method, path, body string, prepares ...func(*http.Request)) authTestResponse {
 	t.Helper()
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	request.Host = authTestHost
@@ -72,7 +73,7 @@ func doAuthTestRequest(t *testing.T, app *fiber.App, method, path, body string, 
 	for _, prepare := range prepares {
 		prepare(request)
 	}
-	response, err := app.Test(request, -1)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -106,7 +107,7 @@ func authTestBasicAuth(password string) func(*http.Request) {
 	}
 }
 
-func authTestLogin(t *testing.T, app *fiber.App) *http.Cookie {
+func authTestLogin(t *testing.T, app *echo.Echo) *http.Cookie {
 	t.Helper()
 	response := doAuthTestRequest(t, app, http.MethodPost, "/api/v1/auth/login", authTestCredentials)
 	if response.status != http.StatusNoContent || response.session == nil {
@@ -280,10 +281,10 @@ func TestAuthRoutesWithoutBasicLogin(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			cfg := &config.Config{Security: scenario.securityConfig}
-			app := fiber.New()
+			app := echo.New()
 			router := app.Group("/api")
 			clientIP := clientIPMiddleware(nil)
-			router.Get("/v1/config", clientIP, ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig)
+			router.GET("/v1/config", ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig, clientIP)
 			registerAuthRoutes(router, cfg, clientIP)
 			for _, path := range []string{"/api/v1/auth/login", "/api/v1/auth/logout"} {
 				if response := doAuthTestRequest(t, app, http.MethodPost, path, authTestCredentials); response.status != http.StatusNotFound {

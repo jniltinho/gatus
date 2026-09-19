@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"gatus/v5/config/admin"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 func TestAdminRequestProtection(t *testing.T) {
@@ -48,17 +49,17 @@ func TestAdminRequestProtection(t *testing.T) {
 			if adminConfig == nil {
 				adminConfig = &admin.Config{Enabled: true}
 			}
-			app := fiber.New()
+			app := echo.New()
 			app.Use(adminRequestProtection(adminConfig))
-			app.All("/api/v1/admin/endpoints", func(c *fiber.Ctx) error {
-				return c.SendStatus(http.StatusNoContent)
+			app.Any("/api/v1/admin/endpoints", func(c *echo.Context) error {
+				return c.NoContent(http.StatusNoContent)
 			})
 			request := httptest.NewRequest(scenario.method, "/api/v1/admin/endpoints", strings.NewReader(scenario.body))
 			request.Host = "status.example.com"
 			for name, value := range scenario.headers {
 				request.Header.Set(name, value)
 			}
-			response, err := app.Test(request)
+			response, err := testHTTP(app, request)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}

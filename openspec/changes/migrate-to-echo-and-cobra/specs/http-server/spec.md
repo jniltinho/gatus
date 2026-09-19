@@ -52,11 +52,19 @@ As respostas JSON MUST ter os mesmos bytes de antes da troca, sem quebra de linh
 - **THEN** a chave vista pelo manipulador é a mesma de antes da troca
 
 ### Requirement: Esquema e sessão sem confiar em cabeçalhos
-A proteção contra CSRF e o atributo `Secure` do cookie de sessão MUST usar o TLS da própria conexão e o `Host` da requisição, e MUST NOT usar `X-Forwarded-Proto`, `X-Forwarded-Ssl` nem resolução de esquema que confie neles. O cookie `gatus_session` MUST manter `Path=/`, `HttpOnly` e `SameSite=Strict`.
+A proteção contra CSRF e o atributo `Secure` do cookie de sessão MUST continuar usando o TLS da própria conexão, o `Host` da requisição e o **primeiro valor** de `X-Forwarded-Proto`, exatamente como hoje, e MUST NOT usar a resolução de esquema do framework, que também confia em `X-Forwarded-Protocol`, `X-Forwarded-Ssl` e `X-Url-Scheme`, nem `X-Forwarded-Host`. O cookie `gatus_session` MUST manter `Path=/`, `HttpOnly` e `SameSite=Strict`.
 
-#### Scenario: Cabeçalho de esquema forjado
+#### Scenario: Proxy que termina o TLS
 - **WHEN** uma conexão sem TLS envia `X-Forwarded-Proto: https` no login
-- **THEN** o cookie de sessão é emitido sem `Secure`, como hoje
+- **THEN** o cookie de sessão é emitido com `Secure`, como hoje
+
+#### Scenario: Cabeçalhos que o framework aceitaria
+- **WHEN** uma conexão sem TLS envia só `X-Forwarded-Ssl: on` no login
+- **THEN** o cookie de sessão é emitido sem `Secure`
+
+#### Scenario: Host forjado
+- **WHEN** chega um `POST` da administração com `Origin: https://evil.example` e `X-Forwarded-Host: evil.example`
+- **THEN** a resposta é 403
 
 ### Requirement: Métodos HEAD preservados
 As rotas que hoje respondem `HEAD` por serem registradas com `GET` MUST continuar respondendo `HEAD`, entre elas o HTML das status pages — com o desafio 401 da página com login — e o canal de eventos. O `HEAD` do canal de eventos MUST NOT abrir stream nem ocupar vaga do limitador, e o tratamento automático de `HEAD` do roteador MUST ficar desligado.

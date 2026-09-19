@@ -9,31 +9,32 @@ import (
 	"time"
 
 	"gatus/v5/config/admin"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func newAdminTestApp(t *testing.T, securityConfig *Config, adminConfig *admin.Config) *fiber.App {
+func newAdminTestApp(t *testing.T, securityConfig *Config, adminConfig *admin.Config) *echo.Echo {
 	t.Helper()
-	app := fiber.New()
+	app := echo.New()
 	protected := app.Group("/api")
 	if err := securityConfig.ApplySecurityMiddleware(protected); err != nil {
 		t.Fatalf("failed to apply security middleware: %v", err)
 	}
 	protected.Use(securityConfig.AdminMiddleware(adminConfig))
-	protected.Get("/admin", func(ctx *fiber.Ctx) error {
-		return ctx.SendString(securityConfig.RequestAuthor(ctx))
+	protected.GET("/admin", func(ctx *echo.Context) error {
+		return ctx.String(http.StatusOK, securityConfig.RequestAuthor(ctx))
 	})
 	return app
 }
 
-func doAdminTestRequest(t *testing.T, app *fiber.App, prepare func(request *http.Request)) (int, string) {
+func doAdminTestRequest(t *testing.T, app *echo.Echo, prepare func(request *http.Request)) (int, string) {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/api/admin", http.NoBody)
 	if prepare != nil {
 		prepare(request)
 	}
-	response, err := app.Test(request)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

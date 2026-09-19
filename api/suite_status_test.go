@@ -200,7 +200,7 @@ func TestSuiteStatus(t *testing.T) {
 			if scenario.Gzip {
 				request.Header.Set("Accept-Encoding", "gzip")
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}
@@ -333,7 +333,7 @@ func TestSuiteStatus_SuiteNotInStoreButInConfig(t *testing.T) {
 			api := New(tt.cfg)
 			router := api.Router()
 			request := httptest.NewRequest("GET", "/api/v1/suites/"+tt.suiteKey+"/statuses", http.NoBody)
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				t.Fatalf("Router test failed: %v", err)
 			}
@@ -428,7 +428,7 @@ func TestSuiteStatuses(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
 			request := httptest.NewRequest("GET", scenario.Path, http.NoBody)
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}
@@ -477,7 +477,7 @@ func TestSuiteStatuses_NoSuitesInStoreButExistInConfig(t *testing.T) {
 	api := New(cfg)
 	router := api.Router()
 	request := httptest.NewRequest("GET", "/api/v1/suites/statuses", http.NoBody)
-	response, err := router.Test(request)
+	response, err := testHTTP(router, request)
 	if err != nil {
 		t.Fatalf("Router test failed: %v", err)
 	}

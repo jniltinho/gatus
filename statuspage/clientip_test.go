@@ -38,11 +38,7 @@ func TestClientIP(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			var lines [][]byte
-			for _, line := range scenario.forwardedFor {
-				lines = append(lines, []byte(line))
-			}
-			if actual := ClientIP(scenario.remoteIP, lines, trusted); actual.String() != scenario.expected {
+			if actual := ClientIP(scenario.remoteIP, scenario.forwardedFor, trusted); actual.String() != scenario.expected {
 				t.Errorf("expected %s, got %s", scenario.expected, actual)
 			}
 		})

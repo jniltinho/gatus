@@ -1,14 +1,16 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"gatus/v5/internal/httpx"
+
+	"github.com/labstack/echo/v5"
 )
 
 type CustomCSSHandler struct {
 	customCSS string
 }
 
-func (handler CustomCSSHandler) GetCustomCSS(c *fiber.Ctx) error {
-	c.Set("Content-Type", "text/css")
-	return c.Status(200).SendString(handler.customCSS)
+func (handler CustomCSSHandler) GetCustomCSS(c *echo.Context) error {
+	httpx.SetHeader(c, "Content-Type", "text/css")
+	return httpx.SendString(c, 200, handler.customCSS)
 }

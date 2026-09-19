@@ -5,15 +5,17 @@ import (
 	"net/http"
 
 	pageconfig "gatus/v5/config/statuspage"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/statuspage"
 	"gatus/v5/storage/store/common"
+
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 // adminStatusPageError maps the errors of the administration of the status pages to their HTTP status. Unexpected
 // errors are logged and answered without their text.
-func adminStatusPageError(c *fiber.Ctx, err error) error {
+func adminStatusPageError(c *echo.Context, err error) error {
 	status := http.StatusInternalServerError
 	switch {
 	case errors.Is(err, statuspage.ErrStorageNotSupported):
@@ -42,7 +44,7 @@ func adminStatusPageError(c *fiber.Ctx, err error) error {
 	}
 	if status == http.StatusInternalServerError {
 		logr.Errorf("[api.adminStatusPageError] %s", err.Error())
-		return c.Status(status).JSON(fiber.Map{"error": "internal error"})
+		return httpx.JSON(c, status, map[string]any{"error": "internal error"})
 	}
-	return c.Status(status).JSON(fiber.Map{"error": err.Error()})
+	return httpx.JSON(c, status, map[string]any{"error": err.Error()})
 }

@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"gatus/v5/config/admin"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -55,40 +57,40 @@ func countPasswordChecks(t *testing.T) *atomic.Int32 {
 
 // newBasicAuthTestApp returns an app with login and logout handlers, the authentication state used by /api/v1/config
 // and a protected administration route answering the author of the request
-func newBasicAuthTestApp(t *testing.T, c *Config) *fiber.App {
+func newBasicAuthTestApp(t *testing.T, c *Config) *echo.Echo {
 	t.Helper()
 	adminConfig := &admin.Config{Enabled: true}
-	app := fiber.New()
-	app.Post("/login", func(ctx *fiber.Ctx) error {
-		err := c.Login(ctx, ctx.Get("X-Username"), ctx.Get("X-Password"))
+	app := echo.New()
+	app.POST("/login", func(ctx *echo.Context) error {
+		err := c.Login(ctx, httpx.Header(ctx, "X-Username"), httpx.Header(ctx, "X-Password"))
 		var tooManyFailures *TooManyFailuresError
 		switch {
 		case err == nil:
-			return ctx.SendStatus(fiber.StatusNoContent)
+			return ctx.NoContent(http.StatusNoContent)
 		case errors.As(err, &tooManyFailures):
-			return ctx.SendStatus(fiber.StatusTooManyRequests)
+			return ctx.NoContent(http.StatusTooManyRequests)
 		case errors.Is(err, ErrInvalidCredentials):
-			return ctx.SendStatus(fiber.StatusUnauthorized)
+			return ctx.NoContent(http.StatusUnauthorized)
 		default:
-			return ctx.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			return ctx.String(http.StatusInternalServerError, err.Error())
 		}
 	})
-	app.Post("/logout", func(ctx *fiber.Ctx) error {
+	app.POST("/logout", func(ctx *echo.Context) error {
 		if err := c.Logout(ctx); err != nil {
 			return err
 		}
-		return ctx.SendStatus(fiber.StatusNoContent)
+		return ctx.NoContent(http.StatusNoContent)
 	})
-	app.Get("/state", func(ctx *fiber.Ctx) error {
-		return ctx.JSON(fiber.Map{"authenticated": c.IsAuthenticated(ctx), "admin": c.IsAdmin(ctx, adminConfig)})
+	app.GET("/state", func(ctx *echo.Context) error {
+		return ctx.JSON(http.StatusOK, map[string]any{"authenticated": c.IsAuthenticated(ctx), "admin": c.IsAdmin(ctx, adminConfig)})
 	})
 	protected := app.Group("/api")
 	if err := c.ApplySecurityMiddleware(protected); err != nil {
 		t.Fatalf("failed to apply security middleware: %v", err)
 	}
 	protected.Use(c.AdminMiddleware(adminConfig))
-	protected.Get("/admin", func(ctx *fiber.Ctx) error {
-		return ctx.SendString(c.RequestAuthor(ctx))
+	protected.GET("/admin", func(ctx *echo.Context) error {
+		return ctx.String(http.StatusOK, c.RequestAuthor(ctx))
 	})
 	return app
 }
@@ -100,13 +102,13 @@ type basicAuthTestResponse struct {
 	session *http.Cookie
 }
 
-func doBasicAuthTestRequest(t *testing.T, app *fiber.App, method, path string, prepares ...func(*http.Request)) basicAuthTestResponse {
+func doBasicAuthTestRequest(t *testing.T, app *echo.Echo, method, path string, prepares ...func(*http.Request)) basicAuthTestResponse {
 	t.Helper()
 	request := httptest.NewRequest(method, path, http.NoBody)
 	for _, prepare := range prepares {
 		prepare(request)
 	}
-	response, err := app.Test(request, -1)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -146,7 +148,7 @@ func basicAuthTestHeader(key, value string) func(*http.Request) {
 	}
 }
 
-func basicAuthTestLoginSession(t *testing.T, app *fiber.App) *http.Cookie {
+func basicAuthTestLoginSession(t *testing.T, app *echo.Echo) *http.Cookie {
 	t.Helper()
 	response := doBasicAuthTestRequest(t, app, http.MethodPost, "/login", basicAuthTestLogin("admin", "secret"))
 	if response.status != http.StatusNoContent || response.session == nil {

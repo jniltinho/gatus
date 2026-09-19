@@ -1,66 +1,98 @@
 package controller
 
 import (
+	"context"
+	"errors"
+	"net"
+	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"gatus/v5/api"
 	"gatus/v5/config"
-	"gatus/v5/liveupdates"
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp"
 )
 
-// shutdownTimeout is how long Shutdown waits for the open connections, e.g. an event stream blocked by a slow client
-const shutdownTimeout = 10 * time.Second
+// shutdownTimeout is how long Shutdown waits for the open connections, e.g. an event stream blocked by a slow client.
+// Past it the connections are closed: http.Server.Shutdown alone never closes an active one. It is a variable for the
+// tests.
+var shutdownTimeout = 10 * time.Second
+
+const (
+	// serverTimeout is the read, write and idle timeout of the ordinary requests. The event streams give themselves a
+	// longer write deadline, per request, before their first byte (see api/live_updates.go).
+	serverTimeout = 15 * time.Second
+)
 
 var (
-	app *fiber.App
+	mutex  sync.Mutex
+	server *http.Server
+	// stopped is closed when the server of the current cycle has stopped serving
+	stopped chan struct{}
 )
 
-// Handle creates the router and starts the server
+// Handle creates the router and starts the server. It blocks until the server stops, and a stop asked through Shutdown
+// is not an error: a reload of the configuration stops the server and starts another one.
 func Handle(cfg *config.Config) {
-	api := api.New(cfg)
-	app = api.Router()
-	server := app.Server()
-	server.ReadTimeout = 15 * time.Second
-	server.WriteTimeout = 15 * time.Second
-	server.IdleTimeout = 15 * time.Second
-	// Fork: the write timeout applies to the whole response, so the event streams get a longer one, decided before
-	// routing from the path of the request
-	server.HeaderReceived = eventStreamRequestConfig
+	router := api.New(cfg).Router()
+	// A new server for every cycle: an http.Server cannot be used again after Shutdown
+	current := &http.Server{
+		Addr:              cfg.Web.SocketAddress(),
+		Handler:           router,
+		ReadTimeout:       serverTimeout,
+		ReadHeaderTimeout: serverTimeout,
+		WriteTimeout:      serverTimeout,
+		IdleTimeout:       serverTimeout,
+		// web.read-buffer-size used to be the read buffer of fasthttp, which also capped the headers. net/http counts them
+		// in another way and has a margin of its own, so this is an approximation of the same limit, not the same number.
+		MaxHeaderBytes: cfg.Web.ReadBufferSize,
+	}
+	done := make(chan struct{})
+	mutex.Lock()
+	server, stopped = current, done
+	mutex.Unlock()
+	defer close(done)
 	if os.Getenv("ROUTER_TEST") == "true" {
 		return
 	}
+	listener, err := net.Listen("tcp", current.Addr)
+	if err != nil {
+		logr.Fatalf("[controller.Handle] %s", err.Error())
+	}
 	logr.Info("[controller.Handle] Listening on " + cfg.Web.SocketAddress())
 	if cfg.Web.HasTLS() {
-		err := app.ListenTLS(cfg.Web.SocketAddress(), cfg.Web.TLS.CertificateFile, cfg.Web.TLS.PrivateKeyFile)
-		if err != nil {
-			logr.Fatalf("[controller.Handle] %s", err.Error())
-		}
+		err = current.ServeTLS(listener, cfg.Web.TLS.CertificateFile, cfg.Web.TLS.PrivateKeyFile)
 	} else {
-		err := app.Listen(cfg.Web.SocketAddress())
-		if err != nil {
-			logr.Fatalf("[controller.Handle] %s", err.Error())
-		}
+		err = current.Serve(listener)
+	}
+	// Shutdown and Close make Serve return http.ErrServerClosed, which is how a server is meant to stop
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logr.Fatalf("[controller.Handle] %s", err.Error())
 	}
 	logr.Info("[controller.Handle] Server has shut down successfully")
 }
 
-// Shutdown stops the server
+// Shutdown stops the server and returns once it has stopped serving, so that the next cycle can listen on the same
+// address. The event streams must be closed before it (liveupdates.Close), otherwise it waits for them.
 func Shutdown() {
-	if app != nil {
-		_ = app.ShutdownWithTimeout(shutdownTimeout)
-		app = nil
+	mutex.Lock()
+	current, done := server, stopped
+	server, stopped = nil, nil
+	mutex.Unlock()
+	if current == nil {
+		return
 	}
-}
-
-// eventStreamRequestConfig gives the requests of the event streams a write timeout longer than their maximum duration.
-// The other requests keep the timeouts of the server, which an empty RequestConfig does not change.
-func eventStreamRequestConfig(header *fasthttp.RequestHeader) fasthttp.RequestConfig {
-	if liveupdates.IsEventsPath(string(header.RequestURI())) {
-		return fasthttp.RequestConfig{WriteTimeout: liveupdates.StreamWriteTimeout}
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := current.Shutdown(ctx); err != nil {
+		// The deadline passed with connections still active: they are closed, as ShutdownWithTimeout of Fiber did
+		_ = current.Close()
 	}
-	return fasthttp.RequestConfig{}
+	if done != nil {
+		select {
+		case <-done:
+		case <-time.After(shutdownTimeout):
+		}
+	}
 }

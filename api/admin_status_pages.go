@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"gatus/v5/internal/httpx"
 	"gatus/v5/security"
 	"gatus/v5/statuspage"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 type adminStatusPageHandler struct {
@@ -17,80 +19,80 @@ type adminStatusPageHandler struct {
 // registerAdminStatusPageRoutes registers the routes of the administration of the status pages on the administration
 // router, which already requires authentication, administrator permission and request protection. The fixed segments
 // are registered before /:slug, and the slugs matching them are reserved.
-func registerAdminStatusPageRoutes(router fiber.Router, securityConfig *security.Config) {
+func registerAdminStatusPageRoutes(router httpx.Router, securityConfig *security.Config) {
 	handler := &adminStatusPageHandler{service: statuspage.NewService(), security: securityConfig}
-	router.Get("/status-pages", handler.list)
-	router.Get("/status-pages/options", handler.options)
-	router.Get("/status-pages/exposure", handler.exposure)
-	router.Post("/status-pages/validate", handler.validate)
-	router.Post("/status-pages", handler.create)
-	router.Get("/status-pages/:slug", handler.get)
-	router.Put("/status-pages/:slug", handler.update)
-	router.Post("/status-pages/:slug/enable", handler.setEnabled(true))
-	router.Post("/status-pages/:slug/disable", handler.setEnabled(false))
-	router.Delete("/status-pages/:slug", handler.delete)
-	router.Get("/status-pages/:slug/preview", handler.preview)
+	httpx.GetAndHead(router, "/status-pages", handler.list)
+	httpx.GetAndHead(router, "/status-pages/options", handler.options)
+	httpx.GetAndHead(router, "/status-pages/exposure", handler.exposure)
+	router.POST("/status-pages/validate", handler.validate)
+	router.POST("/status-pages", handler.create)
+	httpx.GetAndHead(router, "/status-pages/:slug", handler.get)
+	router.PUT("/status-pages/:slug", handler.update)
+	router.POST("/status-pages/:slug/enable", handler.setEnabled(true))
+	router.POST("/status-pages/:slug/disable", handler.setEnabled(false))
+	router.DELETE("/status-pages/:slug", handler.delete)
+	httpx.GetAndHead(router, "/status-pages/:slug/preview", handler.preview)
 }
 
-func (h *adminStatusPageHandler) list(c *fiber.Ctx) error {
-	return c.Status(http.StatusOK).JSON(h.service.List())
+func (h *adminStatusPageHandler) list(c *echo.Context) error {
+	return httpx.JSON(c, http.StatusOK, h.service.List())
 }
 
-func (h *adminStatusPageHandler) options(c *fiber.Ctx) error {
-	return c.Status(http.StatusOK).JSON(h.service.Options())
+func (h *adminStatusPageHandler) options(c *echo.Context) error {
+	return httpx.JSON(c, http.StatusOK, h.service.Options())
 }
 
-func (h *adminStatusPageHandler) exposure(c *fiber.Ctx) error {
-	exposure, err := h.service.Exposure(c.Query("group"), c.Query("key"))
+func (h *adminStatusPageHandler) exposure(c *echo.Context) error {
+	exposure, err := h.service.Exposure(httpx.Query(c, "group"), httpx.Query(c, "key"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
-	return c.Status(http.StatusOK).JSON(exposure)
+	return httpx.JSON(c, http.StatusOK, exposure)
 }
 
-func (h *adminStatusPageHandler) validate(c *fiber.Ctx) error {
-	validation, err := h.service.Validate(c.Body(), c.Query("slug"))
+func (h *adminStatusPageHandler) validate(c *echo.Context) error {
+	validation, err := h.service.Validate(httpx.Body(c), httpx.Query(c, "slug"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
-	return c.Status(http.StatusOK).JSON(validation)
+	return httpx.JSON(c, http.StatusOK, validation)
 }
 
-func (h *adminStatusPageHandler) create(c *fiber.Ctx) error {
-	detail, err := h.service.Create(c.Body(), h.security.RequestAuthor(c))
+func (h *adminStatusPageHandler) create(c *echo.Context) error {
+	detail, err := h.service.Create(httpx.Body(c), h.security.RequestAuthor(c))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
 	return writeAdminStatusPageDetail(c, http.StatusCreated, detail)
 }
 
-func (h *adminStatusPageHandler) get(c *fiber.Ctx) error {
-	detail, err := h.service.Get(c.Params("slug"))
+func (h *adminStatusPageHandler) get(c *echo.Context) error {
+	detail, err := h.service.Get(c.Param("slug"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
 	return writeAdminStatusPageDetail(c, http.StatusOK, detail)
 }
 
-func (h *adminStatusPageHandler) update(c *fiber.Ctx) error {
+func (h *adminStatusPageHandler) update(c *echo.Context) error {
 	expectedVersion, err := adminExpectedVersion(c)
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
-	detail, err := h.service.Update(c.Params("slug"), c.Body(), expectedVersion, h.security.RequestAuthor(c))
+	detail, err := h.service.Update(c.Param("slug"), httpx.Body(c), expectedVersion, h.security.RequestAuthor(c))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
 	return writeAdminStatusPageDetail(c, http.StatusOK, detail)
 }
 
-func (h *adminStatusPageHandler) setEnabled(enabled bool) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func (h *adminStatusPageHandler) setEnabled(enabled bool) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		expectedVersion, err := adminExpectedVersion(c)
 		if err != nil {
 			return adminStatusPageError(c, err)
 		}
-		detail, err := h.service.SetEnabled(c.Params("slug"), enabled, expectedVersion, h.security.RequestAuthor(c))
+		detail, err := h.service.SetEnabled(c.Param("slug"), enabled, expectedVersion, h.security.RequestAuthor(c))
 		if err != nil {
 			return adminStatusPageError(c, err)
 		}
@@ -98,31 +100,31 @@ func (h *adminStatusPageHandler) setEnabled(enabled bool) fiber.Handler {
 	}
 }
 
-func (h *adminStatusPageHandler) delete(c *fiber.Ctx) error {
+func (h *adminStatusPageHandler) delete(c *echo.Context) error {
 	expectedVersion, err := adminExpectedVersion(c)
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
-	slug := c.Params("slug")
+	slug := c.Param("slug")
 	if err := h.service.Delete(slug, expectedVersion, h.security.RequestAuthor(c)); err != nil {
 		return adminStatusPageError(c, err)
 	}
-	return c.Status(http.StatusOK).JSON(fiber.Map{"slug": slug})
+	return httpx.JSON(c, http.StatusOK, map[string]any{"slug": slug})
 }
 
-func (h *adminStatusPageHandler) preview(c *fiber.Ctx) error {
-	body, err := h.service.Preview(c.Params("slug"))
+func (h *adminStatusPageHandler) preview(c *echo.Context) error {
+	body, err := h.service.Preview(c.Param("slug"))
 	if err != nil {
 		return adminStatusPageError(c, err)
 	}
-	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-	c.Set(fiber.HeaderCacheControl, "no-store")
-	return c.Status(http.StatusOK).Send(body)
+	httpx.SetHeader(c, echo.HeaderContentType, echo.MIMEApplicationJSON)
+	httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")
+	return httpx.Send(c, http.StatusOK, body)
 }
 
-func writeAdminStatusPageDetail(c *fiber.Ctx, status int, detail *statuspage.Detail) error {
+func writeAdminStatusPageDetail(c *echo.Context, status int, detail *statuspage.Detail) error {
 	if detail.Version > 0 {
-		c.Set(fiber.HeaderETag, fmt.Sprintf(`"%d"`, detail.Version))
+		httpx.SetHeader(c, "ETag", fmt.Sprintf(`"%d"`, detail.Version))
 	}
-	return c.Status(status).JSON(detail)
+	return httpx.JSON(c, status, detail)
 }

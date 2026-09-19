@@ -9,6 +9,7 @@ import (
 	"gatus/v5/statuspage"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
+
 	"github.com/TwiN/logr"
 )
 

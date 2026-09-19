@@ -9,7 +9,6 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/ui"
 	"gatus/v5/security"
-	"github.com/gofiber/fiber/v2"
 )
 
 func TestNew(t *testing.T) {
@@ -24,83 +23,83 @@ func TestNew(t *testing.T) {
 		{
 			Name:         "health",
 			Path:         "/health",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "custom.css",
 			Path:         "/css/custom.css",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "custom.css-gzipped",
 			Path:         "/css/custom.css",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			Gzip:         true,
 		},
 		{
 			Name:         "metrics",
 			Path:         "/metrics",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "favicon.ico",
 			Path:         "/favicon.ico",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "app.js",
 			Path:         "/js/app.js",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "app.js-gzipped",
 			Path:         "/js/app.js",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			Gzip:         true,
 		},
 		{
 			Name:         "chunk-vendors.js",
 			Path:         "/js/chunk-vendors.js",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "chunk-vendors.js-gzipped",
 			Path:         "/js/chunk-vendors.js",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			Gzip:         true,
 		},
 		{
 			Name:         "index",
 			Path:         "/",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 		},
 		{
 			Name:         "index-html-redirect",
 			Path:         "/index.html",
-			ExpectedCode: fiber.StatusMovedPermanently,
+			ExpectedCode: http.StatusMovedPermanently,
 		},
 		{
 			Name:         "index-should-return-200-even-if-not-authenticated",
 			Path:         "/",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			WithSecurity: true,
 		},
 		{
 			Name:         "endpoints-should-return-401-if-not-authenticated",
 			Path:         "/api/v1/endpoints/statuses",
-			ExpectedCode: fiber.StatusUnauthorized,
+			ExpectedCode: http.StatusUnauthorized,
 			WithSecurity: true,
 		},
 		{
 			Name:         "config-should-return-200-even-if-not-authenticated",
 			Path:         "/api/v1/config",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			WithSecurity: true,
 		},
 		{
 			Name:         "config-should-always-return-200",
 			Path:         "/api/v1/config",
-			ExpectedCode: fiber.StatusOK,
+			ExpectedCode: http.StatusOK,
 			WithSecurity: false,
 		},
 	}
@@ -121,7 +120,7 @@ func TestNew(t *testing.T) {
 			if scenario.Gzip {
 				request.Header.Set("Accept-Encoding", "gzip")
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -137,12 +136,12 @@ func TestFontsAreServed(t *testing.T) {
 	for _, path := range []string{"/fonts/inter-4-1-latin.woff2", "/fonts/inter-4-1-latin-ext.woff2"} {
 		t.Run(path, func(t *testing.T) {
 			api := New(&config.Config{UI: &ui.Config{}})
-			response, err := api.Router().Test(httptest.NewRequest("GET", path, http.NoBody))
+			response, err := testHTTP(api.Router(), httptest.NewRequest("GET", path, http.NoBody))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if response.StatusCode != fiber.StatusOK {
-				t.Fatalf("GET %s should have returned %d, but returned %d instead", path, fiber.StatusOK, response.StatusCode)
+			if response.StatusCode != http.StatusOK {
+				t.Fatalf("GET %s should have returned %d, but returned %d instead", path, http.StatusOK, response.StatusCode)
 			}
 			if contentType := response.Header.Get("Content-Type"); contentType != "font/woff2" {
 				t.Errorf("GET %s should have returned the type font/woff2, but returned %s", path, contentType)

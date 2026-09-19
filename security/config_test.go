@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -99,16 +99,16 @@ func TestConfig_ApplySecurityMiddleware(t *testing.T) {
 			Username:                        "john.doe",
 			PasswordBcryptHashBase64Encoded: "JDJhJDA4JDFoRnpPY1hnaFl1OC9ISlFsa21VS09wOGlPU1ZOTDlHZG1qeTFvb3dIckRBUnlHUmNIRWlT",
 		}}
-		app := fiber.New()
+		app := echo.New()
 		if err := c.ApplySecurityMiddleware(app); err != nil {
 			t.Error("expected no error, got", err)
 		}
-		app.Get("/test", func(c *fiber.Ctx) error {
-			return c.SendStatus(200)
+		app.GET("/test", func(c *echo.Context) error {
+			return c.NoContent(200)
 		})
 		// Try to access the route without basic auth
 		request := httptest.NewRequest("GET", "/test", http.NoBody)
-		response, err := app.Test(request)
+		response, err := testHTTP(app, request)
 		if err != nil {
 			t.Fatal("expected no error, got", err)
 		}
@@ -118,7 +118,7 @@ func TestConfig_ApplySecurityMiddleware(t *testing.T) {
 		// Try again, but with basic auth
 		request = httptest.NewRequest("GET", "/test", http.NoBody)
 		request.SetBasicAuth("john.doe", "hunter2")
-		response, err = app.Test(request)
+		response, err = testHTTP(app, request)
 		if err != nil {
 			t.Fatal("expected no error, got", err)
 		}
@@ -139,16 +139,16 @@ func TestConfig_ApplySecurityMiddleware(t *testing.T) {
 			oauth2Config:    oauth2.Config{},
 			verifier:        nil,
 		}}
-		app := fiber.New()
+		app := echo.New()
 		if err := c.ApplySecurityMiddleware(app); err != nil {
 			t.Error("expected no error, got", err)
 		}
-		app.Get("/test", func(c *fiber.Ctx) error {
-			return c.SendStatus(200)
+		app.GET("/test", func(c *echo.Context) error {
+			return c.NoContent(200)
 		})
 		// Try without any session cookie
 		request := httptest.NewRequest("GET", "/test", http.NoBody)
-		response, err := app.Test(request)
+		response, err := testHTTP(app, request)
 		if err != nil {
 			t.Fatal("expected no error, got", err)
 		}
@@ -158,7 +158,7 @@ func TestConfig_ApplySecurityMiddleware(t *testing.T) {
 		// Try with a session cookie
 		request = httptest.NewRequest("GET", "/test", http.NoBody)
 		request.AddCookie(&http.Cookie{Name: "session", Value: "123"})
-		response, err = app.Test(request)
+		response, err = testHTTP(app, request)
 		if err != nil {
 			t.Fatal("expected no error, got", err)
 		}
@@ -170,11 +170,11 @@ func TestConfig_ApplySecurityMiddleware(t *testing.T) {
 
 func TestConfig_RegisterHandlers(t *testing.T) {
 	c := &Config{}
-	app := fiber.New()
+	app := echo.New()
 	c.RegisterHandlers(app)
 	// Try to access the OIDC handler. This should fail, because the security config doesn't have OIDC
 	request := httptest.NewRequest("GET", "/oidc/login", http.NoBody)
-	response, err := app.Test(request)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Fatal("expected no error, got", err)
 	}
@@ -197,7 +197,7 @@ func TestConfig_RegisterHandlers(t *testing.T) {
 		t.Fatal("expected no error, but got", err)
 	}
 	request = httptest.NewRequest("GET", "/oidc/login", http.NoBody)
-	response, err = app.Test(request)
+	response, err = testHTTP(app, request)
 	if err != nil {
 		t.Fatal("expected no error, got", err)
 	}

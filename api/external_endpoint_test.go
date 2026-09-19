@@ -119,7 +119,7 @@ func TestCreateExternalEndpointResult(t *testing.T) {
 			if len(scenario.AuthorizationHeaderBearerToken) > 0 {
 				request.Header.Set("Authorization", scenario.AuthorizationHeaderBearerToken)
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}
