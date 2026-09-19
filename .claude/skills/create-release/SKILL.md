@@ -136,6 +136,13 @@ contam o que mudou numa versão ("restores on `v6.0.0`", link das notas) são hi
 OLD=${LAST_TAG#v}; NEW=${NEXT#v}
 grep -rlE "v$OLD|gatus_${OLD}_" README.md docs/*.md .examples | xargs sed -i -E \
   "s#jniltinho/gatus:v$OLD#jniltinho/gatus:v$NEW#g; s#gatus_${OLD}_#gatus_${NEW}_#g; s#image\.tag=v$OLD#image.tag=v$NEW#g"
+```
+
+`docs/install-linux.md` é a exceção: ele baixa `docs/systemd/gatus.service` **da tag**, então precisa citar a versão nova
+já no commit que recebe a tag. Troque-o num PR **antes** da tag:
+
+```bash
+sed -i "s/^VERSION=$OLD\$/VERSION=$NEW/; s#jniltinho/gatus/v$OLD/docs/systemd#jniltinho/gatus/v$NEW/docs/systemd#" docs/install-linux.md
 grep -rnE "$OLD" README.md docs/*.md .examples   # o que sobrar deve ser só história
 ```
 
