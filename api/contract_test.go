@@ -218,7 +218,13 @@ func contractCases() []contractCase {
 		{Name: "static css", Method: "GET", Path: "/css/app.css", OnlyStatusAndHeaders: true},
 		{Name: "static css head", Method: "HEAD", Path: "/css/app.css"},
 		{Name: "static css gzip", Method: "GET", Path: "/css/app.css", Headers: map[string]string{"Accept-Encoding": "gzip"}, OnlyStatusAndHeaders: true},
-		{Name: "static font", Method: "GET", Path: "/fonts/inter-latin-variable.woff2", OnlyStatusAndHeaders: true},
+		{Name: "static font", Method: "GET", Path: "/fonts/inter-4-1-latin.woff2", OnlyStatusAndHeaders: true},
+		{Name: "static font range", Method: "GET", Path: "/fonts/inter-4-1-latin.woff2", Headers: map[string]string{"Range": "bytes=0-3"}},
+		// A path with "..", however it is escaped, must never reach the template of the SPA as a file
+		{Name: "static dot dot", Method: "GET", Path: "/css/../index.html", RawPath: true},
+		{Name: "static escaped dot dot", Method: "GET", Path: "/css/%2e%2e/index.html", RawPath: true},
+		{Name: "static escaped slash after dot dot", Method: "GET", Path: "/css/..%2findex.html", RawPath: true},
+		{Name: "static dot dot out of the file system", Method: "GET", Path: "/css/../../../../etc/passwd", RawPath: true},
 		{Name: "static missing", Method: "GET", Path: "/js/missing.js"},
 		{Name: "static missing with credentials", Method: "GET", Path: "/js/missing.js", Credentials: adminCredentials},
 		{Name: "static directory", Method: "GET", Path: "/js/", OnlyStatusAndHeaders: true},
@@ -344,6 +350,9 @@ func contractCases() []contractCase {
 		{Name: "unknown api path without credentials", Method: "GET", Path: "/api/v1/nothing-here"},
 		{Name: "unknown api path with credentials", Method: "GET", Path: "/api/v1/nothing-here", Credentials: adminCredentials},
 		{Name: "api root without credentials", Method: "GET", Path: "/api"},
+		{Name: "unknown api path head", Method: "HEAD", Path: "/api/v1/nothing-here"},
+		{Name: "unknown api path options", Method: "OPTIONS", Path: "/api/v1/nothing-here"},
+		{Name: "unknown api path post with credentials", Method: "POST", Path: "/api/v1/nothing-here", Credentials: adminCredentials},
 
 		// Login screen of security.basic
 		{Name: "login cross site", Method: "POST", Path: "/api/v1/auth/login", Headers: map[string]string{"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}, Body: `{"username":"admin","password":"secret"}`},

@@ -157,7 +157,7 @@ Isso **reduz** o conflito de sincronização, não o zera: arquivos que o upstre
 
 ### D8 — As diferenças aceitas, medidas pelo contrato
 
-O contrato gravado contra o Fiber tem 169 respostas. No Echo, **159 são idênticas**; estas 10 mudam, e são aceitas:
+O contrato tem **188 respostas gravadas contra o Fiber** — as primeiras 169 antes da troca, e as demais num worktree do commit anterior a ela, cada vez que uma revisão mostrou um caso que faltava. No Echo, 175 são idênticas; estas mudam, e são aceitas:
 
 | Diferença | Por quê |
 |-----------|---------|
@@ -169,6 +169,8 @@ O contrato gravado contra o Fiber tem 169 respostas. No Echo, **159 são idênti
 | Corpo do 400 de um escape inválido (`%zz`): `400 Bad Request` | É o `net/http` que recusa a linha da requisição, antes do manipulador. |
 | Caminho com maiúsculas (`/API/v1/config`, `/HEALTH`): **404** | Decidido em D4. **Entra nas notas como mudança.** |
 | Diretório dos estáticos (`/js/`): **404** no lugar da listagem | Decidido em D4. |
+| Caminho com `..` nos estáticos (`/css/../index.html`, `/css/%2e%2e/index.html`): **404** no lugar do 301 | O fasthttp resolvia o `..` antes de rotear; o `net/http` não. Recusar é mais seguro do que resolver depois que as rotas já foram escolhidas, e o template do SPA nunca é servido como arquivo. |
+| `Range` nos estáticos: **206** com o trecho, no lugar do 200 com o arquivo inteiro | O Fiber ignorava o `Range`; o `net/http` atende. |
 
 O que **não** mudou, e o contrato prova: todos os 401 e seus `WWW-Authenticate`, os 404 idênticos das capturas, os 403 do CSRF com `Origin` e `X-Forwarded-Host` forjados, os quatro limites de corpo, `If-Match` em suas quatro formas, as chaves com `%2F`, `%252F` e `+`, o login das páginas em `GET` e `HEAD` e o 429 depois de dez falhas.
 
@@ -191,6 +193,7 @@ Empate onde o servidor é o que se mede, cerca de 10% atrás onde o gargalo é o
 - **Desempenho:** o `fasthttp` é mais rápido que o `net/http` em benchmark sintético. O Gatus serve um painel e uma API de leitura com cache, e o gargalo é o storage; o marco 2 mede a latência das rotas públicas antes e depois e registra os números no PR.
 - **Regressão silenciosa de contrato:** mitigada por D3, e pelas quatro suítes E2E, que exercitam navegador, SSE e `curl` contra o binário real.
 - **Roteador sem ordem:** uma rota protegida registrada no grupo errado ficaria pública. A suíte de contrato inclui, para **cada** rota protegida, o caso sem credencial esperando 401.
+- **O corpo é lido antes da autenticação**, como no fasthttp: um anônimo consegue fazer o servidor guardar até 4 MiB por requisição, em qualquer rota. Não é regressão — o Fiber lia o corpo inteiro antes dos manipuladores —, e é o preço de recusar com 413 antes de qualquer efeito. Um `Content-Length` acima do limite é recusado sem ler nada.
 - **Echo v5 é recente** (linha 5.x de 2026, mantida em paralelo à 4.x): a versão é fixada no `go.mod` e o Dependabot cuida das atualizações.
 - **Cobra aumenta o binário** em algumas centenas de KB e muda o texto de erro de argumento inválido; `gatus` sem argumentos não muda.
 

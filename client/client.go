@@ -353,23 +353,52 @@ func ExecuteSSHCommand(sshClient *ssh.Client, body string, config *Config) (bool
 //
 // Note that this function takes at least 100ms, even if the address is 127.0.0.1
 func Ping(address string, config *Config) (bool, time.Duration) {
+	pinger := newPinger(address, config)
+	err := pinger.Run()
+	if err != nil {
+		return false, 0
+	}
+	if statistics := pinger.Statistics(); statistics != nil {
+		// If the packet loss is 100, it means that the packet didn't reach the host
+		if statistics.PacketLoss == 100 {
+			return false, config.Timeout
+		}
+		return true, statistics.MaxRtt
+	}
+	return true, 0
+}
+
+// Pinger is what Ping needs from an ICMP pinger. It exists so that the tests can replace the real one: an ICMP echo needs
+// a raw socket or a ping group the user of a test machine often does not have, and the rules of Ping — an error is a
+// failure without a round-trip time, a full packet loss is a failure after the timeout — do not depend on the network.
+type Pinger interface {
+	Run() error
+	Statistics() *ping.Statistics
+}
+
+// injectedPinger is used for testing purposes
+var injectedPinger func(address string, config *Config) Pinger
+
+// InjectPinger is used to inject a custom pinger for testing purposes. Passing nil restores the real one.
+func InjectPinger(factory func(address string, config *Config) Pinger) {
+	injectedPinger = factory
+}
+
+func newPinger(address string, config *Config) Pinger {
+	if injectedPinger != nil {
+		return injectedPinger(address, config)
+	}
+	return newICMPPinger(address, config)
+}
+
+// newICMPPinger returns the real pinger, configured for a single echo within the timeout of the configuration
+func newICMPPinger(address string, config *Config) *ping.Pinger {
 	pinger := ping.New(address)
 	pinger.Count = 1
 	pinger.Timeout = config.Timeout
 	pinger.SetPrivileged(ShouldRunPingerAsPrivileged())
 	pinger.SetNetwork(config.Network)
-	err := pinger.Run()
-	if err != nil {
-		return false, 0
-	}
-	if pinger.Statistics() != nil {
-		// If the packet loss is 100, it means that the packet didn't reach the host
-		if pinger.Statistics().PacketLoss == 100 {
-			return false, pinger.Timeout
-		}
-		return true, pinger.Statistics().MaxRtt
-	}
-	return true, 0
+	return pinger
 }
 
 // ShouldRunPingerAsPrivileged will determine whether or not to run pinger in privileged mode.

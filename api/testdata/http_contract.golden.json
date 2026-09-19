@@ -2034,7 +2034,7 @@
       ]
     }
   },
-  "static font": {
+  "static dot dot": {
     "status": 404,
     "headers": {
       "Content-Type": [
@@ -2043,7 +2043,67 @@
       "Vary": [
         "Accept-Encoding"
       ]
+    },
+    "body": "Cannot GET /css/../index.html"
+  },
+  "static dot dot out of the file system": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "Cannot GET /css/../../../../etc/passwd"
+  },
+  "static escaped dot dot": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "Cannot GET /css/%2e%2e/index.html"
+  },
+  "static escaped slash after dot dot": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "Cannot GET /css/..%2findex.html"
+  },
+  "static font": {
+    "status": 200,
+    "headers": {
+      "Content-Type": [
+        "font/woff2"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
     }
+  },
+  "static font range": {
+    "status": 206,
+    "headers": {
+      "Content-Type": [
+        "font/woff2"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "wOF2"
   },
   "static missing": {
     "status": 404,
@@ -2794,6 +2854,53 @@
       ]
     },
     "body": "{\"status\":\"UP\"}"
+  },
+  "unknown api path head": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    }
+  },
+  "unknown api path options": {
+    "status": 401,
+    "headers": {
+      "Cache-Control": [
+        "no-store"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
+      "Www-Authenticate": [
+        "Basic"
+      ]
+    },
+    "body": "{\"error\":\"authentication required\"}"
+  },
+  "unknown api path post with credentials": {
+    "status": 404,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    },
+    "body": "Cannot POST /api/v1/nothing-here"
   },
   "unknown api path with credentials": {
     "status": 404,

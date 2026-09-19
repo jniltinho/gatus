@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	ping "github.com/prometheus-community/pro-bing"
+
 	"gatus/v5/alerting/alert"
 	"gatus/v5/client"
 	"gatus/v5/config/endpoint/dns"
@@ -19,6 +21,8 @@ import (
 	"gatus/v5/config/gontext"
 	"gatus/v5/config/maintenance"
 	"gatus/v5/test"
+
+	"golang.org/x/net/icmp"
 )
 
 func TestHasHeader(t *testing.T) {
@@ -982,7 +986,62 @@ func TestIntegrationEvaluateHealthForSSH(t *testing.T) {
 	}
 }
 
+// stubPinger answers what a test says, without touching the network
+type stubPinger struct {
+	err        error
+	statistics *ping.Statistics
+}
+
+func (pinger *stubPinger) Run() error                   { return pinger.err }
+func (pinger *stubPinger) Statistics() *ping.Statistics { return pinger.statistics }
+
+// TestEvaluateHealthForICMP covers an icmp:// endpoint from its URL to its result with a pinger that does not touch the
+// network: whether ICMP is allowed to the user running the tests must not decide whether they pass
+func TestEvaluateHealthForICMP(t *testing.T) {
+	defer client.InjectPinger(nil)
+	scenarios := []struct {
+		name              string
+		pinger            *stubPinger
+		expectedConnected bool
+	}{
+		{name: "the host answers", pinger: &stubPinger{statistics: &ping.Statistics{PacketsSent: 1, PacketsRecv: 1, MaxRtt: 5 * time.Millisecond}}, expectedConnected: true},
+		{name: "every packet is lost", pinger: &stubPinger{statistics: &ping.Statistics{PacketsSent: 1, PacketLoss: 100}}},
+		{name: "the pinger fails", pinger: &stubPinger{err: errors.New("socket: permission denied")}},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			var askedAddress string
+			client.InjectPinger(func(address string, _ *client.Config) client.Pinger {
+				askedAddress = address
+				return scenario.pinger
+			})
+			endpoint := Endpoint{Name: "icmp-test", URL: "icmp://192.0.2.10", Conditions: []Condition{"[CONNECTED] == true"}}
+			if err := endpoint.ValidateAndSetDefaults(); err != nil {
+				t.Fatal("did not expect an error, got", err)
+			}
+			result := endpoint.EvaluateHealth()
+			if askedAddress != "192.0.2.10" {
+				t.Errorf("expected the host of the URL to be pinged, got %q", askedAddress)
+			}
+			if result.Connected != scenario.expectedConnected || result.Success != scenario.expectedConnected || result.ConditionResults[0].Success != scenario.expectedConnected {
+				t.Errorf("expected connected=%v, got connected=%v success=%v condition=%v", scenario.expectedConnected, result.Connected, result.Success, result.ConditionResults[0].Success)
+			}
+		})
+	}
+}
+
+// TestIntegrationEvaluateHealthForICMP sends a real ICMP echo to the loopback. It is skipped only when this user cannot
+// open the ICMP socket (WSL and some containers, by default); TestEvaluateHealthForICMP covers the same path without it.
 func TestIntegrationEvaluateHealthForICMP(t *testing.T) {
+	network := "udp4"
+	if client.ShouldRunPingerAsPrivileged() {
+		network = "ip4:icmp"
+	}
+	connection, listenErr := icmp.ListenPacket(network, "0.0.0.0")
+	if listenErr != nil {
+		t.Skipf("ICMP is not available to this user (%v): on Linux, run the tests as root or widen net.ipv4.ping_group_range", listenErr)
+	}
+	_ = connection.Close()
 	endpoint := Endpoint{
 		Name:       "icmp-test",
 		URL:        "icmp://127.0.0.1",

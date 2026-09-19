@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
+	"strings"
 
 	"gatus/v5/config"
 	"gatus/v5/config/ui"
@@ -191,11 +193,21 @@ func staticFileHandler(fileSystem fs.FS) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		// The wildcard is the escaped path, because the router matches the path as it was sent
 		name, err := url.PathUnescape(c.Param("*"))
-		if err != nil {
+		if err != nil || strings.Contains(name, "\\") {
+			return echo.ErrNotFound
+		}
+		// fasthttp resolved ".." before routing, so /css/../index.html was /index.html and got its redirect. net/http does
+		// not, and path.Clean would quietly resolve it here, AFTER the routes that guard a path were skipped: a path with
+		// ".." is refused instead, however it was escaped.
+		if slices.Contains(strings.Split(name, "/"), "..") {
 			return echo.ErrNotFound
 		}
 		name = path.Clean("/" + name)[1:]
-		if info, statErr := fs.Stat(fileSystem, name); len(name) == 0 || statErr != nil || info.IsDir() {
+		// The template of the SPA is never served as a file: / renders it and /index.html redirects to /
+		if len(name) == 0 || name == "index.html" {
+			return echo.ErrNotFound
+		}
+		if info, statErr := fs.Stat(fileSystem, name); statErr != nil || info.IsDir() {
 			return echo.ErrNotFound
 		}
 		return c.FileFS(name, fileSystem)
@@ -221,7 +233,9 @@ func httpErrorHandler(c *echo.Context, err error) {
 	case http.StatusMethodNotAllowed:
 		_ = httpx.SendString(c, status, http.StatusText(status))
 	default:
+		// The error is for the log and never for the client: echo's Recover wraps a panic in an error whose text is the
+		// whole stack trace, with the paths of the files and the lines
 		logr.Errorf("[api.ErrorHandler] %s", err.Error())
-		_ = httpx.SendString(c, status, err.Error())
+		_ = httpx.SendString(c, status, http.StatusText(status))
 	}
 }

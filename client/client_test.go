@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +17,9 @@ import (
 	"gatus/v5/config/endpoint/dns"
 	"gatus/v5/pattern"
 	"gatus/v5/test"
+
+	ping "github.com/prometheus-community/pro-bing"
+	"golang.org/x/net/icmp"
 )
 
 func isIgnorableNetworkTestError(err error) bool {
@@ -110,8 +114,80 @@ func TestGetDomainExpiration(t *testing.T) {
 	}
 }
 
+// fakePinger answers what a test says, without touching the network
+type fakePinger struct {
+	err        error
+	statistics *ping.Statistics
+}
+
+func (pinger *fakePinger) Run() error                   { return pinger.err }
+func (pinger *fakePinger) Statistics() *ping.Statistics { return pinger.statistics }
+
+// TestPing covers the rules of Ping with a pinger that does not touch the network: whether ICMP is allowed to the user
+// running the tests must not decide whether they pass
 func TestPing(t *testing.T) {
-	t.Parallel()
+	defer InjectPinger(nil)
+	timeout := 500 * time.Millisecond
+	scenarios := []struct {
+		name            string
+		pinger          *fakePinger
+		expectedSuccess bool
+		expectedRTT     time.Duration
+	}{
+		{name: "answered", pinger: &fakePinger{statistics: &ping.Statistics{PacketsSent: 1, PacketsRecv: 1, MaxRtt: 12 * time.Millisecond}}, expectedSuccess: true, expectedRTT: 12 * time.Millisecond},
+		{name: "every packet lost, so the timeout is the round-trip time", pinger: &fakePinger{statistics: &ping.Statistics{PacketsSent: 1, PacketLoss: 100}}, expectedRTT: timeout},
+		{name: "the pinger failed, e.g. an address that does not resolve or a socket that is not permitted", pinger: &fakePinger{err: errors.New("socket: permission denied")}},
+		{name: "without statistics", pinger: &fakePinger{}, expectedSuccess: true},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			var askedAddress string
+			var askedConfig *Config
+			InjectPinger(func(address string, config *Config) Pinger {
+				askedAddress, askedConfig = address, config
+				return scenario.pinger
+			})
+			config := &Config{Timeout: timeout, Network: "ip4"}
+			success, rtt := Ping("192.0.2.10", config)
+			if success != scenario.expectedSuccess || rtt != scenario.expectedRTT {
+				t.Errorf("expected success=%v rtt=%s, got success=%v rtt=%s", scenario.expectedSuccess, scenario.expectedRTT, success, rtt)
+			}
+			if askedAddress != "192.0.2.10" || askedConfig != config {
+				t.Errorf("expected the pinger to be created for the address and the configuration, got %q and %+v", askedAddress, askedConfig)
+			}
+		})
+	}
+}
+
+// TestNewICMPPinger covers how the real pinger is configured, without running it
+func TestNewICMPPinger(t *testing.T) {
+	pinger := newICMPPinger("127.0.0.1", &Config{Timeout: 750 * time.Millisecond, Network: "ip4"})
+	if pinger.Count != 1 || pinger.Timeout != 750*time.Millisecond || pinger.Privileged() != ShouldRunPingerAsPrivileged() {
+		t.Errorf("expected a single echo within the timeout, got count=%d timeout=%s privileged=%v", pinger.Count, pinger.Timeout, pinger.Privileged())
+	}
+}
+
+// requireICMP skips the test when this user cannot open the socket the pinger needs. It is the same socket, so a
+// machine that can ping never skips, and a regression of Ping itself still fails wherever ICMP is allowed (the CI runs
+// the tests with sudo for this reason).
+func requireICMP(t *testing.T) {
+	t.Helper()
+	network := "udp4"
+	if ShouldRunPingerAsPrivileged() {
+		network = "ip4:icmp"
+	}
+	connection, err := icmp.ListenPacket(network, "0.0.0.0")
+	if err != nil {
+		t.Skipf("ICMP is not available to this user (%v): on Linux, run the tests as root or widen net.ipv4.ping_group_range", err)
+	}
+	_ = connection.Close()
+}
+
+// TestPing_RealICMP sends real ICMP echoes. It needs a raw socket (root) or a ping group that includes the user
+// (net.ipv4.ping_group_range), which a test machine often does not have — WSL does not, by default. It is skipped only
+// in that case, and the rules of Ping are covered by TestPing, which does not depend on the network.
+func TestPing_RealICMP(t *testing.T) {
+	requireICMP(t)
 	if success, rtt := Ping("127.0.0.1", &Config{Timeout: 500 * time.Millisecond}); !success {
 		t.Error("expected true")
 		if rtt == 0 {
