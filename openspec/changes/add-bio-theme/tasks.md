@@ -6,7 +6,7 @@
 
 ## 2. Três temas de ponta a ponta
 
-- [ ] 2.1 `ui.default-theme` em `internal/config/ui`: validação, presença registrada antes dos padrões, precedência sobre `dark-mode` com aviso; testes, inclusive `gatus config validate` e recarregamento da configuração.
+- [x] 2.1 `ui.default-theme` em `internal/config/ui`: validação, presença registrada antes dos padrões, precedência sobre `dark-mode` com aviso; testes, inclusive `gatus config validate` e recarregamento da configuração.
 - [x] 2.2 `ViewData` com identificador, classe e `ThemeColor`; `themeFromRequest` e `defaultTheme` com três valores; template de `index.html` sem decisão própria.
 - [x] 2.3 `Cache-Control: no-cache` e `Vary: Cookie` no HTML dos dois manipuladores, GET e HEAD, preservando `private, no-store` das páginas com login; contrato HTTP atualizado.
 - [x] 2.4 `theme.cases.json` e os três testes que o consomem: Go, `theme.test.mjs` e o do script inline extraído de `index.html`; `theme.js` com escolha de tema no lugar de `toggleTheme`, classes mutuamente exclusivas e `theme-color` por tema.

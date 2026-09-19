@@ -36,11 +36,11 @@ var (
 	// ErrButtonValidationFailed is returned by Button.Validate when a button has no name or no link.
 	ErrButtonValidationFailed = errors.New("invalid button configuration: missing required name or link")
 
-	// ErrInvalidDefaultSortBy is returned by Config.ValidateAndSetDefaults when default-sort-by is set to something
-	// other than name, group or health.
 	// ErrInvalidDefaultTheme is returned when default-theme is not one of the themes of the interface.
 	ErrInvalidDefaultTheme = errors.New("invalid default-theme value: must be 'dark', 'light', or 'bio'")
 
+	// ErrInvalidDefaultSortBy is returned by Config.ValidateAndSetDefaults when default-sort-by is set to something
+	// other than name, group or health.
 	ErrInvalidDefaultSortBy = errors.New("invalid default-sort-by value: must be 'name', 'group', or 'health'")
 
 	// ErrInvalidDefaultFilterBy is returned by Config.ValidateAndSetDefaults when default-filter-by is set to
