@@ -6,9 +6,9 @@
 ## 2. Verificação
 
 - [x] 2.1 `test/e2e/login.sh`: logo embutido no cartão, no cabeçalho do dashboard e no da página pública; cartão a 10%.
-- [ ] 2.2 `go test ./... -race`, `make lint`, testes de unidade do frontend e as suítes E2E que abrem o cabeçalho.
+- [x] 2.2 `go test ./... -race`, `make lint`, testes de unidade do frontend e as suítes E2E que abrem o cabeçalho.
 
 ## 3. Entrega
 
-- [ ] 3.1 `ui.logo` em `docs/README.md` e no `config.yaml` de exemplo; telas de `docs/screenshots` refeitas se o logo aparecer nelas.
+- [x] 3.1 `ui.logo` em `docs/README.md` e no `config.yaml` de exemplo. As telas de `docs/screenshots` já eram capturadas com esse logo (`capture.sh`), então não mudam.
 - [ ] 3.2 PR com CI verde; nota na release v6.3.0 (mudança visível e `ui.logo: none`); arquivar a change.
