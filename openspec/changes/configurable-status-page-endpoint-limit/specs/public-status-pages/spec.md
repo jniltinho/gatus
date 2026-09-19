@@ -46,7 +46,7 @@ A validação do arquivo de configuração MUST ser estrutural e MUST recusar:
 - `slug` repetido;
 - `title` vazio ou com mais de 100 runas depois de remover espaços das pontas;
 - `description` com mais de 1000 runas;
-- página sem nenhum item em `groups` e em `endpoints`;
+- página sem nenhum item em `groups`, em `endpoints` e em `featured` (uma página só com destaques é válida, como define `status-page-highlights`);
 - mais de 50 grupos, grupo com mais de 200 runas ou mais de 1000 chaves, qualquer que seja `maximum-endpoints-per-page`;
 - itens repetidos;
 - entradas de `trusted-proxies` que não sejam IP nem CIDR;
@@ -147,6 +147,10 @@ Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`,
 - **WHEN** uma página tem `groups-collapsed: true` e outra não define o campo
 - **THEN** o payload da primeira tem `groupsCollapsed: true` e o da segunda `groupsCollapsed: false`
 
+#### Scenario: Sem a opção
+- **WHEN** a seção `status-pages` não define `maximum-endpoints-per-page`, ou a configuração não tem a seção, e uma página seleciona 250 endpoints
+- **THEN** o payload tem 200 endpoints e `truncated: true`
+
 #### Scenario: Limite maior
 - **WHEN** `maximum-endpoints-per-page` é `500` e a página `infra` seleciona 250 endpoints
 - **THEN** o payload traz os 250, com `truncated: false`
@@ -163,11 +167,20 @@ Os resultados MUST ser os últimos `min(50, storage.maximum-number-of-results)`,
 ## ADDED Requirements
 
 ### Requirement: O limite de exibição também limita o acesso
-Um endpoint que a página seleciona mas que fica além de `maximum-endpoints-per-page` MUST NOT ser acessível pelas rotas por endpoint dessa página: a página pública de detalhes e sua API, o gráfico de tempo de resposta, o stream de eventos e os badges MUST responder como respondem para um endpoint que a página não seleciona. Subir o limite MUST tornar acessíveis os endpoints que passam a ser exibidos, e baixá-lo MUST torná-los inacessíveis, a partir da recarga da configuração.
+Um endpoint que a página seleciona mas que fica além de `maximum-endpoints-per-page` MUST NOT ser acessível pelas rotas por endpoint dessa página: a API de detalhes, o gráfico de tempo de resposta, o stream de eventos e os badges MUST responder 404, como respondem para um endpoint que a página não seleciona, depois das respostas que vêm antes dessa verificação — 401 numa página com login próprio sem a credencial, e 429 do limitador. A rota HTML de detalhes MUST continuar respondendo 200 com a SPA, sem depender da chave. Um payload de detalhes ou de gráfico guardado em cache MUST NOT ser servido para um endpoint que saiu do corte. A página, a credencial e o limite usados para autorizar um pedido MUST ser os mesmos usados para montar sua resposta, sem nova resolução da página no meio. Subir o limite MUST tornar acessíveis os endpoints que passam a ser exibidos, e baixá-lo MUST torná-los inacessíveis, a partir da recarga da configuração.
 
 #### Scenario: Endpoint fora do corte
-- **WHEN** a página `infra` seleciona 250 endpoints com o limite em `200`, e o visitante pede os detalhes, o gráfico, o stream de eventos e o badge do 201º na ordem de exibição
+- **WHEN** a página `infra` seleciona 250 endpoints com o limite em `200`, e o visitante pede a API de detalhes, o gráfico, o stream de eventos e o badge do 201º na ordem de exibição
 - **THEN** as quatro rotas respondem 404, como para um endpoint que a página não seleciona
+- **AND** `GET /status/infra/endpoints/<chave>` responde 200 com o HTML da SPA
+
+#### Scenario: Página com login
+- **WHEN** a mesma página exige login e o pedido do 201º endpoint vem sem a credencial
+- **THEN** a resposta é 401, e só com a credencial passa a 404
+
+#### Scenario: Detalhes guardados antes de baixar o limite
+- **WHEN** os detalhes do 201º endpoint foram servidos com o limite em `500`, o limite passa a `200` numa recarga, e nenhum resultado novo chegou para esse endpoint
+- **THEN** o pedido seguinte responde 404, e não o payload guardado
 
 #### Scenario: Limite elevado
 - **WHEN** o limite passa a `500` numa recarga da configuração

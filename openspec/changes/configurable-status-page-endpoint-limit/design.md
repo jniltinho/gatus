@@ -22,20 +22,32 @@ A página pública mostra "Showing the first 200 services" com `truncated: true`
 ### D1 — Dois números
 
 - `MaximumEndpointKeys = 1000`, constante: o teto de chaves que uma definição pode listar. É estrutural — limita o tamanho de uma definição — e não depende da configuração, porque `Parse` valida páginas gravadas sem ter a configuração à mão, e porque uma validação que dependesse de um valor ajustável voltaria a tirar páginas do ar quando ele baixasse.
-- `maximum-endpoints-per-page`, de 1 a 1000, padrão 200: quantos endpoints uma página mostra. Igual ao teto no máximo, para que toda definição válida possa ser exibida inteira por alguma configuração.
+- `maximum-endpoints-per-page`, de 1 a 1000, padrão 200: quantos endpoints uma página mostra. O máximo do intervalo é igual ao teto para que o campo `endpoints` de uma definição válida possa ser exibido inteiro por alguma configuração. Isso **não** vale para a página toda: os grupos selecionam um inventário sem limite, e `featured` é uma lista à parte (mil chaves mais dez destaques distintos já passam de 1000). O limite de 50 é de grupos escolhidos explicitamente, não das seções que resultam.
 
 `MaximumEndpoints` continua existindo como o **padrão** do limite de exibição.
 
-### D2 — O limite mora no snapshot
+### D2 — O limite viaja com a captura da página
 
-`Load` lê o limite da configuração e o guarda no snapshot, como já faz com `maximumResults`. `Select` passa a receber o limite, e os quatro chamadores o tiram do snapshot que já têm em mãos — nunca da configuração global nem de uma variável de pacote. Assim o payload, a autorização por endpoint e as contagens da administração não podem divergir entre si durante uma recarga, e o cache não precisa do número na chave: mudar o limite é uma recarga, que sobe a geração e invalida o que estava guardado.
+`Lookup` devolve um `Published`: a definição da página, a revisão, a geração e `MaximumResults`, tirados **de uma só leitura** do snapshot. O limite entra aí (`Published.MaximumEndpoints`), e a regra passa a ser: todo caminho que decide o que uma página mostra trabalha sobre **uma** captura, e chama `Select` com o limite dela.
 
-### D3 — O corte continua sendo de acesso
+Hoje isso não é verdade, e a change precisa consertar antes de tornar o número ajustável:
 
-Um endpoint além do corte não aparece na página e responde 404 nas rotas por endpoint dela, exatamente como hoje além dos 200. Não é efeito colateral: é o que impede que "não aparece na página" e "dá para consultar mesmo assim" sejam coisas diferentes. Consequências explícitas:
+- `findShownEndpoint` recebe só a definição (`*pageconfig.Page`), não a captura; passa a receber o `Published`;
+- **o gráfico resolve a página duas vezes**: o manipulador confere `IsEndpointShownOf` sobre o `Published` já autenticado, e `PublicResponseTimeChart` chama `IsEndpointShown(slug, key)` e outro `Lookup(slug)`. Entre as duas resoluções a página, a credencial ou o limite podem ter mudado. A captura autenticada passa a ser levada até a montagem e o cache do gráfico, sem nova resolução;
+- as contagens da administração (`Validation.Endpoints`, `Item.Endpoints`) e a pré-visualização leem o estado e a configuração em momentos separados (`service.go`); passam a ler o limite junto com o estado, do mesmo snapshot;
+- o snapshot é recriado copiando os campos um a um nas republicações (`cloneCurrentSnapshot`, em `service.go`) e tem valores iniciais fora de `Load`: o campo novo entra nos três lugares, senão um criar, editar ou renomear página voltaria o limite ao padrão.
 
-- **subir o limite publica mais endpoints**, inclusive nas rotas por endpoint: a documentação diz isso ao lado da opção;
-- **baixar o limite** faz endpoints que eram visíveis passarem a 404 na próxima recarga; um stream de eventos aberto para um deles é encerrado pela recarga, como qualquer outro.
+O que **não** muda: o inventário de endpoints (`Endpoints()`) continua sendo lido na hora da seleção — o snapshot mais `managedendpoint.List()` —, como hoje. Essa leitura já é separada da captura da página e a change não a piora; capturá-la junto é outra mudança. O cache não precisa do limite na chave: mudar o limite é uma recarga, que sobe a geração.
+
+### D3 — O corte continua sendo de acesso, rota por rota
+
+Um endpoint além do corte não aparece na página e deixa de ser acessível pelas rotas por endpoint dela, exatamente como hoje além dos 200. As rotas não respondem todas do mesmo jeito, e a spec diz cada uma:
+
+- **APIs por endpoint** (detalhes, gráfico, stream de eventos) e **badges**: 404, **depois** do que vem antes delas — numa página com login próprio, 401 sem a credencial, e 429 quando o limitador barra —, como para um endpoint que a página não seleciona. Os badges de uma página já passam por `IsEndpointShownOf`;
+- **HTML** (`/status/<slug>/endpoints/<chave>`): continua respondendo 200 com a SPA, sem olhar a chave, como manda o requisito vigente de acesso público; é a tela que mostra "não encontrado" quando a API responde 404;
+- os detalhes conferem a seleção **antes** do cache, então um payload de detalhes guardado não é servido para um endpoint que saiu do corte.
+
+Consequências que a documentação e as notas dizem: **subir o limite publica mais endpoints**, inclusive nessas rotas; **baixar** faz endpoints visíveis passarem a 404 na próxima recarga, e a recarga completa já encerra os streams abertos, cuja reconexão é então recusada.
 
 ### D4 — Baixar o limite não invalida nada
 
@@ -53,12 +65,12 @@ Como a validação usa o teto fixo (D1), uma página com 300 chaves é válida c
 
 - **Autorização divergente durante a recarga** → D2.
 - **Mais dados públicos por engano ao subir o limite** → D3, dito na documentação e nas notas.
-- **Custo de banda e de storage** → cache de 30 s e `singleflight` já limitam o storage a uma montagem por página a cada 30 s; a banda é de quem configura. O limitador por IP não muda.
+- **Custo de banda, de storage e de memória** → o cache de 30 s e o `singleflight` reduzem as montagens, mas não são uma garantia de "uma por página a cada 30 s": o cache de payloads guarda até 1000 entradas **sem teto de memória**, expulsa por quantidade, e os detalhes criam uma variante por sequência de resultados. Com payloads de 4 MB, 1000 entradas seriam gigabytes. A tarefa 4.3 mede memória e concorrência com várias páginas e detalhes, não só uma página, e a change só sai com uma proteção definida a partir da medição — um orçamento em bytes para o cache, um teto menor, ou os dois. A banda é de quem configura; o limitador por IP não muda.
 - **Definições maiores aceitas** (até 1000 chaves) → o tamanho de uma definição continua limitado pelo corpo máximo da administração (256 KiB) e pelo comprimento máximo de cada chave.
 
 ## Migration Plan
 
-Opção nova e opcional, com o valor de hoje como padrão. Voltar de versão: a versão anterior ignora a opção (o YAML é lido de forma tolerante) e volta a mostrar 200; uma página **gerenciada** gravada com mais de 200 chaves fica inválida numa versão anterior e sai do ar — reduzir as chaves antes de voltar. As notas da release dizem isso.
+Opção nova e opcional, com o valor de hoje como padrão. Voltar de versão: a versão anterior ignora a opção (o YAML é lido de forma tolerante) e volta a mostrar 200. Mas ela **recusa qualquer definição com mais de 200 chaves**: uma página gerenciada assim fica inválida e sai do ar, e uma página **do arquivo de configuração** assim torna a configuração inválida — o Gatus da versão anterior não inicia. Antes de voltar, reduzir as listas a 200 chaves no YAML e no banco. As notas da release dizem isso.
 
 ## Open Questions
 
