@@ -155,6 +155,36 @@ O servidor passa a ser um `http.Server` comum com o Echo como `Handler`, como no
 
 Isso **reduz** o conflito de sincronização, não o zera: arquivos que o upstream também tem importam pacotes do fork — `watchdog/endpoint.go`, `watchdog/push.go`, `controller/controller.go`, `api/api.go`, `api/badge.go`, `api/endpoint_status_summary.go` e `main.go` — e a linha de `import` deles muda de `gatus/v5/liveupdates` para `gatus/v5/internal/liveupdates`. É conflito de uma linha em arquivos que a sincronização já toca, e o roteiro do `AGENTS.fork.md` passa a listá-los. Não são só `import`: o passo do CI que cita `./statuspage/...` e `./managedendpoint/...` por caminho, os scripts e qualquer seletor de pacote mudam junto. `config/admin`, `config/push` e `config/statuspage` **não** se movem: vivem sob `config/`, que é do upstream.
 
+### D8 — As diferenças aceitas, medidas pelo contrato
+
+O contrato gravado contra o Fiber tem 169 respostas. No Echo, **159 são idênticas**; estas 10 mudam, e são aceitas:
+
+| Diferença | Por quê |
+|-----------|---------|
+| `Vary: Accept-Encoding` em toda resposta (nas 159 também) | O `Gzip` do Echo declara sempre; é o correto para um cache, que senão entregaria uma resposta comprimida a quem não pediu. |
+| Atributos do `Set-Cookie` noutra ordem e caixa (`Path=/; Max-Age=...` no lugar de `max-age=...; path=/`) | Mesmo cookie; é só a serialização do `net/http`. |
+| Corpo acima de 4 MiB: **413** no lugar de conexão derrubada | O fasthttp fechava a conexão no meio do envio, e o cliente via erro de rede. Agora vê o 413. |
+| `text/css; charset=utf-8` nos estáticos | Detecção de tipo do `net/http`. |
+| `Allow: OPTIONS, GET, HEAD` no 405 | O roteador do Echo responde `OPTIONS`. |
+| Corpo do 400 de um escape inválido (`%zz`): `400 Bad Request` | É o `net/http` que recusa a linha da requisição, antes do manipulador. |
+| Caminho com maiúsculas (`/API/v1/config`, `/HEALTH`): **404** | Decidido em D4. **Entra nas notas como mudança.** |
+| Diretório dos estáticos (`/js/`): **404** no lugar da listagem | Decidido em D4. |
+
+O que **não** mudou, e o contrato prova: todos os 401 e seus `WWW-Authenticate`, os 404 idênticos das capturas, os 403 do CSRF com `Origin` e `X-Forwarded-Host` forjados, os quatro limites de corpo, `If-Match` em suas quatro formas, as chaves com `%2F`, `%252F` e `+`, o login das páginas em `GET` e `HEAD` e o 429 depois de dez falhas.
+
+### D9 — Desempenho medido
+
+Mesma máquina, mesma configuração, 6.000 requisições com 32 conexões, binários de `master` (Fiber) e desta branch (Echo):
+
+| Rota | Fiber | Echo v5 |
+|------|-------|---------|
+| `/health` | 85 mil req/s, p99 1,7 ms | 86 mil req/s, p99 1,7 ms |
+| `/api/v1/status-pages/<slug>` (com cache) | 77 mil req/s, p99 2,1 ms | 81 mil req/s, p99 2,1 ms |
+| badge de saúde (lê o banco) | 8,1 mil req/s, p99 17 ms | 7,3 mil req/s, p99 19 ms |
+| `/` (SPA) | 22,7 mil req/s, p99 6,7 ms | **43,9 mil req/s, p99 2,7 ms** |
+
+Empate onde o servidor é o que se mede, cerca de 10% atrás onde o gargalo é o banco, e o dobro no SPA — não por causa do Echo, mas porque a porta mostrou que o template era parseado de novo a cada requisição, e agora é uma vez só. O binário ficou 2,3 MB menor, mesmo com o Cobra.
+
 ## Risks / Trade-offs
 
 - **Divergência do upstream — o custo que fica.** Hoje uma correção do `TwiN/gatus` em `api/` é mesclada; depois desta change ela é **portada à mão** de Fiber para Echo, para sempre. O fork já diverge bastante nesses arquivos, mas isto torna a divergência estrutural. É a decisão que vale pesar antes de aprovar o marco 2; os marcos 1 e 3 não têm esse custo.

@@ -334,6 +334,8 @@ func contractCases() []contractCase {
 		{Name: "login wrong password", Method: "POST", Path: "/api/v1/auth/login", Headers: jsonBody, Body: `{"username":"admin","password":"wrong"}`},
 		{Name: "login", Method: "POST", Path: "/api/v1/auth/login", Headers: jsonBody, Body: `{"username":"admin","password":"secret"}`},
 		{Name: "login with forged https", Method: "POST", Path: "/api/v1/auth/login", Headers: map[string]string{"Content-Type": "application/json", "X-Forwarded-Proto": "https", "X-Forwarded-Ssl": "on"}, Body: `{"username":"admin","password":"secret"}`},
+		// Only the first value of X-Forwarded-Proto counts, as before: never the other headers echo.Context.Scheme trusts
+		{Name: "login with the headers the framework would trust", Method: "POST", Path: "/api/v1/auth/login", Headers: map[string]string{"Content-Type": "application/json", "X-Forwarded-Ssl": "on", "X-Forwarded-Protocol": "https", "X-Url-Scheme": "https"}, Body: `{"username":"admin","password":"secret"}`},
 		{Name: "login get", Method: "GET", Path: "/api/v1/auth/login"},
 		{Name: "logout", Method: "POST", Path: "/api/v1/auth/logout", Headers: jsonBody},
 
