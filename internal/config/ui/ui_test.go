@@ -355,3 +355,33 @@ func TestThemeClassAndColor(t *testing.T) {
 		t.Error("expected the light theme to have no class, and a value that is not a theme to fall back to it")
 	}
 }
+
+// TestConfig_Logo covers the default logo: an empty ui.logo means the logo embedded in the binary, "none" means no logo
+// at all, and a logo of the user is kept.
+func TestConfig_Logo(t *testing.T) {
+	for name, scenario := range map[string]struct {
+		logo     string
+		expected string
+	}{
+		"not-set":          {logo: "", expected: "/logo-192x192.png"},
+		"only-spaces":      {logo: "   ", expected: "/logo-192x192.png"},
+		"spaces-around":    {logo: " /logo-512x512.png ", expected: "/logo-512x512.png"},
+		"none":             {logo: "none", expected: ""},
+		"none-uppercase":   {logo: " None ", expected: ""},
+		"url-of-the-user":  {logo: "https://example.org/logo.svg", expected: "https://example.org/logo.svg"},
+		"path-of-the-user": {logo: "/logo-512x512.png", expected: "/logo-512x512.png"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := &Config{Logo: scenario.logo}
+			if err := cfg.ValidateAndSetDefaults(); err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Logo != scenario.expected {
+				t.Errorf("expected the logo %q, got %q", scenario.expected, cfg.Logo)
+			}
+		})
+	}
+	if GetDefaultConfig().Logo != "/logo-192x192.png" {
+		t.Errorf("expected the default configuration to have the embedded logo, got %q", GetDefaultConfig().Logo)
+	}
+}

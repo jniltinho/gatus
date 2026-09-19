@@ -33,7 +33,7 @@
 #   path: /data/data.db
 
 # ui:
-#   logo: /logo-192x192.png           # the logo served by Gatus itself, in the header and on the login screen
+#   logo: none                        # the logo of Gatus is shown by default; a URL replaces it, none hides it
 #   default-theme: bio                # dark (default), light or bio; each visitor can pick another with the theme selector
 
 endpoints:
