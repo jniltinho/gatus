@@ -4,7 +4,7 @@
 TBD - created by archiving change add-public-status-pages. Update Purpose after archive.
 ## Requirements
 ### Requirement: Endpoints em destaque
-Cada página MUST aceitar `featured`, uma lista de até 10 chaves de endpoints, no YAML e na administração. Os endpoints em destaque MUST contar como seleção da página (uma página só com `featured` é válida), MUST aparecer no payload em `featured`, na ordem da lista, com o nome real do grupo, e MUST NOT aparecer de novo nas seções de grupo. Uma chave sem endpoint publicável MUST ser ignorada na página e registrada como aviso na carga e na validação da administração. Os destaques MUST contar no limite de 200 endpoints, antes das seções.
+Cada página MUST aceitar `featured`, uma lista de até 10 chaves de endpoints, no YAML e na administração. Os endpoints em destaque MUST contar como seleção da página (uma página só com `featured` é válida), MUST aparecer no payload em `featured`, na ordem da lista, com o nome real do grupo, e MUST NOT aparecer de novo nas seções de grupo. Uma chave sem endpoint publicável MUST ser ignorada na página e registrada como aviso na carga e na validação da administração. Os destaques MUST contar no limite de endpoints da página (`status-pages.maximum-endpoints-per-page`, `400` por padrão), antes das seções.
 
 #### Scenario: Endpoint em destaque fora da seção do grupo
 - **WHEN** a página tem `groups: [core]` e `featured: [core_api]`, e o grupo `core` tem `api` e `web`
@@ -18,6 +18,10 @@ Cada página MUST aceitar `featured`, uma lista de até 10 chaves de endpoints, 
 #### Scenario: Limite de destaques
 - **WHEN** a página tem 11 chaves em `featured`
 - **THEN** a validação falha com erro de definição inválida (400 na administração)
+
+#### Scenario: Destaques além do limite
+- **WHEN** `maximum-endpoints-per-page` é `2` e a página tem três destaques distintos e publicáveis
+- **THEN** o payload traz os dois primeiros destaques, na ordem da lista, nenhuma seção, e `truncated: true`
 
 ### Requirement: Tempo de resposta médio no payload
 Cada endpoint do payload público MUST ter `responseTime` com as médias de tempo de resposta em milissegundos de 24h, 7d e 30d (`null` sem execução no período), calculadas a partir das mesmas somas horárias do uptime, sem consulta adicional ao storage.

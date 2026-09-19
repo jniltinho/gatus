@@ -19,10 +19,10 @@
 ## 4. Verificação
 
 - [x] 4.1 `make frontend-build`; E2E em `status-pages.sh` ou suíte própria: página com mais endpoints que o limite, aviso com o número certo, endpoint fora do corte com 404 na página de detalhes, limite alterado com o Gatus no ar.
-- [ ] 4.2 `go test ./... -race`, `make lint`, testes de unidade do frontend, contrato HTTP e as demais suítes E2E.
+- [x] 4.2 `go test ./... -race`, `make lint`, testes de unidade do frontend, contrato HTTP e as demais suítes E2E.
 - [x] 4.3 *Fixture* reproduzível de 1.000 endpoints com 50 resultados: tamanho do payload com e sem gzip, tempo de montagem, resposta do navegador com os grupos recolhidos e com tudo expandido, e **memória e concorrência com várias páginas grandes e seus detalhes** (o cache guarda até 1000 entradas sem teto de bytes). Definir e implementar a proteção que a medição pedir (orçamento em bytes do cache, teto menor, ou os dois) antes da release. **Medido:** ~3,9 KiB por endpoint (1.000 endpoints: 3,9 MiB, 27–37 KiB com gzip, montagem em ~20 ms); navegador com 1.000 linhas expandidas: ~70 mil nós DOM e 56 MiB, 275 nós e 6 MiB com os grupos recolhidos. **Proteção:** orçamento de 128 MiB no cache dos payloads (`maximumPublicCacheMemory`); o teto de 1000 fica.
 
 ## 5. Entrega
 
 - [x] 5.1 `docs/status-pages.md` (a opção, os dois limites, o corte como acesso, o custo de um limite alto, a volta de versão), `config.yaml` de exemplo com a opção comentada, `AGENTS.fork.md`.
-- [ ] 5.2 Regerar os blocos MODIFICADOS se `add-bio-theme` tiver sido arquivada antes; PR com CI verde; release com notas em inglês, `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.
+- [x] 5.2 Regerar os blocos MODIFICADOS se `add-bio-theme` tiver sido arquivada antes; PR com CI verde; release com notas em inglês, `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.

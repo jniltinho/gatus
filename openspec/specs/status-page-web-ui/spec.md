@@ -17,7 +17,7 @@ A contagem MUST vir do payload, e não ser somada no navegador, para continuar c
 
 **Tooltip da verificação:** o detalhe da barra ativa MUST aparecer sobre as barras, sem ocupar espaço no layout: mostrar ou esconder o detalhe MUST NOT mudar a altura da linha nem a posição das linhas seguintes. O tooltip MUST ficar dentro da largura da linha, qualquer que seja a barra ativa, MUST NOT capturar o ponteiro e MUST ser escondido dos leitores de tela, que recebem o mesmo texto pela região `aria-live`. Onde houver conteúdo acima das barras — cartão de destaque e página de detalhes — o tooltip MUST aparecer abaixo delas.
 
-Com `truncated: true` no payload, a página MUST mostrar o aviso "Showing the first 200 services". A página MUST NOT mostrar anúncios, `ui.buttons`, links sociais, o link Admin nem "Powered by". A descrição MUST ser exibida como texto puro. A página MUST definir `document.title` com o título da página, seguir o visual quadrado (exceto indicadores circulares), ter variantes para o tema escuro, as cores do tema Bio e funcionar em telas a partir de 360 px de largura.
+Com `truncated: true` no payload, a página MUST mostrar o aviso "Showing the first N services", com N igual ao `summary.total` do payload. A página MUST NOT mostrar anúncios, `ui.buttons`, links sociais, o link Admin nem "Powered by". A descrição MUST ser exibida como texto puro. A página MUST definir `document.title` com o título da página, seguir o visual quadrado (exceto indicadores circulares), ter variantes para o tema escuro, as cores do tema Bio e funcionar em telas a partir de 360 px de largura.
 
 #### Scenario: Página com falha parcial
 - **WHEN** um visitante abre `/status/infra` e um endpoint do grupo `core` está fora
@@ -37,6 +37,10 @@ Com `truncated: true` no payload, a página MUST mostrar o aviso "Showing the fi
 - **WHEN** o grupo `sites`, operacional, está recolhido
 - **THEN** o cabeçalho mostra "sites", "Operational" e a contagem do grupo
 - **AND** nenhuma linha de endpoint de `sites` existe no documento, e os destaques continuam visíveis
+
+#### Scenario: Aviso com o número do payload
+- **WHEN** o payload tem `truncated: true` e `summary.total` igual a 500
+- **THEN** a página mostra "Showing the first 500 services"
 
 ### Requirement: Acessibilidade da página pública
 A página pública MUST:
@@ -224,6 +228,11 @@ Uma página nova MUST começar desabilitada. As páginas do YAML MUST aparecer s
 - **WHEN** um administrador marca "Start with the groups collapsed" na página `clientes` e salva
 - **THEN** a definição salva tem `groups-collapsed: true`
 - **AND** a pré-visualização mostra os grupos operacionais recolhidos, sem ler nem gravar as escolhas guardadas da página pública
+
+#### Scenario: Página que excede o limite de exibição
+- **WHEN** uma página gerenciada seleciona mais endpoints do que `maximum-endpoints-per-page`
+- **THEN** a listagem indica que a página é exibida truncada, e a validação do formulário traz um aviso com o limite em vigor
+- **AND** a página continua podendo ser salva e publicada
 
 ### Requirement: Aviso de exposição no formulário de endpoints
 O formulário de endpoints da administração MUST consultar `/api/v1/admin/status-pages/exposure` com o grupo e a chave do endpoint ao abrir e quando o grupo ou o nome mudarem, e MUST mostrar em quais páginas públicas o endpoint vai aparecer, indicando as desabilitadas.
