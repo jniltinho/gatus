@@ -2,7 +2,7 @@
 
 A página pública (`web/app/src/views/public/StatusPage.vue`) lista os destaques e, abaixo, uma seção por grupo, com uma linha por endpoint e até 50 barras por linha. Ela **não tem tempo real**: busca o payload a cada 60 s (`REFRESH_INTERVAL_MS`) e quando a aba volta a ficar visível, e o servidor guarda o payload em cache por 30 s (`publicCacheTTL`, chave `slug|revisão|geração`). O SSE existe só na página de detalhes de um endpoint, um stream por endpoint, com `data: {}` e teto de 10 streams por IP — não serve para atualizar a listagem.
 
-O payload vem de `internal/statuspage/payload.go`. `SummaryPayload` tem cinco campos (`total`, `up`, `down`, `pending`, `unknown`). O estado agregado de um grupo é `operational`, `degraded` ou `down`. Os destaques não são listados nos grupos. Os testes do payload decodificam rejeitando campos desconhecidos, contra uma lista de campos permitidos que a spec fixa.
+O payload vem de `internal/statuspage/payload.go`. `SummaryPayload` tem cinco campos (`total`, `up`, `down`, `pending`, `unknown`). O estado agregado de um grupo (`aggregateStatus`) é `operational`, `degraded`, `down` ou `unknown`, este último quando nenhum endpoint do grupo tem dados; endpoints sem dados são ignorados quando há outros com dados. Os destaques não são listados nos grupos. Os testes do payload decodificam rejeitando campos desconhecidos, contra uma lista de campos permitidos que a spec fixa.
 
 As definições das páginas gerenciadas são decodificadas de forma estrita (`KnownFields(true)`, `internal/statuspage/definition.go`); o arquivo de configuração, de forma tolerante (`yaml.Unmarshal`).
 
@@ -25,6 +25,8 @@ A pergunta que importa numa página de status é "tem algo errado?", e um grupo 
 - **"Reabrir" acontece no próximo payload**, não em tempo real: até 60 s do *polling* mais até 30 s do cache. É o mesmo atraso com que a página já mostra qualquer mudança; recolher não o piora, porque o cabeçalho recolhido exibe o estado e a contagem do mesmo payload.
 - **Recolher durante um incidente é permitido, mas não pega:** vale até o próximo payload e não é gravado. Proibir o clique seria pior numa página com um grupo de 100 linhas fora do ar.
 - **A escolha lembrada sobrevive ao incidente:** expandir à força não a apaga, e ela volta a valer quando o grupo se recupera.
+- **Um grupo sem dados (`unknown`) fica aberto**, porque não é operacional, e fecha quando os primeiros resultados chegam. É o comportamento certo para um grupo recém-criado: quem publica vê que ainda não há dados.
+- **Escolha da visita e escolha lembrada são duas coisas.** A da visita vive em memória e vale até fechar a página; lembrar entre visitas é o que depende do navegador (D3). Sem essa distinção, num navegador sem armazenamento um grupo voltaria ao padrão a cada *polling*.
 - **Destaque fora do ar não abre o grupo dele**, porque o destaque não é listado no grupo: ele já está no topo, sempre visível.
 
 ### D3 — Lembrar sem gravar nomes
@@ -35,6 +37,9 @@ Uma página pode ter login próprio, e a resposta autenticada sai com `private, 
 - O item é lido com validação de forma (objeto simples, chaves de 64 hexadecimais, valores `c`/`e`); qualquer outra coisa é descartada. Como as chaves são hashes, `__proto__` e afins não têm como aparecer.
 - `crypto.subtle` só existe em contexto seguro (HTTPS ou localhost). Numa página servida por HTTP puro, ou com o armazenamento bloqueado, a página funciona sem lembrar.
 - Só os grupos em que o visitante mexeu são gravados, e só escolhas sobre grupos operacionais (D2). O item é limitado a 500 entradas, descartando as mais antigas.
+- **`crypto.subtle.digest` é assíncrono.** `StatusPage.vue` hoje publica o JSON assim que ele chega; aplicar as escolhas depois faria os grupos piscarem. As chaves de todos os grupos do payload são derivadas, e as escolhas lidas, **antes** de o payload ir para o estado reativo; depois de cada `await` o código confere que o slug ainda é o mesmo (a página zera o estado ao trocar de slug) e que o componente não foi desmontado, e descarta o resultado caso contrário.
+- O descarte ao passar de 500 entradas é pela ordem de inserção do objeto JSON, as mais antigas primeiro; mexer de novo num grupo o reinsere no fim.
+- As chaves de renderização da lista (`:key`) passam a ser o nome bruto do grupo, na página pública e na pré-visualização do formulário (`AdminStatusPageForm.vue`): o `__without-group__` de hoje colide com um grupo que tenha esse nome.
 - A pré-visualização da administração não lê nem grava: ela mostra o padrão da página.
 
 ### D4 — `groups-collapsed` na página
@@ -58,6 +63,7 @@ A primeira versão desta proposta tornava o 200 configurável. Reprovada pelas d
 ## Risks / Trade-offs
 
 - **Problema escondido** → D2, e o cabeçalho recolhido sempre mostra estado e contagem.
+- **Spec do payload contraditória** → o requisito vigente proibia qualquer data de expiração enquanto `certificate-expiration` exige `certificateExpiresAt`, que o código publica. Como o requisito é modificado aqui, a contradição é desfeita no mesmo lugar, sem mudar o comportamento.
 - **Contrato da API** → campos novos quebram clientes estritos; está na proposta e vai nas notas. A lista de campos permitidos da spec e dos testes é atualizada junto.
 - **Vazamento** → `groupsCollapsed` é um booleano da definição e o `summary` do grupo conta só endpoints já publicados naquele grupo: nada de chave, URL ou erro.
 - **Rastro no navegador** → D3.

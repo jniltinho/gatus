@@ -9,7 +9,9 @@
 
 - [ ] 2.1 Cabeçalho do grupo como `<button>` (`aria-expanded`, `aria-controls`, foco visível nos dois temas), grupo recolhido sem renderizar as linhas, contagem do grupo no cabeçalho omitindo zeros, aviso de truncamento sempre visível.
 - [ ] 2.2 Precedência da D2 aplicada a cada payload (carga, *polling* de 60 s e volta da aba), com o recolhimento durante incidente valendo só até o próximo payload.
-- [ ] 2.3 Armazenamento da D3: hash SHA-256 de slug e nome bruto, validação de forma na leitura, teto de 500 entradas, e funcionamento sem `crypto.subtle` ou sem armazenamento.
+- [ ] 2.3 Escolha da visita em memória, valendo até fechar a página com ou sem armazenamento (D2).
+- [ ] 2.4 Chaves de renderização pelo nome bruto do grupo na página pública e na pré-visualização do formulário, no lugar de `__without-group__`.
+- [ ] 2.5 Armazenamento da D3: hash SHA-256 de slug e nome bruto, validação de forma na leitura, teto de 500 entradas com descarte das mais antigas, chaves e escolhas resolvidas antes de publicar o payload, conferência do slug e da desmontagem depois de cada `await`, e funcionamento sem `crypto.subtle` ou sem armazenamento; testes de unidade do módulo (dados inválidos, 501ª entrada, derivação atrasada, troca de slug).
 
 ## 3. Administração
 
@@ -18,7 +20,7 @@
 ## 4. Verificação
 
 - [ ] 4.1 `make frontend-build` antes de qualquer teste com o binário.
-- [ ] 4.2 `test/e2e/status-pages.sh`: recolher e expandir por clique, Enter e Espaço; lembrar ao recarregar; páginas diferentes não se afetam; `groups-collapsed: true` com um grupo `degraded` aberto; grupo recolhido que passa a falhar é aberto no payload seguinte e volta a fechar ao se recuperar (forçando a busca pela volta da aba, sem esperar 60 s); recolher durante incidente não é lembrado; grupo sem nome e grupo chamado "Other services"; página com login sem nome de grupo no armazenamento; armazenamento bloqueado; tema escuro.
+- [ ] 4.2 `test/e2e/status-pages.sh`: recolher e expandir por clique, Enter e Espaço; lembrar ao recarregar; páginas diferentes não se afetam; `groups-collapsed: true` com um grupo `degraded` aberto; grupo recolhido que passa a falhar é aberto no payload seguinte e volta a fechar ao se recuperar (forçando a busca pela volta da aba, sem esperar 60 s); recolher durante incidente não é lembrado; grupo `unknown` aberto e fechando ao receber dados; sem piscar na primeira exibição; grupo sem nome, grupo chamado "Other services" e grupo chamado `__without-group__`; pré-visualização com escolha pública oposta ao padrão; página com login sem nome de grupo no armazenamento; armazenamento bloqueado; tema escuro.
 - [ ] 4.3 `go test ./... -race`, `make lint`, contrato HTTP e as demais suítes E2E.
 
 ## 5. Entrega

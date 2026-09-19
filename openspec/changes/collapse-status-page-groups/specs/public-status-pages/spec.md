@@ -6,10 +6,10 @@ A resposta de `GET /api/v1/status-pages/:slug` MUST conter apenas:
 - em `summary`, a contagem dos endpoints da página por estado: `total`, `up`, `down`, `pending` e `unknown`;
 - em cada grupo, `name`, `status`, `summary` e `endpoints`, com `summary` nos mesmos cinco campos do `summary` da página;
 - em cada destaque, os campos de endpoint e `group`;
-- em cada endpoint, `name`, `status`, `uptime` (`24h`, `7d`, `30d`), `responseTime` (`24h`, `7d`, `30d`) e `results`, e `certificateExpiresInDays` somente quando a página tem `show-certificate-expiration: true` e o endpoint tem resultado publicado com certificado;
+- em cada endpoint, `name`, `status`, `uptime` (`24h`, `7d`, `30d`), `responseTime` (`24h`, `7d`, `30d`) e `results`, e `certificateExpiresInDays` e `certificateExpiresAt` somente quando a página tem `show-certificate-expiration: true` e o endpoint tem resultado publicado com certificado;
 - em cada resultado, `timestamp`, `success` e `durationMs`, e `pending: true` somente quando o resultado é Pending.
 
-MUST NOT conter nenhum outro campo, nem os valores de chave, URL, hostname, IP, porta, código HTTP, código DNS, erros, mensagens, condições, eventos, datas de expiração, alertas, `extra-labels` ou origem do endpoint. `certificateExpiresInDays` MUST ser um número inteiro de dias, sem data. `updatedAt` MUST ser o instante da montagem, no relógio do servidor. `groupsCollapsed` MUST ser o valor de `groups-collapsed` da definição da página, `false` quando ausente.
+MUST NOT conter nenhum outro campo, nem os valores de chave, URL, hostname, IP, porta, código HTTP, código DNS, erros, mensagens, condições, eventos, outras datas de expiração, alertas, `extra-labels` ou origem do endpoint. `certificateExpiresInDays` MUST ser um número inteiro de dias, e `certificateExpiresAt` MUST ser o instante do vencimento do mesmo resultado, como define a capacidade `certificate-expiration`: é a única data de expiração que o payload publica. `groupsCollapsed` MUST ser o valor de `groups-collapsed` da definição da página, `false` quando ausente. `updatedAt` MUST ser o instante da montagem, no relógio do servidor.
 
 A contagem de `summary` MUST considerar todos os endpoints do payload, inclusive os destaques, e `total` MUST ser a soma dos quatro estados. Numa página truncada ela MUST contar os endpoints publicados, que são os mesmos que a página mostra junto do aviso dos 200 primeiros: carregar o resumo dos demais anularia o corte. O `summary` de um grupo MUST contar, com as mesmas regras, só os endpoints listados naquele grupo: um endpoint em destaque não é listado em grupo nenhum e MUST NOT entrar na contagem de nenhum. O payload de detalhes de um endpoint MUST NOT conter `summary`.
 
@@ -75,7 +75,7 @@ A página pública MUST permitir recolher e expandir cada grupo por um elemento 
 - **THEN** a seção `Featured` não tem botão de recolher
 
 ### Requirement: Precedência do estado de um grupo
-A cada payload recebido, inclusive os do recarregamento periódico, o estado de cada grupo MUST ser decidido nesta ordem: um grupo cujo estado agregado não é `operational` MUST estar expandido; senão, vale a escolha lembrada do visitante para aquele grupo; senão, o grupo está recolhido quando `groupsCollapsed` é `true` e expandido quando é `false`. O visitante MAY recolher um grupo não operacional, e essa ação MUST valer só até o próximo payload e MUST NOT ser lembrada. Expandir à força MUST NOT apagar nem alterar a escolha lembrada.
+O estado agregado de um grupo é `operational`, `degraded`, `down` ou `unknown`. A cada payload recebido, inclusive os do recarregamento periódico e os da volta da aba, o estado de cada grupo MUST ser decidido nesta ordem: um grupo cujo estado agregado não é `operational` MUST estar expandido; senão, vale a escolha do visitante para aquele grupo, a desta visita ou a lembrada de uma visita anterior; senão, o grupo está recolhido quando `groupsCollapsed` é `true` e expandido quando é `false`. O visitante MAY recolher um grupo não operacional, e essa ação MUST valer só até o próximo payload e MUST NOT ser lembrada. Expandir à força MUST NOT apagar nem alterar a escolha do visitante. A escolha desta visita MUST ser mantida em memória e MUST valer até a página ser fechada, mesmo quando o navegador não consegue lembrá-la entre visitas.
 
 #### Scenario: Página com grupos recolhidos e um problema
 - **WHEN** a página tem `groupsCollapsed: true`, `sites` está `operational` e `apis` está `degraded`, sem escolhas lembradas
@@ -91,12 +91,21 @@ A cada payload recebido, inclusive os do recarregamento periódico, o estado de 
 - **THEN** `apis` fica recolhido até o próximo payload, que o expande de novo se o estado continuar não operacional
 - **AND** nada é gravado no navegador
 
+#### Scenario: Grupo sem dados
+- **WHEN** a página tem `groupsCollapsed: true` e todos os endpoints do grupo `novos` estão sem resultados, com o grupo em `unknown`
+- **THEN** `novos` aparece expandido
+- **AND** quando um payload posterior traz `novos` como `operational`, ele passa a aparecer recolhido
+
+#### Scenario: Escolha da visita sem armazenamento
+- **WHEN** o navegador bloqueia o armazenamento, o visitante recolhe `sites`, `sites` passa a `degraded` e depois volta a `operational`, tudo sem recarregar
+- **THEN** `sites` aparece expandido durante o incidente e recolhido de novo depois dele
+
 #### Scenario: Padrão da página sem escolha lembrada
 - **WHEN** a página tem `groupsCollapsed: false` e o visitante nunca mexeu em `sites`
 - **THEN** `sites` aparece expandido
 
 ### Requirement: Escolha do visitante lembrada sem nomes de grupos
-A escolha de recolher ou expandir um grupo operacional MUST ser lembrada no navegador, por página e por grupo, e MUST NOT gravar o nome de nenhum grupo nem o slug em texto legível: a chave de cada escolha MUST ser derivada por SHA-256 do slug e do nome bruto do grupo do payload, em que o grupo sem nome é a string vazia. Quando o navegador não oferece `crypto.subtle` ou armazenamento, a página MUST funcionar sem lembrar. Dados guardados inválidos MUST ser ignorados. A pré-visualização da administração MUST NOT ler nem gravar essas escolhas.
+A escolha de recolher ou expandir um grupo operacional MUST ser lembrada no navegador, por página e por grupo, e MUST NOT gravar o nome de nenhum grupo nem o slug em texto legível: a chave de cada escolha MUST ser derivada por SHA-256 do slug e do nome bruto do grupo do payload, em que o grupo sem nome é a string vazia. Quando o navegador não oferece `crypto.subtle` ou armazenamento, a página MUST funcionar sem lembrar. Dados guardados inválidos MUST ser ignorados, e ao passar de 500 escolhas guardadas as mais antigas MUST ser descartadas primeiro. As chaves e as escolhas MUST estar resolvidas antes de um payload ser exibido, para que nenhum grupo apareça num estado e mude em seguida, e o resultado de uma derivação que termina depois de o visitante mudar de página MUST ser descartado. A pré-visualização da administração MUST NOT ler nem gravar essas escolhas.
 
 #### Scenario: Lembrar entre visitas
 - **WHEN** o visitante recolhe `sites` na página `services` e recarrega
@@ -113,6 +122,22 @@ A escolha de recolher ou expandir um grupo operacional MUST ser lembrada no nave
 #### Scenario: Página com login
 - **WHEN** o visitante recolhe um grupo numa página com login próprio
 - **THEN** o que fica no navegador não contém o nome do grupo nem o slug
+
+#### Scenario: Sem piscar na carga
+- **WHEN** o visitante tem `sites` lembrado como recolhido e abre a página
+- **THEN** `sites` já aparece recolhido na primeira exibição, sem aparecer expandido antes
+
+#### Scenario: Troca de página durante a derivação
+- **WHEN** o visitante navega de `services` para `internal` antes de a derivação das chaves de `services` terminar
+- **THEN** nenhuma escolha de `services` é aplicada aos grupos de `internal`
+
+#### Scenario: Dados guardados inválidos
+- **WHEN** o item guardado no navegador não é um objeto de chaves hexadecimais com os valores esperados
+- **THEN** ele é ignorado e a página usa o padrão
+
+#### Scenario: Pré-visualização com escolha oposta
+- **WHEN** o administrador recolheu `sites` na página pública e abre a pré-visualização de uma página com `groups-collapsed: false`
+- **THEN** a pré-visualização mostra `sites` expandido
 
 #### Scenario: Armazenamento indisponível
 - **WHEN** o navegador bloqueia o armazenamento ou a página é servida sem contexto seguro
