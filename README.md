@@ -83,6 +83,9 @@ tar xzf gatus_6.0.1_linux_amd64.tar.gz
 ./gatus --config config.yaml
 ```
 
+To run it as a service, [docs/install-linux.md](docs/install-linux.md) installs it in `/opt/gatus` with a hardened
+systemd unit, logs in the journal and the upgrade steps.
+
 ## Minimal configuration
 
 ```yaml
@@ -130,6 +133,7 @@ is that **paths are now case-sensitive** (`/HEALTH` and `/API/v1/...` answer `40
 | Full configuration: endpoints, conditions, alerting, storage, security, UI, suites, deployment and FAQ | [docs/README.md](docs/README.md) |
 | Endpoint administration through the web, login screen, backup and restore | [docs/admin-endpoints.md](docs/admin-endpoints.md) |
 | Public status pages and response time chart | [docs/status-pages.md](docs/status-pages.md) |
+| Installing the binary on Linux: `/opt/gatus`, systemd unit, logs, upgrade, nginx | [docs/install-linux.md](docs/install-linux.md) |
 | Command line: `serve`, `version`, `config validate`, `password hash` and `healthcheck` | [docs/cli.md](docs/cli.md) |
 | MySQL and MariaDB storage | [docs/storage-mysql.md](docs/storage-mysql.md) |
 | Push monitoring compatible with the Uptime Kuma | [docs/push-monitoring.md](docs/push-monitoring.md) |
