@@ -132,3 +132,32 @@ Uma página nova MUST começar desabilitada. As páginas do YAML MUST aparecer s
 - **WHEN** um administrador marca "Start with the groups collapsed" na página `clientes` e salva
 - **THEN** a definição salva tem `groups-collapsed: true`
 - **AND** a pré-visualização mostra os grupos operacionais recolhidos, sem ler nem gravar as escolhas guardadas da página pública
+
+### Requirement: Acessibilidade da página pública
+A página pública MUST:
+- oferecer para cada endpoint exibido — os destaques e os endpoints dos grupos expandidos — um resumo textual acessível a leitores de tela com nome, estado, verificações com sucesso e uptime de 24h;
+- oferecer para cada grupo, recolhido ou expandido, o nome, o estado e a contagem do grupo como texto do botão do cabeçalho, que é o que um leitor de tela anuncia no lugar das linhas de um grupo recolhido;
+- marcar as barras de histórico com `aria-hidden`;
+- permitir abrir o tooltip por teclado e por toque;
+- manter, em cada endpoint exibido, a região `aria-live` que anuncia o detalhe da verificação, mesmo quando não há verificação ativa, com o tooltip visível escondido dos leitores de tela para não repetir o texto;
+- usar `role="status"` só na faixa de estado geral, com o contador "Atualizado há X" fora de regiões `aria-live`;
+- respeitar `prefers-reduced-motion`.
+
+#### Scenario: Leitor de tela
+- **WHEN** um leitor de tela percorre a linha do endpoint `api`
+- **THEN** ele anuncia um texto como "api: no ar, 48 de 50 verificações com sucesso, uptime 24h 99,9%"
+- **AND** as barras individuais não são anunciadas
+
+#### Scenario: Tooltip por teclado
+- **WHEN** o visitante navega com Tab até o histórico de um endpoint e aciona um resultado
+- **THEN** o tooltip com horário, sucesso e duração aparece
+
+#### Scenario: Grupo recolhido no leitor de tela
+- **WHEN** um leitor de tela chega ao cabeçalho do grupo `sites`, recolhido, com três endpoints no ar
+- **THEN** ele anuncia um botão recolhido com um texto como "sites, Operational, 3 up"
+- **AND** nenhum endpoint de `sites` é anunciado
+
+#### Scenario: Todos os grupos recolhidos, sem destaques
+- **WHEN** a página não tem destaques, o visitante recolhe todos os grupos e depois expande `sites` com o teclado
+- **THEN** a faixa de estado geral continua anunciada enquanto tudo está recolhido
+- **AND** as linhas de `sites` voltam com seus resumos e com a região de anúncio do detalhe da verificação, e o tooltip abre pelo teclado

@@ -37,7 +37,7 @@ Uma página pode ter login próprio, e a resposta autenticada sai com `private, 
 - O item é lido com validação de forma (objeto simples, chaves de 64 hexadecimais, valores `c`/`e`); qualquer outra coisa é descartada. Como as chaves são hashes, `__proto__` e afins não têm como aparecer.
 - `crypto.subtle` só existe em contexto seguro (HTTPS ou localhost). Numa página servida por HTTP puro, ou com o armazenamento bloqueado, a página funciona sem lembrar.
 - Só os grupos em que o visitante mexeu são gravados, e só escolhas sobre grupos operacionais (D2). O item é limitado a 500 entradas, descartando as mais antigas.
-- **`crypto.subtle.digest` é assíncrono.** `StatusPage.vue` hoje publica o JSON assim que ele chega; aplicar as escolhas depois faria os grupos piscarem. As chaves de todos os grupos do payload são derivadas, e as escolhas lidas, **antes** de o payload ir para o estado reativo; depois de cada `await` o código confere que o slug ainda é o mesmo (a página zera o estado ao trocar de slug) e que o componente não foi desmontado, e descarta o resultado caso contrário.
+- **`crypto.subtle.digest` é assíncrono.** `StatusPage.vue` hoje publica o JSON assim que ele chega; aplicar as escolhas depois faria os grupos piscarem. As chaves de todos os grupos do payload são derivadas, e as escolhas lidas, **antes** de o payload ir para o estado reativo; depois de cada `await` o código confere o `requestGeneration` que `StatusPage.vue` já usa para descartar buscas antigas, e descarta o resultado quando ele mudou. Conferir só o slug não basta: a volta da aba pode disparar outra busca **do mesmo slug**, que responde 401 ou 404, e uma derivação anterior que terminasse depois republicaria os dados por cima do estado de erro. O contador cobre a troca de slug e, junto com a desmontagem, todos os casos; nada é publicado, gravado nem reagendado por uma busca que não é mais a atual.
 - O descarte ao passar de 500 entradas é pela ordem de inserção do objeto JSON, as mais antigas primeiro; mexer de novo num grupo o reinsere no fim.
 - As chaves de renderização da lista (`:key`) passam a ser o nome bruto do grupo, na página pública e na pré-visualização do formulário (`AdminStatusPageForm.vue`): o `__without-group__` de hoje colide com um grupo que tenha esse nome.
 - A pré-visualização da administração não lê nem grava: ela mostra o padrão da página.
@@ -67,6 +67,7 @@ A primeira versão desta proposta tornava o 200 configurável. Reprovada pelas d
 - **Contrato da API** → campos novos quebram clientes estritos; está na proposta e vai nas notas. A lista de campos permitidos da spec e dos testes é atualizada junto.
 - **Vazamento** → `groupsCollapsed` é um booleano da definição e o `summary` do grupo conta só endpoints já publicados naquele grupo: nada de chave, URL ou erro.
 - **Rastro no navegador** → D3.
+- **Acessibilidade** → a região `aria-live` do detalhe da verificação mora em cada `EndpointRow` e some com a linha: o requisito vigente passa a valer para os endpoints exibidos, e o botão do cabeçalho carrega, em texto, o nome, o estado e a contagem do grupo recolhido.
 - **Desempenho** → com o limite atual, o pior caso é o de hoje (200 linhas, tudo expandido); recolher só melhora.
 
 ## Migration Plan
