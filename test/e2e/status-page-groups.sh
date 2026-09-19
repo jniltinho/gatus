@@ -49,6 +49,13 @@ admin:
 ui:
   logo: /logo-192x192.png
   header: "A rather long name of the monitoring service"
+  # A representative custom.css: an !important rule and the override of a variable of one theme only. custom.css is
+  # loaded before the stylesheet of the application, so a variable of a theme is overridden with !important (or with a
+  # more specific selector): with the same specificity, the rule of the application comes later and wins.
+  custom-css: |
+    .app-header { outline-color: rgb(1, 2, 3) !important; }
+    :root.theme-bio { --ring: 0 100% 50% !important; }
+    :root.dark { --e2e-plain-override: 1; --ring: 120 100% 50%; }
 external-endpoints:
 CONFIG
   push_endpoint apis gateway
@@ -294,6 +301,23 @@ expect "the theme in use is the checked option" true "$(js "document.querySelect
 browser screenshot "$PRINTS/05b-bio-360-menu.png" >/dev/null
 browser press Escape >/dev/null
 browser set viewport 1280 900 >/dev/null
+set_theme light
+
+step "ui.custom-css keeps working in the three themes, and can override a variable of one of them"
+for theme in light dark bio; do
+  set_theme "$theme"
+  open_page other
+  expect "the !important rule of custom.css in the $theme theme" "rgb(1, 2, 3)" "$(js "getComputedStyle(document.querySelector('.app-header')).outlineColor")"
+done
+expect "the variable overridden for the bio theme" "0 100% 50%" "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")"
+set_theme light
+open_page other
+[ "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")" != "0 100% 50%" ] || fail "the override of the bio theme leaked into the light theme"
+# The same rule as always: without !important, an override of a variable of the dark theme loses to the application
+set_theme dark
+open_page other
+expect "a custom property of custom.css that the application does not define" 1 "$(js "getComputedStyle(document.documentElement).getPropertyValue('--e2e-plain-override').trim()")"
+[ "$(js "getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()")" != "120 100% 50%" ] || fail "a plain override of a theme variable is not expected to win: did the order of the stylesheets change?"
 set_theme light
 
 step "Administration: the option of the form, and the preview with the default of the page"

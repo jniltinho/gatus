@@ -34,7 +34,7 @@ configuration file of the original works unchanged; on top of it:
 | **Backup and restore of the administration** | A JSON file with the endpoints, status pages and push keys, optionally encrypted, restored with a preview of what changes. [docs/admin-endpoints.md](docs/admin-endpoints.md#backup-and-restore) |
 | **Command line** | `gatus config validate` checks a configuration before a deploy, `gatus password hash` generates the hash of a password, `gatus version` shows the build, and `gatus healthcheck` is the `HEALTHCHECK` of the image, which has no shell. [docs/cli.md](docs/cli.md) |
 | **Bulk management script** | `docs/manager-gatus.py` registers a CSV of hosts, renames a group in every endpoint, lists endpoints and status pages and exports the push tokens, through the administration API. [docs/admin-endpoints.md](docs/admin-endpoints.md#managing-endpoints-from-the-command-line) |
-| **Interface of its own** | Dark mode by default, square style, thin scrollbar in the colours of the theme and the Inter font served by Gatus itself, without calling any external service. |
+| **Interface of its own** | Three themes — dark (the default), light and **bio**, in teal, blue and navy —, chosen by each visitor or set with `ui.default-theme`; square style, thin scrollbar in the colours of the theme and the Inter font served by Gatus itself, without calling any external service. |
 
 **[See every screen →](docs/screenshots/README.md)**
 

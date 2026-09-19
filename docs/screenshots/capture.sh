@@ -160,5 +160,8 @@ capture status-page-dark /status/services
 set_theme light
 capture status-page /status/services
 capture status-page-endpoint /status/services/endpoints/sites_website
+set_theme bio
+capture status-page-bio /status/services
+capture dashboard-bio /
 
-echo "OK: 11 screenshots of $VERSION in $OUT"
+echo "OK: 13 screenshots of $VERSION in $OUT"

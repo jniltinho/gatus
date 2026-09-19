@@ -17,16 +17,16 @@
 - [x] 3.1 Variáveis de `:root.theme-bio` (as do tema e a escala de cinza) com os papéis da D2; capturas do cabeçalho claro e do marinho para o dono escolher.
 - [x] 3.2 Blocos de `:root.theme-bio` para a barra de rolagem e para `prefers-contrast: more`; `forced-colors` conferido.
 - [x] 3.3 Componente de seletor de tema em `Settings.vue`, `PublicLayout.vue` e `LoginPage.vue`, com teclado e foco.
-- [ ] 3.4 `custom.css` representativo (com `!important` e com sobrescrita de variáveis) nos três temas.
+- [x] 3.4 `custom.css` representativo (com `!important` e com sobrescrita de variáveis) nos três temas.
 - [x] 3.5 Teste de que as cores de estado computadas no tema `bio` são idênticas às do tema claro. Script de contraste sobre as telas no tema `bio`: texto do tema ≥ 4,5:1, bordas de controle e foco ≥ 3:1, e nenhum par de cor de estado abaixo do mesmo par no tema claro.
 
 ## 4. Verificação
 
 - [x] 4.1 Migração dos helpers de tema das suítes E2E (`status-pages.sh`, `status-page-groups.sh`, `push.sh`, `admin-backup.sh`, `certificate.sh`, `login.sh`) e de `docs/screenshots/capture.sh` para três temas com classes exclusivas e `theme-color`; `login.sh` usando o seletor; casos `dark` e `light` preservados.
-- [ ] 4.2 E2E do tema: `theme=bio` → HTML cru já com a classe; escolha pelo seletor lembrada; `ui.default-theme: bio` sem cookie; cookie inválido com cada padrão; seletor pelo teclado; transições entre todos os pares; todas as telas no tema `bio`, a 390 px, e a página pública a 360 px com logo, título longo e o menu aberto, sem rolagem horizontal; seletor nas configurações do dashboard com ponteiro grosso.
-- [ ] 4.3 `make frontend-build` final, `go test ./... -race`, `make lint`, testes de unidade do frontend, contrato HTTP, todas as suítes E2E e `openspec validate add-bio-theme --strict`.
+- [x] 4.2 E2E do tema: `theme=bio` → HTML cru já com a classe; escolha pelo seletor lembrada; `ui.default-theme: bio` sem cookie; cookie inválido com cada padrão; seletor pelo teclado; transições entre todos os pares; todas as telas no tema `bio`, a 390 px, e a página pública a 360 px com logo, título longo e o menu aberto, sem rolagem horizontal; seletor nas configurações do dashboard com ponteiro grosso.
+- [x] 4.3 `make frontend-build` final, `go test ./... -race`, `make lint`, testes de unidade do frontend, contrato HTTP, todas as suítes E2E e `openspec validate add-bio-theme --strict`.
 
 ## 5. Entrega
 
-- [ ] 5.1 `docs/README.md` (tabela `ui`), `config.yaml` de exemplo, screenshots do tema, `AGENTS.fork.md`.
+- [x] 5.1 `docs/README.md` (tabela `ui`), `config.yaml` de exemplo, screenshots do tema, `AGENTS.fork.md`.
 - [ ] 5.2 PR com CI verde; release com notas em inglês, `test/e2e/upgrade.sh` antes da tag, imagem, `mariadb/`, exemplos; arquivar a change.

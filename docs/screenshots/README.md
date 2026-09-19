@@ -13,6 +13,15 @@ controls.
 
 ![Dashboard](dashboard.png)
 
+## Bio theme
+
+The third theme, next to dark and light: teal, blue and navy, with a navy header. Each visitor picks a theme with the
+selector in the header (or in the settings bar of the dashboard), and `ui.default-theme: bio` makes it the default.
+
+![Dashboard in the bio theme](dashboard-bio.png)
+
+![Public status page in the bio theme](status-page-bio.png)
+
 ## Endpoint details
 
 Bars of the recent checks, the panel of numbers and the **Response Time Trend** chart in the format of the Uptime
