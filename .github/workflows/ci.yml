@@ -61,7 +61,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # Histórico completo: o lint compara os arquivos com o commit UPSTREAM_BASE
           fetch-depth: 0
 
       - name: Setup Go
@@ -120,5 +119,5 @@ jobs:
           go-version-file: go.mod
 
       - name: Test
-        # Only the packages that use the storage: ./config/... would include the ICMP tests, which require sudo
-        run: go test ./storage/... ./statuspage/... ./managedendpoint/... ./config -race
+        # Only the packages that use the storage: ./internal/config/... would include the ICMP tests, which require sudo
+        run: go test ./internal/storage/... ./internal/statuspage/... ./internal/managedendpoint/... ./internal/config -race

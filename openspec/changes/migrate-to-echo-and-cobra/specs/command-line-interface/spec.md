@@ -72,5 +72,5 @@ O binário `gatus` MUST oferecer os comandos `serve`, `version`, `config validat
 `gatus version` MUST imprimir a versão, o commit e a data da construção, preenchidos na compilação pelos alvos do `Makefile`, pelos `Dockerfile` e pelo workflow de release.
 
 #### Scenario: Binário de release
-- **WHEN** o operador executa `gatus version` no binário da release `v5.36.0-fork.28`
-- **THEN** a saída contém `5.36.0-fork.28`
+- **WHEN** o operador executa `gatus version` no binário da release `v6.0.0`
+- **THEN** a saída contém `6.0.0`

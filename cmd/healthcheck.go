@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gatus/v5/config"
+	"gatus/v5/internal/config"
 	"github.com/spf13/cobra"
 )
 

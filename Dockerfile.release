@@ -2,7 +2,7 @@
 # (dist/pkg/linux_<arch>/gatus). Nada é compilado nem executado na plataforma de destino,
 # então o build multi-arquitetura não precisa de QEMU.
 #
-#   make docker-release VERSION=5.36.0-fork.1
+#   make docker-release VERSION=6.0.0
 FROM --platform=$BUILDPLATFORM alpine:3.24.1 AS certs
 RUN apk add --no-cache ca-certificates tzdata
 

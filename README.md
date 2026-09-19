@@ -1,15 +1,16 @@
 [![Gatus](.github/assets/logo-with-dark-text.png)](https://github.com/jniltinho/gatus)
 
-# Gatus (jniltinho/gatus fork)
+# Gatus (jniltinho/gatus)
 
 Health dashboard that monitors HTTP, ICMP, TCP, DNS and other services, evaluates conditions on the status, response
 time, body and certificates, sends alerts and shows the history of every check.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-## What this fork adds
+## What it adds to the original Gatus
 
-This is a fork of [TwiN/gatus](https://github.com/TwiN/gatus). Everything from the original keeps working the same
+This project started as a fork of [TwiN/gatus](https://github.com/TwiN/gatus) and is now developed on its own.
+Everything from the original keeps working the same
 way; on top of it:
 
 | | |
@@ -28,7 +29,7 @@ way; on top of it:
 
 ## Quick start
 
-With Docker, using a fixed version (the fork does not publish `latest`):
+With Docker, using a fixed version (`latest` is never published):
 
 ```bash
 mkdir -p config && curl -sL -o config/config.yaml https://raw.githubusercontent.com/jniltinho/gatus/master/config.yaml
@@ -81,7 +82,7 @@ admin:
 
 | Topic | Where |
 |-------|-------|
-| Screens of the fork | [docs/screenshots/README.md](docs/screenshots/README.md) |
+| Screens | [docs/screenshots/README.md](docs/screenshots/README.md) |
 | Full configuration: endpoints, conditions, alerting, storage, security, UI, suites, deployment and FAQ | [docs/README.md](docs/README.md) |
 | Endpoint administration through the web, login screen, backup and restore | [docs/admin-endpoints.md](docs/admin-endpoints.md) |
 | Public status pages and response time chart | [docs/status-pages.md](docs/status-pages.md) |
@@ -97,12 +98,12 @@ make frontend-install frontend-build   # only when changing the web interface
 make build                             # binary in dist/gatus
 ```
 
-The Go module is named `gatus/v5` and does not depend on the original repository, so the fork cannot be installed with
+The Go module is named `gatus/v5` and does not depend on the original repository, so it cannot be installed with
 `go install`.
 
 ## Releases
 
-Fork releases use `v<upstream-version>-fork.<N>` tags, with `linux/amd64` and `linux/arm64` tarballs on
+Releases use `vX.Y.Z` tags (the older ones are `v5.36.0-fork.<N>`), with `linux/amd64` and `linux/arm64` tarballs on
 [GitHub](https://github.com/jniltinho/gatus/releases) and the `jniltinho/gatus:<tag>` image on
 [Docker Hub](https://hub.docker.com/r/jniltinho/gatus). There is no `latest` tag on purpose: pin the version you run.
 
