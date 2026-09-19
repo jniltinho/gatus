@@ -37,5 +37,5 @@
 
 ## 4. Entrega
 
-- [ ] 4.1 Um PR por marco e a release `v6.0.0` com os três, com CI verde, notas em inglês, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos.
-- [ ] 4.2 `openspec validate migrate-to-echo-and-cobra --strict` e arquivamento depois do marco 3.
+- [x] 4.1 Um PR por marco e a release `v6.0.0` com os três, com CI verde, notas em inglês, imagem no Docker Hub, pacote `mariadb` e versões dos exemplos.
+- [x] 4.2 `openspec validate migrate-to-echo-and-cobra --strict` e arquivamento depois do marco 3.
