@@ -356,7 +356,9 @@ func TestStore_GetUptimeByKey(t *testing.T) {
 			if uptime, _ := scenario.Store.GetUptimeByKey(testEndpoint.Key(), now.Add(-time.Hour*24*7), time.Now()); uptime != 0.5 {
 				t.Errorf("the uptime over the past 7d should've been 0.5, got %f", uptime)
 			}
-			if _, err := scenario.Store.GetUptimeByKey(testEndpoint.Key(), now, time.Now().Add(-time.Hour)); err == nil {
+			// Both ends come from the same clock: now is truncated to the hour when the test binary starts, so against
+			// time.Now() this interval stops being inverted when the tests cross an hour boundary
+			if _, err := scenario.Store.GetUptimeByKey(testEndpoint.Key(), now, now.Add(-time.Hour)); err == nil {
 				t.Error("should've returned an error because the parameter 'from' cannot be older than 'to'")
 			}
 		})

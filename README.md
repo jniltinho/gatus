@@ -44,7 +44,7 @@ With Docker, using a fixed version (`latest` is never published):
 
 ```bash
 mkdir -p config && curl -sL -o config/config.yaml https://raw.githubusercontent.com/jniltinho/gatus/master/config.yaml
-docker run -d --name gatus -p 127.0.0.1:8080:8080 -v "$PWD/config:/config" jniltinho/gatus:v6.2.0
+docker run -d --name gatus -p 127.0.0.1:8080:8080 -v "$PWD/config:/config" jniltinho/gatus:v6.3.0
 ```
 
 Open http://127.0.0.1:8080. `docker ps` shows the container as `healthy` once `/health` answers.
@@ -54,7 +54,7 @@ That keeps nothing across restarts. With Docker Compose, the history in SQLite a
 ```yaml
 services:
   gatus:
-    image: jniltinho/gatus:v6.2.0
+    image: jniltinho/gatus:v6.3.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"   # publish it through a reverse proxy, not directly
@@ -66,8 +66,8 @@ volumes:
 ```
 
 ```bash
-docker run --rm -it jniltinho/gatus:v6.2.0 password hash             # asks for the password, prints the hash
-docker run --rm -v "$PWD/config:/config:ro" jniltinho/gatus:v6.2.0 config validate   # before every deploy
+docker run --rm -it jniltinho/gatus:v6.3.0 password hash             # asks for the password, prints the hash
+docker run --rm -v "$PWD/config:/config:ro" jniltinho/gatus:v6.3.0 config validate   # before every deploy
 docker compose up -d
 ```
 
@@ -78,7 +78,7 @@ Without Docker, download `gatus_<version>_linux_<amd64|arm64>.tar.gz` from the
 [releases](https://github.com/jniltinho/gatus/releases) and run:
 
 ```bash
-tar xzf gatus_6.2.0_linux_amd64.tar.gz
+tar xzf gatus_6.3.0_linux_amd64.tar.gz
 ./gatus config validate --config config.yaml
 ./gatus --config config.yaml
 ```

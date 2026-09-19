@@ -11,4 +11,4 @@
 ## 3. Entrega
 
 - [x] 3.1 `ui.logo` em `docs/README.md` e no `config.yaml` de exemplo. As telas de `docs/screenshots` já eram capturadas com esse logo (`capture.sh`), então não mudam.
-- [ ] 3.2 PR com CI verde; nota na release v6.3.0 (mudança visível e `ui.logo: none`); arquivar a change.
+- [x] 3.2 PR com CI verde; nota na release v6.3.0 (mudança visível e `ui.logo: none`); arquivar a change.

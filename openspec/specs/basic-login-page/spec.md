@@ -5,8 +5,8 @@ TBD - created by archiving change add-basic-login-page. Update Purpose after arc
 ## Requirements
 ### Requirement: Tela de login do security.basic
 Com `security.basic` configurado e sem `security.oidc`, o frontend MUST oferecer a rota `/login`, atendida pela SPA sem o cabeçalho do dashboard. A tela MUST mostrar:
-- um cartão com o logo, o título de `ui.header`, os campos de usuário e de senha e o botão de entrar;
-- o cartão centralizado na horizontal, com a borda superior a 15% da altura da janela;
+- um cartão com o logo de `ui.logo` (o logo padrão embutido quando a opção não está definida, nenhum com `ui.logo: none`), o título de `ui.header`, os campos de usuário e de senha e o botão de entrar;
+- o cartão centralizado na horizontal, com a borda superior a 10% da altura da janela;
 - o tema (claro, escuro ou Bio) lido do mesmo cookie de tema das outras telas, com o mesmo seletor de tema das outras telas;
 - o visual quadrado do fork e variantes `dark:`.
 
@@ -24,7 +24,7 @@ Nos outros casos, MUST levar ao dashboard `/`. Sem `security.basic`, ou com `sec
 #### Scenario: Visitante sem sessão abre a administração
 - **WHEN** um navegador sem sessão abre `/admin`
 - **THEN** a SPA mostra `/login?redirect=/admin` sem abrir a janela nativa de usuário e senha do navegador e sem o cabeçalho do dashboard
-- **AND** o cartão de login fica a 15% do topo da janela, no tema do cookie de tema
+- **AND** o cartão de login fica a 10% do topo da janela, no tema do cookie de tema
 
 #### Scenario: Senha errada
 - **WHEN** o visitante envia a senha errada
