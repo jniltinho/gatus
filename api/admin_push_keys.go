@@ -1,15 +1,19 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"strconv"
 
 	pushconfig "gatus/v5/config/push"
+	"gatus/v5/internal/httpx"
 	"gatus/v5/pushkey"
 	"gatus/v5/security"
+
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 // createPushKeyRequest is the body of POST /api/v1/admin/push-keys
@@ -19,38 +23,40 @@ type createPushKeyRequest struct {
 
 // registerAdminPushKeyRoutes registers the routes of the administration of the global push keys (fork). The router must
 // already require authentication, administrator permission and request protection.
-func registerAdminPushKeyRoutes(router fiber.Router, securityConfig *security.Config) {
-	router.Get("/push-keys", func(c *fiber.Ctx) error {
-		return c.Status(http.StatusOK).JSON(pushkey.List())
+func registerAdminPushKeyRoutes(router httpx.Router, securityConfig *security.Config) {
+	httpx.GetAndHead(router, "/push-keys", func(c *echo.Context) error {
+		return httpx.JSON(c, http.StatusOK, pushkey.List())
 	})
-	router.Post("/push-keys", func(c *fiber.Ctx) error {
+	router.POST("/push-keys", func(c *echo.Context) error {
 		var request createPushKeyRequest
-		if err := c.BodyParser(&request); err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body: a JSON object with the name of the key is expected"})
+		// Only JSON, as before: the body was already read ahead, see httpx.BufferBody
+		mediaType, _, _ := mime.ParseMediaType(httpx.Header(c, echo.HeaderContentType))
+		if err := json.Unmarshal(httpx.Body(c), &request); err != nil || mediaType != echo.MIMEApplicationJSON {
+			return httpx.JSON(c, http.StatusBadRequest, map[string]any{"error": "invalid body: a JSON object with the name of the key is expected"})
 		}
 		created, err := pushkey.Create(request.Name, securityConfig.RequestAuthor(c))
 		if err != nil {
 			return adminPushKeyError(c, err)
 		}
 		// The token is only available in this response
-		c.Set(fiber.HeaderCacheControl, "no-store")
-		return c.Status(http.StatusCreated).JSON(created)
+		httpx.SetHeader(c, echo.HeaderCacheControl, "no-store")
+		return httpx.JSON(c, http.StatusCreated, created)
 	})
-	router.Delete("/push-keys/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	router.DELETE("/push-keys/:id", func(c *echo.Context) error {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil || id <= 0 {
 			return adminPushKeyError(c, pushkey.ErrNotFound)
 		}
 		if err := pushkey.Delete(id, securityConfig.RequestAuthor(c)); err != nil {
 			return adminPushKeyError(c, err)
 		}
-		return c.Status(http.StatusOK).JSON(fiber.Map{"id": id})
+		return httpx.JSON(c, http.StatusOK, map[string]any{"id": id})
 	})
 }
 
 // adminPushKeyError maps the errors of the administration of the push keys to their HTTP status. Unexpected errors are
 // logged and answered without their text.
-func adminPushKeyError(c *fiber.Ctx, err error) error {
+func adminPushKeyError(c *echo.Context, err error) error {
 	status := http.StatusInternalServerError
 	switch {
 	case errors.Is(err, pushkey.ErrStorageNotSupported):
@@ -66,7 +72,7 @@ func adminPushKeyError(c *fiber.Ctx, err error) error {
 	}
 	if status == http.StatusInternalServerError {
 		logr.Errorf("[api.adminPushKeyError] %s", err.Error())
-		return c.Status(status).JSON(fiber.Map{"error": "internal error"})
+		return httpx.JSON(c, status, map[string]any{"error": "internal error"})
 	}
-	return c.Status(status).JSON(fiber.Map{"error": err.Error()})
+	return httpx.JSON(c, status, map[string]any{"error": err.Error()})
 }

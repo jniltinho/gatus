@@ -29,6 +29,7 @@ import (
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -137,9 +138,9 @@ func startContractServer(t *testing.T, cfg *config.Config) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := New(cfg).Router()
-	go func() { _ = app.Listener(listener) }()
-	t.Cleanup(func() { _ = app.ShutdownWithTimeout(2 * time.Second) })
+	server := &http.Server{Handler: New(cfg).Router(), ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
 	return "http://" + listener.Addr().String()
 }
 
@@ -516,7 +517,7 @@ func TestHTTPContract(t *testing.T) {
 }
 
 func truncateContract(value []byte) string {
-	const maximum = 600
+	const maximum = 6000
 	if len(value) > maximum {
 		return string(value[:maximum]) + "…"
 	}

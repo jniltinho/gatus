@@ -10,7 +10,8 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	"gatus/v5/storage"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 // A push with status=pending records a pending result, an extension of the fork (fork)
@@ -37,12 +38,12 @@ func TestEndpointStatus_DetailsSummaryFields(t *testing.T) {
 		Storage:           &storage.Config{MaximumNumberOfResults: 100, MaximumNumberOfEvents: 50},
 		ExternalEndpoints: []*endpoint.ExternalEndpoint{{Name: "backup", Group: "jobs", Token: pushTestExternalToken}},
 	}
-	statusRouter := fiber.New()
-	statusRouter.Get("/api/v1/endpoints/:key/statuses", EndpointStatus(cfg))
+	statusRouter := echo.New()
+	statusRouter.GET("/api/v1/endpoints/:key/statuses", EndpointStatus(cfg))
 	fetch := func(path string) map[string]any {
 		t.Helper()
 		request := httptest.NewRequest(http.MethodGet, path, http.NoBody)
-		response, err := statusRouter.Test(request, -1)
+		response, err := testHTTP(statusRouter, request)
 		if err != nil {
 			t.Fatal(err)
 		}

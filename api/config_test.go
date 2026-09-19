@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"gatus/v5/security"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 func TestConfigHandler_ServeHTTP(t *testing.T) {
@@ -21,15 +22,17 @@ func TestConfigHandler_ServeHTTP(t *testing.T) {
 	}
 	handler := ConfigHandler{securityConfig: securityConfig}
 	// Create a fake router. We're doing this because I need the gate to be initialized.
-	app := fiber.New()
-	app.Get("/api/v1/config", handler.GetConfig)
-	err := securityConfig.ApplySecurityMiddleware(app)
+	// The route is public and the security middleware is on a group of its own: with Echo a middleware of the router
+	// covers every route, whatever the order in which they were registered
+	app := echo.New()
+	app.GET("/api/v1/config", handler.GetConfig)
+	err := securityConfig.ApplySecurityMiddleware(app.Group("/protected"))
 	if err != nil {
 		t.Error("expected err to be nil, but was", err)
 	}
 	// Test the config handler
 	request := httptest.NewRequest("GET", "/api/v1/config", http.NoBody)
-	response, err := app.Test(request)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Error("expected err to be nil, but was", err)
 	}

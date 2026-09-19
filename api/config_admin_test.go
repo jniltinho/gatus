@@ -10,7 +10,8 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/admin"
 	"gatus/v5/security"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -40,8 +41,8 @@ func TestConfigHandler_Admin(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			cfg := &config.Config{Security: scenario.securityConfig, Admin: scenario.adminConfig}
-			app := fiber.New()
-			app.Get("/api/v1/config", ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig)
+			app := echo.New()
+			app.GET("/api/v1/config", ConfigHandler{securityConfig: cfg.Security, config: cfg}.GetConfig)
 			if err := cfg.Security.ApplySecurityMiddleware(app.Group("/protected")); err != nil {
 				t.Fatalf("failed to apply security middleware: %v", err)
 			}
@@ -49,7 +50,7 @@ func TestConfigHandler_Admin(t *testing.T) {
 			if scenario.withCredentials {
 				request.SetBasicAuth("admin", "secret")
 			}
-			response, err := app.Test(request)
+			response, err := testHTTP(app, request)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}

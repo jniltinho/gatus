@@ -10,6 +10,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -21,6 +24,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"content type must be application/json\"}"
@@ -30,6 +36,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"the endpoint is defined in the configuration file and cannot be changed through the administration\"}"
@@ -42,6 +51,9 @@
       ],
       "Etag": [
         "\"1\""
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
@@ -51,6 +63,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"the endpoint key is already in use by another managed endpoint: web_site\"}"
@@ -60,6 +75,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"request body is too large\"}"
@@ -69,6 +87,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"cross-site requests are not allowed\"}"
@@ -78,6 +99,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
@@ -87,6 +111,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
@@ -96,6 +123,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"invalid endpoint definition: you must specify an url for each endpoint\"}"
@@ -105,6 +135,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"content type must be application/json or application/yaml\"}"
@@ -114,6 +147,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"web_site\",\"triggeredAlerts\":0}"
@@ -126,6 +162,9 @@
       ],
       "Etag": [
         "\"3\""
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":false,\"source\":\"admin\",\"conflict\":false,\"version\":3,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\nenabled: false\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"enabled\":false,\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\nenabled: false\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"enabled\":false,\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
@@ -138,6 +177,9 @@
       ],
       "Etag": [
         "\"1\""
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
@@ -147,6 +189,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"definition\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: core\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: api\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: https://example.org/api\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"core\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"api\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"https://example.org/api\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: core\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: api\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: https://example.org/api\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"core\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"api\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"https://example.org/api\"}}}"
@@ -156,6 +201,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"endpoint not found\"}"
@@ -165,6 +213,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/api\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\",\"type\":\"HTTP\",\"url\":\"https://example.org/db\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"config\",\"conflict\":false},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\",\"type\":\"PUSH\",\"enabled\":true,\"source\":\"config\",\"conflict\":false,\"acceptsPush\":true}]"
@@ -174,6 +225,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"alertTypes\":[],\"tunnels\":[],\"extraLabels\":[]}"
@@ -183,6 +237,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}}"
@@ -192,6 +249,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"push.keys[].name must have between 1 and 64 characters\"}"
@@ -201,6 +261,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"managedUnavailable\":false,\"keys\":[]}"
@@ -213,13 +276,21 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"request body is too large\"}"
   },
   "admin restore preview above the global limit": {
-    "status": -1,
-    "body": "connection error"
+    "status": 413,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Request Entity Too Large"
   },
   "admin restore preview invalid": {
     "status": 400,
@@ -229,6 +300,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"invalid backup file: the file is not a JSON object\"}"
@@ -241,6 +315,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"invalid backup file: the file is not a JSON object\"}"
@@ -253,6 +330,9 @@
       ],
       "Etag": [
         "\"1\""
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"slug\":\"managed\",\"title\":\"Managed\",\"origin\":\"admin\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/managed\",\"version\":1,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"slug\":\"managed\",\"title\":\"Managed\",\"groups\":[\"core\"],\"auth\":{\"username\":\"visitor\",\"password-bcrypt-base64\":\"********\"},\"enabled\":true},\"yaml\":\"slug: managed\\ntitle: Managed\\ngroups:\\n    - core\\nauth:\\n    username: visitor\\n    password-bcrypt-base64: '********'\\nenabled: true\\n\"}"
@@ -262,6 +342,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"the password of the login of a status page must have at least 8 characters\"}"
@@ -271,6 +354,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\",\"definition\":{\"slug\":\"clients\",\"title\":\"Clients\",\"groups\":[\"core\"],\"auth\":{\"username\":\"client\",\"password-bcrypt-base64\":\"********\"}},\"yaml\":\"slug: clients\\ntitle: Clients\\ngroups:\\n    - core\\nauth:\\n    username: client\\n    password-bcrypt-base64: '********'\\n\"}"
@@ -283,6 +369,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"slug\":\"clients\",\"title\":\"Clients\",\"description\":\"\",\"status\":\"degraded\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"truncated\":false,\"summary\":{\"total\":2,\"up\":1,\"down\":1,\"pending\":0,\"unknown\":0},\"featured\":[],\"groups\":[{\"name\":\"core\",\"status\":\"degraded\",\"endpoints\":[{\"name\":\"api\",\"status\":\"up\",\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":120},{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":true,\"durationMs\":80}]},{\"name\":\"db\",\"status\":\"down\",\"uptime\":{\"24h\":0,\"7d\":0,\"30d\":0},\"responseTime\":{\"24h\":5,\"7d\":5,\"30d\":5},\"results\":[{\"timestamp\":\"\u003ctimestamp\u003e\",\"success\":false,\"durationMs\":5}]}]}]}"
@@ -292,6 +381,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"published\":true,\"reason\":\"group\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"published\":false,\"reason\":\"group\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"published\":true,\"reason\":\"group\"}]}"
@@ -301,6 +393,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"the group or the key of the endpoint is required\"}"
@@ -310,6 +405,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"publicationEnabled\":true,\"managedUnavailable\":false,\"statusPages\":[{\"slug\":\"clients\",\"title\":\"Clients\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":true,\"path\":\"/status/clients\"},{\"slug\":\"hidden\",\"title\":\"Hidden\",\"origin\":\"config\",\"enabled\":false,\"published\":false,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/hidden\"},{\"slug\":\"infra\",\"title\":\"Infra\",\"origin\":\"config\",\"enabled\":true,\"published\":true,\"conflict\":false,\"endpoints\":2,\"requiresLogin\":false,\"path\":\"/status/infra\"}]}"
@@ -319,6 +417,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"groups\":[{\"name\":\"core\",\"endpoints\":2},{\"name\":\"jobs\",\"endpoints\":1}],\"endpoints\":[{\"key\":\"core_api\",\"name\":\"api\",\"group\":\"core\"},{\"key\":\"core_db\",\"name\":\"db\",\"group\":\"core\"},{\"key\":\"jobs_backup\",\"name\":\"backup\",\"group\":\"jobs\"}]}"
@@ -328,6 +429,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /api/v1/admin/nothing-here"
@@ -337,6 +441,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"managed endpoint version does not match: invalid If-Match header\"}"
@@ -346,6 +453,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"managed endpoint version does not match\"}"
@@ -358,6 +468,9 @@
       ],
       "Etag": [
         "\"2\""
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"key\":\"web_site\",\"name\":\"site\",\"group\":\"web\",\"type\":\"HTTP\",\"url\":\"http://127.0.0.1:1/site\",\"interval\":\"1h0m0s\",\"enabled\":true,\"source\":\"admin\",\"conflict\":false,\"version\":2,\"createdAt\":\"\u003ctimestamp\u003e\",\"updatedAt\":\"\u003ctimestamp\u003e\",\"updatedBy\":\"admin\",\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
@@ -367,6 +480,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"the If-Match header with the current version of the endpoint is required\"}"
@@ -376,6 +492,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"definition\":{\"yaml\":\"conditions:\\n    - '[STATUS] == 200'\\ngroup: web\\ninterval: 1h\\nname: site\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"interval\":\"1h\",\"name\":\"site\",\"url\":\"http://127.0.0.1:1/site\"}},\"effective\":{\"yaml\":\"client:\\n    network: ip\\n    timeout: 10s\\nconditions:\\n    - '[STATUS] == 200'\\ngroup: web\\nheaders:\\n    User-Agent: Gatus/1.0\\ninterval: 1h0m0s\\nmethod: GET\\nname: site\\nui:\\n    badge:\\n        response-time:\\n            thresholds:\\n                - 50\\n                - 200\\n                - 300\\n                - 500\\n                - 750\\n    dont-resolve-failed-conditions: false\\n    hide-conditions: false\\n    hide-errors: false\\n    hide-hostname: false\\n    hide-port: false\\n    hide-url: false\\n    resolve-successful-conditions: false\\nurl: http://127.0.0.1:1/site\\n\",\"json\":{\"client\":{\"network\":\"ip\",\"timeout\":\"10s\"},\"conditions\":[\"[STATUS] == 200\"],\"group\":\"web\",\"headers\":{\"User-Agent\":\"Gatus/1.0\"},\"interval\":\"1h0m0s\",\"method\":\"GET\",\"name\":\"site\",\"ui\":{\"badge\":{\"response-time\":{\"thresholds\":[50,200,300,500,750]}},\"dont-resolve-failed-conditions\":false,\"hide-conditions\":false,\"hide-errors\":false,\"hide-hostname\":false,\"hide-port\":false,\"hide-url\":false,\"resolve-successful-conditions\":false},\"url\":\"http://127.0.0.1:1/site\"}}}"
@@ -388,6 +507,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "Www-Authenticate": [
         "Basic"
@@ -404,6 +526,9 @@
       "Content-Type": [
         "application/json"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "Www-Authenticate": [
         "Basic"
       ]
@@ -418,6 +543,9 @@
       ],
       "Content-Type": [
         "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"76\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"76\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h48v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M48 0h28v20H48z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h76v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"24\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"24\" y=\"14\"\u003e\n      health\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      up\n    \u003c/text\u003e\n    \u003ctext x=\"62\" y=\"14\"\u003e\n      up\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
@@ -430,6 +558,9 @@
       ],
       "Content-Type": [
         "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -441,6 +572,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"color\":\"brightgreen\",\"label\":\"gatus\",\"message\":\"up\",\"schemaVersion\":1}"
@@ -450,6 +584,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "endpoint not found"
@@ -462,6 +599,9 @@
       ],
       "Content-Type": [
         "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"165\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"165\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h110v20H0z\"/\u003e\n    \u003cpath fill=\"#94cc11\" d=\"M110 0h55v20H110z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h165v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"55\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"55\" y=\"14\"\u003e\n      response time 24h\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      100ms\n    \u003c/text\u003e\n    \u003ctext x=\"137\" y=\"14\"\u003e\n      100ms\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
@@ -474,6 +614,9 @@
       ],
       "Content-Type": [
         "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"114\" height=\"20\"\u003e\n  \u003clinearGradient id=\"b\" x2=\"0\" y2=\"100%\"\u003e\n    \u003cstop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/\u003e\n    \u003cstop offset=\"1\" stop-opacity=\".1\"/\u003e\n  \u003c/linearGradient\u003e\n  \u003cmask id=\"a\"\u003e\n    \u003crect width=\"114\" height=\"20\" fill=\"#fff\"/\u003e\n  \u003c/mask\u003e\n  \u003cg mask=\"url(#a)\"\u003e\n    \u003cpath fill=\"#555\" d=\"M0 0h70v20H0z\"/\u003e\n    \u003cpath fill=\"#40cc11\" d=\"M70 0h44v20H70z\"/\u003e\n    \u003cpath fill=\"url(#b)\" d=\"M0 0h114v20H0z\"/\u003e\n  \u003c/g\u003e\n  \u003cg fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\"\u003e\n    \u003ctext x=\"35\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      uptime 24h\n    \u003c/text\u003e\n    \u003ctext x=\"35\" y=\"14\"\u003e\n      uptime 24h\n    \u003c/text\u003e\n    \u003ctext x=\"92\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\"\u003e\n      100%\n    \u003c/text\u003e\n    \u003ctext x=\"92\" y=\"14\"\u003e\n      100%\n    \u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e"
@@ -483,6 +626,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Durations supported: 30d, 7d, 24h, 1h"
@@ -495,23 +641,32 @@
       ],
       "Content-Type": [
         "image/svg+xml"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
   "config uppercase": {
-    "status": 200,
+    "status": 404,
     "headers": {
       "Content-Type": [
-        "application/json"
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
-    "body": "{\"admin\":{\"authorized\":false,\"enabled\":true},\"announcements\":[],\"authenticated\":false,\"login\":\"basic\",\"oidc\":false}"
+    "body": "Cannot GET /API/v1/config"
   },
   "config with credentials": {
     "status": 200,
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"admin\":{\"authorized\":true,\"enabled\":true},\"announcements\":[],\"authenticated\":true,\"login\":\"basic\",\"oidc\":false}"
@@ -521,6 +676,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"admin\":{\"authorized\":false,\"enabled\":true},\"announcements\":[],\"authenticated\":false,\"login\":\"basic\",\"oidc\":false}"
@@ -530,6 +688,9 @@
     "headers": {
       "Content-Type": [
         "text/css"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -541,6 +702,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -552,6 +716,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "Www-Authenticate": [
         "Basic"
@@ -587,6 +754,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}],\"events\":[{\"type\":\"START\",\"timestamp\":\"\u003ctimestamp\u003e\"},{\"type\":\"HEALTHY\",\"timestamp\":\"\u003ctimestamp\u003e\"}],\"push\":false,\"uptime\":{\"24h\":1,\"7d\":1,\"30d\":1},\"responseTime\":{\"24h\":100,\"7d\":100,\"30d\":100},\"currentResponseTime\":80}"
@@ -596,6 +766,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "endpoint not found"
@@ -609,6 +782,9 @@
       "Content-Type": [
         "application/json"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "Www-Authenticate": [
         "Basic"
       ]
@@ -616,13 +792,21 @@
     "body": "{\"error\":\"authentication required\"}"
   },
   "external result": {
-    "status": 200
+    "status": 200,
+    "headers": {
+      "Vary": [
+        "Accept-Encoding"
+      ]
+    }
   },
   "external result unknown key": {
     "status": 404,
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "not found"
@@ -632,6 +816,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "invalid Authorization header"
@@ -641,6 +828,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "invalid token"
@@ -650,6 +840,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"status\":\"UP\"}"
@@ -659,6 +852,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -666,10 +862,13 @@
     "status": 405,
     "headers": {
       "Allow": [
-        "GET, HEAD"
+        "OPTIONS, GET, HEAD"
       ],
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Method Not Allowed"
@@ -679,6 +878,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -687,6 +889,9 @@
     "headers": {
       "Location": [
         "/"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -695,6 +900,9 @@
     "headers": {
       "Location": [
         "/?a=1"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -703,6 +911,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "endpoint not found"
@@ -712,6 +923,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "endpoint not found"
@@ -723,13 +937,16 @@
         "text/plain; charset=utf-8"
       ]
     },
-    "body": "invalid key encoding"
+    "body": "400 Bad Request"
   },
   "key with plus": {
     "status": 404,
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "endpoint not found"
@@ -741,7 +958,10 @@
         "no-store"
       ],
       "Set-Cookie": [
-        "gatus_session=\u003ctoken\u003e; max-age=28800; path=/; HttpOnly; SameSite=Strict"
+        "gatus_session=\u003ctoken\u003e; Path=/; Max-Age=28800; HttpOnly; SameSite=Strict"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -753,6 +973,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"request body is too large\"}"
@@ -765,6 +988,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"cross-site requests are not allowed\"}"
@@ -777,6 +1003,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"origin is not allowed: https://evil.example\"}"
@@ -789,6 +1018,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "Www-Authenticate": [
         "Basic"
@@ -804,6 +1036,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"invalid request body\"}"
@@ -815,7 +1050,10 @@
         "no-store"
       ],
       "Set-Cookie": [
-        "gatus_session=\u003ctoken\u003e; max-age=28800; path=/; HttpOnly; secure; SameSite=Strict"
+        "gatus_session=\u003ctoken\u003e; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Strict"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -827,6 +1065,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"content type must be application/json\"}"
@@ -839,6 +1080,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"Invalid username or password\"}"
@@ -850,7 +1094,10 @@
         "no-store"
       ],
       "Set-Cookie": [
-        "gatus_session=\u003ctoken\u003e; expires=\u003cdate\u003e; path=/; HttpOnly; SameSite=Strict"
+        "gatus_session=\u003ctoken\u003e; Path=/; expires=\u003cdate\u003e; HttpOnly; SameSite=Strict"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -918,7 +1165,7 @@
         "strict-origin-when-cross-origin"
       ],
       "Vary": [
-        "Authorization"
+        "Accept-Encoding, Authorization"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -942,7 +1189,7 @@
         "strict-origin-when-cross-origin"
       ],
       "Vary": [
-        "Authorization"
+        "Accept-Encoding, Authorization"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -1097,7 +1344,7 @@
         "strict-origin-when-cross-origin"
       ],
       "Vary": [
-        "Authorization"
+        "Accept-Encoding, Authorization"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -1343,8 +1590,13 @@
     }
   },
   "push body above the limit": {
-    "status": -1,
-    "body": "connection error"
+    "status": 413,
+    "headers": {
+      "Content-Type": [
+        "text/plain; charset=utf-8"
+      ]
+    },
+    "body": "Request Entity Too Large"
   },
   "push by token": {
     "status": 200,
@@ -1354,6 +1606,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":true}"
@@ -1366,6 +1621,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":true}"
@@ -1378,6 +1636,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":false,\"msg\":\"Invalid ping value. Must be between 0 and 100000000000 ms.\"}"
@@ -1390,6 +1651,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":true}"
@@ -1402,6 +1666,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
@@ -1414,6 +1681,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
@@ -1426,6 +1696,9 @@
       ],
       "Content-Type": [
         "application/json; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"ok\":false,\"msg\":\"Monitor not found or not active.\"}"
@@ -1438,6 +1711,9 @@
       ],
       "Content-Type": [
         "text/plain"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "100"
@@ -1450,6 +1726,9 @@
       ],
       "Content-Type": [
         "text/plain"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "1.000000"
@@ -1459,6 +1738,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1467,6 +1749,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1475,6 +1760,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1483,6 +1771,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1491,6 +1782,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1499,6 +1793,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1507,6 +1804,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1515,6 +1815,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1523,6 +1826,9 @@
     "headers": {
       "Content-Type": [
         "text/html"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1530,7 +1836,10 @@
     "status": 200,
     "headers": {
       "Content-Type": [
-        "text/css"
+        "text/css; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1541,7 +1850,7 @@
         "gzip"
       ],
       "Content-Type": [
-        "text/css"
+        "text/css; charset=utf-8"
       ],
       "Vary": [
         "Accept-Encoding"
@@ -1552,15 +1861,21 @@
     "status": 200,
     "headers": {
       "Content-Type": [
-        "text/css"
+        "text/css; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
   "static directory": {
-    "status": 200,
+    "status": 404,
     "headers": {
       "Content-Type": [
-        "text/html"
+        "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1569,6 +1884,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -1577,6 +1895,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /js/missing.js"
@@ -1586,6 +1907,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /js/missing.js"
@@ -1625,6 +1949,9 @@
       ],
       "Referrer-Policy": [
         "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -1889,6 +2216,9 @@
       "Referrer-Policy": [
         "strict-origin-when-cross-origin"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "X-Content-Type-Options": [
         "nosniff"
       ],
@@ -1908,6 +2238,9 @@
       ],
       "Referrer-Policy": [
         "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -1929,6 +2262,9 @@
       "Referrer-Policy": [
         "strict-origin-when-cross-origin"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "X-Content-Type-Options": [
         "nosniff"
       ],
@@ -1948,6 +2284,9 @@
       ],
       "Referrer-Policy": [
         "strict-origin-when-cross-origin"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "X-Content-Type-Options": [
         "nosniff"
@@ -2154,6 +2493,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":120000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"errors\":[\"disk full\"],\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":12000000,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"errors\":[\"Disk full\"],\"message\":\"Disk full\",\"origin\":\"push\",\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"},{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
@@ -2166,6 +2508,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"authentication required\"}"
@@ -2187,6 +2532,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     }
   },
@@ -2195,6 +2543,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "[{\"name\":\"api\",\"group\":\"core\",\"key\":\"core_api\",\"results\":[{\"status\":200,\"duration\":80000000,\"conditionResults\":[{\"condition\":\"[STATUS] == 200\",\"success\":true}],\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"db\",\"group\":\"core\",\"key\":\"core_db\",\"results\":[{\"duration\":5000000,\"errors\":[\"Get \\\"https://example.org/db\\\": dial tcp 10.0.0.5:443: connect: connection refused\"],\"conditionResults\":[{\"condition\":\"[STATUS] (0) == 200\",\"success\":false}],\"success\":false,\"timestamp\":\"\u003ctimestamp\u003e\"}]},{\"name\":\"backup\",\"group\":\"jobs\",\"key\":\"jobs_backup\",\"results\":[{\"duration\":0,\"message\":\"OK\",\"origin\":\"push\",\"success\":true,\"timestamp\":\"\u003ctimestamp\u003e\"}]}]"
@@ -2207,6 +2558,9 @@
       ],
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ],
       "Www-Authenticate": [
         "Basic"
@@ -2223,6 +2577,9 @@
       "Content-Type": [
         "application/json"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "Www-Authenticate": [
         "Basic"
       ]
@@ -2234,6 +2591,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"error\":\"Suite with key 'missing' not found\"}"
@@ -2243,6 +2603,9 @@
     "headers": {
       "Content-Type": [
         "application/json"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "null"
@@ -2256,6 +2619,9 @@
       "Content-Type": [
         "application/json"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "Www-Authenticate": [
         "Basic"
       ]
@@ -2267,6 +2633,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "{\"status\":\"UP\"}"
@@ -2276,6 +2645,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /api/v1/nothing-here"
@@ -2289,6 +2661,9 @@
       "Content-Type": [
         "application/json"
       ],
+      "Vary": [
+        "Accept-Encoding"
+      ],
       "Www-Authenticate": [
         "Basic"
       ]
@@ -2300,6 +2675,9 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /nothing-here"
@@ -2309,17 +2687,23 @@
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
     "body": "Cannot GET /nothing-here"
   },
   "uppercase path": {
-    "status": 200,
+    "status": 404,
     "headers": {
       "Content-Type": [
         "text/plain; charset=utf-8"
+      ],
+      "Vary": [
+        "Accept-Encoding"
       ]
     },
-    "body": "{\"status\":\"UP\"}"
+    "body": "Cannot GET /HEALTH"
   }
 }

@@ -26,12 +26,13 @@ import (
 	"gatus/v5/storage/store/common"
 	"gatus/v5/storage/store/common/paging"
 	"gatus/v5/watchdog"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type adminTestEnvironment struct {
-	app        *fiber.App
+	app        *echo.Echo
 	serverURL  string
 	slowURL    string
 	slowServed chan struct{}
@@ -103,7 +104,7 @@ func (env *adminTestEnvironment) do(t *testing.T, method, path, body string, hea
 			request.Header.Set(name, value)
 		}
 	}
-	response, err := env.app.Test(request, -1)
+	response, err := testHTTP(env.app, request)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -160,7 +161,7 @@ func TestAdminAPI(t *testing.T) {
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/endpoints", http.NoBody)
 		request.Host = "status.example.com"
 		request.SetBasicAuth("admin", "secret")
-		response, err := env.app.Test(request, -1)
+		response, err := testHTTP(env.app, request)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,7 +199,7 @@ func TestAdminAPI(t *testing.T) {
 	t.Run("spa-routes", func(t *testing.T) {
 		for _, path := range []string{"/admin", "/admin/endpoints/new", "/admin/endpoints/web_site/edit", "/admin/status-pages", "/admin/status-pages/new", "/admin/status-pages/infra/edit"} {
 			request := httptest.NewRequest(http.MethodGet, path, http.NoBody)
-			response, err := env.app.Test(request, -1)
+			response, err := testHTTP(env.app, request)
 			if err != nil {
 				t.Fatal(err)
 			}

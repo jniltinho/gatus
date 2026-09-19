@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"bufio"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
@@ -15,8 +13,6 @@ import (
 	"gatus/v5/config"
 	"gatus/v5/config/endpoint"
 	"gatus/v5/config/web"
-	"gatus/v5/liveupdates"
-	"github.com/gofiber/fiber/v2"
 )
 
 func TestHandle(t *testing.T) {
@@ -42,15 +38,13 @@ func TestHandle(t *testing.T) {
 	Handle(cfg)
 	defer Shutdown()
 	request := httptest.NewRequest("GET", "/health", http.NoBody)
-	response, err := app.Test(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if response.StatusCode != 200 {
-		t.Error("expected GET /health to return status code 200")
-	}
-	if app == nil {
+	if server == nil {
 		t.Fatal("server should've been set (but because we set ROUTER_TEST, it shouldn't have been started)")
+	}
+	recorder := httptest.NewRecorder()
+	server.Handler.ServeHTTP(recorder, request)
+	if recorder.Code != 200 {
+		t.Error("expected GET /health to return status code 200")
 	}
 }
 
@@ -84,15 +78,13 @@ func TestHandleTLS(t *testing.T) {
 			Handle(cfg)
 			defer Shutdown()
 			request := httptest.NewRequest("GET", "/health", http.NoBody)
-			response, err := app.Test(request)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if response.StatusCode != scenario.expectedStatusCode {
-				t.Errorf("%s %s should have returned %d, but returned %d instead", request.Method, request.URL, scenario.expectedStatusCode, response.StatusCode)
-			}
-			if app == nil {
+			if server == nil {
 				t.Fatal("server should've been set (but because we set ROUTER_TEST, it shouldn't have been started)")
+			}
+			recorder := httptest.NewRecorder()
+			server.Handler.ServeHTTP(recorder, request)
+			if recorder.Code != scenario.expectedStatusCode {
+				t.Errorf("%s %s should have returned %d, but returned %d instead", request.Method, request.URL, scenario.expectedStatusCode, recorder.Code)
 			}
 		})
 	}
@@ -100,55 +92,98 @@ func TestHandleTLS(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	// Pretend that we called controller.Handle(), which initializes the server variable
-	app = fiber.New()
+	server = &http.Server{}
 	Shutdown()
-	if app != nil {
+	if server != nil {
 		t.Error("server should've been shut down")
 	}
+	// Without a server, Shutdown does nothing
+	Shutdown()
 }
 
-func TestEventStreamRequestConfig(t *testing.T) {
-	previousWriteTimeout := liveupdates.StreamWriteTimeout
-	liveupdates.StreamWriteTimeout = 5 * time.Second
-	defer func() { liveupdates.StreamWriteTimeout = previousWriteTimeout }()
-	app := fiber.New()
-	slowStream := func(c *fiber.Ctx) error {
-		c.Context().SetBodyStreamWriter(func(writer *bufio.Writer) {
-			for i := 0; i < 6; i++ {
-				_, _ = writer.WriteString("data: {}\n\n")
-				_ = writer.Flush()
-				time.Sleep(100 * time.Millisecond)
-			}
-		})
-		return nil
-	}
-	app.Get("/api/v1/endpoints/:key/events", slowStream)
-	app.Get("/api/v1/endpoints/statuses/events-export", slowStream)
-	server := app.Server()
-	server.WriteTimeout = 250 * time.Millisecond
-	server.HeaderReceived = eventStreamRequestConfig
+func freePort(t *testing.T) int {
+	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() { _ = app.Listener(listener) }()
-	defer func() { _ = app.ShutdownWithTimeout(time.Second) }()
-	base := "http://" + listener.Addr().String()
-	read := func(path string) (string, error) {
-		response, err := http.Get(base + path)
-		if err != nil {
-			return "", err
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port
+}
+
+func waitForHealth(t *testing.T, base string) {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		if response, err := http.Get(base + "/health"); err == nil {
+			_ = response.Body.Close()
+			if response.StatusCode == http.StatusOK {
+				return
+			}
 		}
-		defer response.Body.Close()
-		body, err := io.ReadAll(response.Body)
-		return string(body), err
+		time.Sleep(20 * time.Millisecond)
 	}
-	for _, path := range []string{"/api/v1/endpoints/jobs_backup/events", "/api/v1/endpoints/jobs_backup/events?lastEventId=3"} {
-		if body, err := read(path); err != nil || strings.Count(body, "data: {}") != 6 {
-			t.Errorf("%s: expected the whole stream with the longer write timeout, got %q %v", path, body, err)
+	t.Fatalf("the server at %s did not answer /health", base)
+}
+
+// TestHandle_ReloadOnTheSamePort is what a reload of the configuration does: the server is stopped and another one
+// listens on the same address. http.Server returns http.ErrServerClosed when it is shut down, which must not be fatal,
+// and Shutdown must only return once the address is free.
+func TestHandle_ReloadOnTheSamePort(t *testing.T) {
+	port := freePort(t)
+	cfg := &config.Config{
+		Web:       &web.Config{Address: "127.0.0.1", Port: port, ReadBufferSize: web.DefaultReadBufferSize},
+		Endpoints: []*endpoint.Endpoint{{Name: "frontend", Group: "core"}},
+	}
+	base := "http://" + cfg.Web.SocketAddress()
+	for cycle := 1; cycle <= 3; cycle++ {
+		finished := make(chan struct{})
+		go func() {
+			defer close(finished)
+			Handle(cfg)
+		}()
+		waitForHealth(t, base)
+		Shutdown()
+		select {
+		case <-finished:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("cycle %d: Handle did not return after Shutdown", cycle)
+		}
+		if _, err := http.Get(base + "/health"); err == nil {
+			t.Fatalf("cycle %d: expected the server to have stopped listening", cycle)
 		}
 	}
-	if body, err := read("/api/v1/endpoints/statuses/events-export"); err == nil && strings.Count(body, "data: {}") == 6 {
-		t.Errorf("expected another route to keep the default write timeout, got the whole body %q", body)
+}
+
+// TestHandle_HeaderLimit checks that web.read-buffer-size still caps the headers of a request. net/http counts them with
+// a margin of its own, so the sizes are far from the limit on purpose.
+func TestHandle_HeaderLimit(t *testing.T) {
+	port := freePort(t)
+	cfg := &config.Config{
+		Web:       &web.Config{Address: "127.0.0.1", Port: port, ReadBufferSize: web.DefaultReadBufferSize},
+		Endpoints: []*endpoint.Endpoint{{Name: "frontend", Group: "core"}},
+	}
+	base := "http://" + cfg.Web.SocketAddress()
+	go Handle(cfg)
+	defer Shutdown()
+	waitForHealth(t, base)
+	for name, scenario := range map[string]struct {
+		size     int
+		expected int
+	}{
+		"well below the limit": {size: 1024, expected: http.StatusOK},
+		"well above the limit": {size: 64 * 1024, expected: http.StatusRequestHeaderFieldsTooLarge},
+	} {
+		t.Run(name, func(t *testing.T) {
+			request, _ := http.NewRequest(http.MethodGet, base+"/health", http.NoBody)
+			request.Header.Set("X-Padding", strings.Repeat("a", scenario.size))
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != scenario.expected {
+				t.Errorf("expected %d, got %d", scenario.expected, response.StatusCode)
+			}
+		})
 	}
 }

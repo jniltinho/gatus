@@ -3,14 +3,17 @@ package api
 import (
 	"encoding/base64"
 	"math"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"gatus/v5/internal/httpx"
 	"gatus/v5/statuspage"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 // Fork: login of a status page. The middleware runs before every route of a page and does, in this order:
@@ -33,68 +36,73 @@ const (
 	// localsProtectedEventStream marks the event stream of a page that requires a login
 	localsProtectedEventStream = "gatus.status-page-protected-stream"
 
+	// localsPrivateBadge marks the badge of a page that requires a login, whose Cache-Control is private
+	localsPrivateBadge = "gatus.status-page-private-badge"
+
 	// localsProtectedPageHTML marks the HTML of a page that requires a login
 	localsProtectedPageHTML = "gatus.status-page-protected-html"
 )
 
 // statusPageAuth returns the middleware of the routes of a status page
-func statusPageAuth(notFound fiber.Handler, trustedProxies []netip.Prefix) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		published, ok := statuspage.Lookup(c.Params("slug"))
-		if !ok {
-			return notFound(c)
-		}
-		c.Locals(localsPublishedStatusPage, published)
-		if !published.Page.RequiresLogin() {
-			return c.Next()
-		}
-		username, password, hasCredential := basicCredentials(c)
-		clientIP := statusPageClientIP(c, trustedProxies)
-		result, retryAfter := statuspage.VerifyPageCredential(published.Page, published.Page.Slug, username, password, hasCredential, clientIP, time.Now())
-		switch result {
-		case statuspage.AuthTooManyFailures:
-			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
-			return sendStatusPageError(c, fiber.StatusTooManyRequests, statusPageTooManyRequestsBody)
-		case statuspage.AuthUnauthorized:
-			return sendStatusPageUnauthorized(c, published.Page.Slug)
-		default:
-			return c.Next()
+func statusPageAuth(notFound echo.HandlerFunc, trustedProxies []netip.Prefix) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			published, ok := statuspage.Lookup(c.Param("slug"))
+			if !ok {
+				return notFound(c)
+			}
+			c.Set(localsPublishedStatusPage, published)
+			if !published.Page.RequiresLogin() {
+				return next(c)
+			}
+			username, password, hasCredential := basicCredentials(c)
+			clientIP := statusPageClientIP(c, trustedProxies)
+			result, retryAfter := statuspage.VerifyPageCredential(published.Page, published.Page.Slug, username, password, hasCredential, clientIP, time.Now())
+			switch result {
+			case statuspage.AuthTooManyFailures:
+				httpx.SetHeader(c, echo.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+				return sendStatusPageError(c, http.StatusTooManyRequests, statusPageTooManyRequestsBody)
+			case statuspage.AuthUnauthorized:
+				return sendStatusPageUnauthorized(c, published.Page.Slug)
+			default:
+				return next(c)
+			}
 		}
 	}
 }
 
 // publishedStatusPage returns the page captured by the middleware, and false when the route ran without it
-func publishedStatusPage(c *fiber.Ctx) (statuspage.Published, bool) {
-	published, ok := c.Locals(localsPublishedStatusPage).(statuspage.Published)
+func publishedStatusPage(c *echo.Context) (statuspage.Published, bool) {
+	published, ok := c.Get(localsPublishedStatusPage).(statuspage.Published)
 	return published, ok
 }
 
 // sendStatusPageUnauthorized answers the challenge of a page. The realm is the slug of the published definition, which
 // is validated, and never the parameter of the request.
-func sendStatusPageUnauthorized(c *fiber.Ctx, slug string) error {
-	c.Set(fiber.HeaderWWWAuthenticate, `Basic realm="`+slug+`", charset="UTF-8"`)
-	return sendStatusPageError(c, fiber.StatusUnauthorized, statusPageUnauthorizedBody)
+func sendStatusPageUnauthorized(c *echo.Context, slug string) error {
+	httpx.SetHeader(c, echo.HeaderWWWAuthenticate, `Basic realm="`+slug+`", charset="UTF-8"`)
+	return sendStatusPageError(c, http.StatusUnauthorized, statusPageUnauthorizedBody)
 }
 
 // setProtectedPageCacheControl keeps the answers of a protected page out of any shared cache
-func setProtectedPageCacheControl(c *fiber.Ctx, protected bool, public string) {
+func setProtectedPageCacheControl(c *echo.Context, protected bool, public string) {
 	if protected {
-		c.Set(fiber.HeaderCacheControl, "private, no-store")
-		c.Vary(fiber.HeaderAuthorization)
+		httpx.SetHeader(c, echo.HeaderCacheControl, "private, no-store")
+		httpx.Vary(c, echo.HeaderAuthorization)
 		return
 	}
-	c.Set(fiber.HeaderCacheControl, public)
+	httpx.SetHeader(c, echo.HeaderCacheControl, public)
 }
 
 // statusPageClientIP resolves the client of a request with status-pages.trusted-proxies
-func statusPageClientIP(c *fiber.Ctx, trustedProxies []netip.Prefix) netip.Addr {
-	remoteIP, _ := netip.AddrFromSlice(c.Context().RemoteIP())
-	return statuspage.ClientIP(remoteIP, c.Request().Header.PeekAll(fiber.HeaderXForwardedFor), trustedProxies)
+func statusPageClientIP(c *echo.Context, trustedProxies []netip.Prefix) netip.Addr {
+	remoteIP := httpx.RemoteIP(c)
+	return statuspage.ClientIP(remoteIP, httpx.HeaderValues(c, echo.HeaderXForwardedFor), trustedProxies)
 }
 
 // basicCredentials returns the username and the password of the Authorization: Basic header of the request
-func basicCredentials(c *fiber.Ctx) (string, string, bool) {
-	scheme, encoded, found := strings.Cut(strings.TrimSpace(c.Get(fiber.HeaderAuthorization)), " ")
+func basicCredentials(c *echo.Context) (string, string, bool) {
+	scheme, encoded, found := strings.Cut(strings.TrimSpace(httpx.Header(c, echo.HeaderAuthorization)), " ")
 	if !found || !strings.EqualFold(scheme, "basic") {
 		return "", "", false
 	}
@@ -111,23 +119,23 @@ func basicCredentials(c *fiber.Ctx) (string, string, bool) {
 
 // statusPageBadgeHandler serves a badge of an endpoint of a page, with the same rules of the other routes of the page:
 // the key that does not belong to the page answers 404 only after the challenge of the middleware
-func statusPageBadgeHandler(notFound fiber.Handler, badge fiber.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func statusPageBadgeHandler(notFound echo.HandlerFunc, badge echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		published, captured := publishedStatusPage(c)
 		if !captured {
 			return notFound(c)
 		}
-		key, err := url.QueryUnescape(c.Params("key"))
+		key, err := url.QueryUnescape(c.Param("key"))
 		if err != nil || !statuspage.IsEndpointShownOf(published, key) {
 			return notFound(c)
 		}
 		setPublicHeaders(c)
+		// Said before the badge is written, never changed afterwards: see setBadgeCacheControl
+		if published.Page.RequiresLogin() {
+			c.Set(localsPrivateBadge, true)
+		}
 		if err = badge(c); err != nil {
 			return err
-		}
-		if published.Page.RequiresLogin() {
-			c.Set(fiber.HeaderCacheControl, "private, no-store")
-			c.Vary(fiber.HeaderAuthorization)
 		}
 		return nil
 	}
@@ -135,28 +143,30 @@ func statusPageBadgeHandler(notFound fiber.Handler, badge fiber.Handler) fiber.H
 
 // statusPageHTMLAuth challenges the HTML routes of a page that requires a login. Every other path under /status/ keeps
 // answering 200 with the HTML of the SPA, revealing nothing.
-func statusPageHTMLAuth(trustedProxies []netip.Prefix) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		slug := firstPathSegmentAfterStatus(c.Path())
-		if len(slug) == 0 {
-			return c.Next()
-		}
-		published, ok := statuspage.Lookup(slug)
-		if !ok || !published.Page.RequiresLogin() {
-			return c.Next()
-		}
-		username, password, hasCredential := basicCredentials(c)
-		clientIP := statusPageClientIP(c, trustedProxies)
-		result, retryAfter := statuspage.VerifyPageCredential(published.Page, published.Page.Slug, username, password, hasCredential, clientIP, time.Now())
-		switch result {
-		case statuspage.AuthTooManyFailures:
-			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
-			return sendStatusPageError(c, fiber.StatusTooManyRequests, statusPageTooManyRequestsBody)
-		case statuspage.AuthUnauthorized:
-			return sendStatusPageUnauthorized(c, published.Page.Slug)
-		default:
-			c.Locals(localsProtectedPageHTML, true)
-			return c.Next()
+func statusPageHTMLAuth(trustedProxies []netip.Prefix) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			slug := firstPathSegmentAfterStatus(httpx.Path(c))
+			if len(slug) == 0 {
+				return next(c)
+			}
+			published, ok := statuspage.Lookup(slug)
+			if !ok || !published.Page.RequiresLogin() {
+				return next(c)
+			}
+			username, password, hasCredential := basicCredentials(c)
+			clientIP := statusPageClientIP(c, trustedProxies)
+			result, retryAfter := statuspage.VerifyPageCredential(published.Page, published.Page.Slug, username, password, hasCredential, clientIP, time.Now())
+			switch result {
+			case statuspage.AuthTooManyFailures:
+				httpx.SetHeader(c, echo.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+				return sendStatusPageError(c, http.StatusTooManyRequests, statusPageTooManyRequestsBody)
+			case statuspage.AuthUnauthorized:
+				return sendStatusPageUnauthorized(c, published.Page.Slug)
+			default:
+				c.Set(localsProtectedPageHTML, true)
+				return next(c)
+			}
 		}
 	}
 }

@@ -13,7 +13,8 @@ import (
 	"gatus/v5/config/ui"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 func TestSinglePageApplication(t *testing.T) {
@@ -84,7 +85,7 @@ func TestSinglePageApplication(t *testing.T) {
 			if scenario.CookieDarkMode {
 				request.Header.Set("Cookie", "theme=dark")
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}
@@ -132,7 +133,7 @@ func TestSinglePageApplication_DefaultTheme(t *testing.T) {
 				if len(scenario.cookie) > 0 {
 					request.Header.Set("Cookie", scenario.cookie)
 				}
-				response, err := fiberTestApp(path, uiConfig).Test(request)
+				response, err := testHTTP(spaTestApp(path, uiConfig), request)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -154,13 +155,13 @@ func boolPointer(value bool) *bool {
 	return &value
 }
 
-// fiberTestApp serves the single page application at path, like the dashboard or like the public status pages
-func fiberTestApp(path string, uiConfig *ui.Config) *fiber.App {
-	app := fiber.New()
+// spaTestApp serves the single page application at path, like the dashboard or like the public status pages
+func spaTestApp(path string, uiConfig *ui.Config) *echo.Echo {
+	app := echo.New()
 	if strings.HasPrefix(path, "/status/") {
-		app.Get(path, renderSPA(uiConfig, setPublicHeaders))
+		app.GET(path, renderSPA(uiConfig, setPublicHeaders))
 	} else {
-		app.Get(path, SinglePageApplication(uiConfig))
+		app.GET(path, SinglePageApplication(uiConfig))
 	}
 	return app
 }

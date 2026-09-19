@@ -32,7 +32,7 @@ var (
 // unless the connection comes from a trusted proxy: then, the X-Forwarded-For lines are read from right to left and the
 // first address that is not a trusted proxy is used. Too many entries, a line that is too long or an invalid entry
 // make the IP address of the connection be used.
-func ClientIP(remoteIP netip.Addr, forwardedFor [][]byte, trustedProxies []netip.Prefix) netip.Addr {
+func ClientIP(remoteIP netip.Addr, forwardedFor []string, trustedProxies []netip.Prefix) netip.Addr {
 	remoteIP = remoteIP.Unmap()
 	if len(forwardedFor) == 0 || !isTrustedProxy(remoteIP, trustedProxies) {
 		return remoteIP
@@ -42,7 +42,7 @@ func ClientIP(remoteIP netip.Addr, forwardedFor [][]byte, trustedProxies []netip
 		if len(line) > maximumForwardedForLineLength {
 			return remoteIP
 		}
-		for _, entry := range strings.Split(string(line), ",") {
+		for _, entry := range strings.Split(line, ",") {
 			if len(entries) == maximumForwardedForEntries {
 				return remoteIP
 			}

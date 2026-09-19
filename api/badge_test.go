@@ -147,7 +147,7 @@ func TestBadge(t *testing.T) {
 			if scenario.Gzip {
 				request.Header.Set("Accept-Encoding", "gzip")
 			}
-			response, err := router.Test(request)
+			response, err := testHTTP(router, request)
 			if err != nil {
 				return
 			}

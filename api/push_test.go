@@ -19,7 +19,8 @@ import (
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common/paging"
 	"gatus/v5/watchdog"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -29,7 +30,7 @@ const (
 	pushTestGlobalKey     = "akamai-global-key-123"
 )
 
-func newPushTestRouter(t *testing.T) *fiber.App {
+func newPushTestRouter(t *testing.T) *echo.Echo {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -78,9 +79,9 @@ func newPushTestRouter(t *testing.T) *fiber.App {
 	return New(cfg).Router()
 }
 
-func doPush(t *testing.T, router *fiber.App, method, path string) (int, http.Header, string) {
+func doPush(t *testing.T, router *echo.Echo, method, path string) (int, http.Header, string) {
 	t.Helper()
-	response, err := router.Test(httptest.NewRequest(method, path, http.NoBody), -1)
+	response, err := testHTTP(router, httptest.NewRequest(method, path, http.NoBody))
 	if err != nil {
 		t.Fatalf("%s %s failed: %v", method, path, err)
 	}

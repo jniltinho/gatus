@@ -8,15 +8,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"math"
+	"net/http"
 	"net/netip"
 	"strconv"
 	"strings"
 	"time"
 
+	"gatus/v5/internal/httpx"
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,6 +29,9 @@ const (
 
 	// localsBasicAuthentication is the key of the locals of a request holding its basicAuthentication
 	localsBasicAuthentication = "gatus.basic-authentication"
+
+	// localsUsername is the key of the store of a request holding the username of its authenticated user
+	localsUsername = "username"
 
 	// loginSessionTokenSize is the size of the random token of a login session, in bytes
 	loginSessionTokenSize = 32
@@ -84,7 +89,7 @@ func (c *Config) LoginMethod() string {
 // Login checks the credentials sent by the login screen and, when they are right, creates a new login session and sets
 // its cookie. The session cookie of the request, if any, is ignored so that a session cannot be fixed. It returns
 // ErrInvalidCredentials, a *TooManyFailuresError or an error of the storage.
-func (c *Config) Login(ctx *fiber.Ctx, username, password string) error {
+func (c *Config) Login(ctx *echo.Context, username, password string) error {
 	now := time.Now()
 	clientIP := requestClientIP(ctx)
 	limiter := c.failureLimiter()
@@ -125,9 +130,9 @@ func (c *Config) Login(ctx *fiber.Ctx, username, password string) error {
 }
 
 // Logout deletes the login session of the request, if any, and expires its cookie
-func (c *Config) Logout(ctx *fiber.Ctx) error {
+func (c *Config) Logout(ctx *echo.Context) error {
 	var err error
-	if token := ctx.Cookies(cookieNameSession); isLoginSessionToken(token) {
+	if token := sessionCookieOf(ctx); isLoginSessionToken(token) {
 		if loginSessionStore, ok := store.GetLoginSessionStore(); ok {
 			err = loginSessionStore.DeleteLoginSession(hashLoginSessionToken(token))
 		}
@@ -138,34 +143,36 @@ func (c *Config) Logout(ctx *fiber.Ctx) error {
 
 // basicMiddleware responds with 401 to the requests that have neither a valid login session nor the right
 // Authorization: Basic, and with 429 to the requests with Authorization: Basic from a client blocked by the limiter
-func (c *Config) basicMiddleware(ctx *fiber.Ctx) error {
-	authentication := c.authenticateBasic(ctx)
-	if authentication.authenticated {
-		return ctx.Next()
+func (c *Config) basicMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(ctx *echo.Context) error {
+		authentication := c.authenticateBasic(ctx)
+		if authentication.authenticated {
+			return next(ctx)
+		}
+		httpx.SetHeader(ctx, echo.HeaderCacheControl, "no-store")
+		if authentication.retryAfter > 0 {
+			httpx.SetHeader(ctx, echo.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(authentication.retryAfter.Seconds()))))
+			return httpx.JSON(ctx, http.StatusTooManyRequests, map[string]string{"error": "too many failed authentication attempts"})
+		}
+		// Browsers open their native credentials dialog on this challenge, so it is only sent to other clients
+		if !isBrowserRequest(ctx) {
+			httpx.SetHeader(ctx, echo.HeaderWWWAuthenticate, "Basic")
+		}
+		return httpx.JSON(ctx, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 	}
-	ctx.Set(fiber.HeaderCacheControl, "no-store")
-	if authentication.retryAfter > 0 {
-		ctx.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(authentication.retryAfter.Seconds()))))
-		return ctx.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "too many failed authentication attempts"})
-	}
-	// Browsers open their native credentials dialog on this challenge, so it is only sent to other clients
-	if !isBrowserRequest(ctx) {
-		ctx.Set(fiber.HeaderWWWAuthenticate, "Basic")
-	}
-	return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
 }
 
 // authenticateBasic authenticates the request with its login session or, without a valid one, with its Authorization:
 // Basic header, under the failure limiter. The result is computed once and kept in the locals of the request, so that
 // a wrong password counts as a single failure and is checked once even when several handlers ask for it.
-func (c *Config) authenticateBasic(ctx *fiber.Ctx) *basicAuthentication {
-	if authentication, ok := ctx.Locals(localsBasicAuthentication).(*basicAuthentication); ok {
+func (c *Config) authenticateBasic(ctx *echo.Context) *basicAuthentication {
+	if authentication, ok := ctx.Get(localsBasicAuthentication).(*basicAuthentication); ok {
 		return authentication
 	}
 	authentication := &basicAuthentication{}
-	ctx.Locals(localsBasicAuthentication, authentication)
+	ctx.Set(localsBasicAuthentication, authentication)
 	now := time.Now()
-	if username, ok := c.Basic.sessionUsername(ctx.Cookies(cookieNameSession), now); ok {
+	if username, ok := c.Basic.sessionUsername(sessionCookieOf(ctx), now); ok {
 		authentication.username, authentication.authenticated = username, true
 	} else if username, password, ok := basicCredentials(ctx); ok {
 		clientIP := requestClientIP(ctx)
@@ -180,7 +187,7 @@ func (c *Config) authenticateBasic(ctx *fiber.Ctx) *basicAuthentication {
 		}
 	}
 	if authentication.authenticated {
-		ctx.Locals("username", authentication.username)
+		ctx.Set(localsUsername, authentication.username)
 	}
 	return authentication
 }
@@ -250,8 +257,8 @@ func (c *BasicConfig) credentialFingerprint() string {
 }
 
 // basicCredentials returns the username and the password of the Authorization: Basic header of the request
-func basicCredentials(ctx *fiber.Ctx) (string, string, bool) {
-	scheme, encoded, found := strings.Cut(strings.TrimSpace(ctx.Get(fiber.HeaderAuthorization)), " ")
+func basicCredentials(ctx *echo.Context) (string, string, bool) {
+	scheme, encoded, found := strings.Cut(strings.TrimSpace(httpx.Header(ctx, echo.HeaderAuthorization)), " ")
 	if !found || !strings.EqualFold(scheme, "basic") {
 		return "", "", false
 	}
@@ -263,20 +270,28 @@ func basicCredentials(ctx *fiber.Ctx) (string, string, bool) {
 }
 
 // isBrowserRequest returns whether the request comes from a browser or from the frontend
-func isBrowserRequest(ctx *fiber.Ctx) bool {
+func isBrowserRequest(ctx *echo.Context) bool {
 	// Fork: an EventSource cannot send X-Requested-With and, on an HTTP page outside of localhost, the browser does not
 	// send Sec-Fetch-* either, but it always accepts text/event-stream
-	return len(ctx.Get("Sec-Fetch-Site")) > 0 || len(ctx.Get("Sec-Fetch-Mode")) > 0 || len(ctx.Get(fiber.HeaderXRequestedWith)) > 0 ||
-		strings.Contains(ctx.Get(fiber.HeaderAccept), "text/event-stream")
+	return len(httpx.Header(ctx, "Sec-Fetch-Site")) > 0 || len(httpx.Header(ctx, "Sec-Fetch-Mode")) > 0 || len(httpx.Header(ctx, echo.HeaderXRequestedWith)) > 0 ||
+		strings.Contains(httpx.Header(ctx, echo.HeaderAccept), "text/event-stream")
 }
 
 // requestClientIP returns the IP address of the client of the request
-func requestClientIP(ctx *fiber.Ctx) netip.Addr {
-	if clientIP, ok := ctx.Locals(LocalsClientIP).(netip.Addr); ok {
+func requestClientIP(ctx *echo.Context) netip.Addr {
+	if clientIP, ok := ctx.Get(LocalsClientIP).(netip.Addr); ok {
 		return clientIP
 	}
-	remoteIP, _ := netip.AddrFromSlice(ctx.Context().RemoteIP())
-	return remoteIP.Unmap()
+	return httpx.RemoteIP(ctx)
+}
+
+// sessionCookieOf returns the value of the session cookie of the request, or an empty string without it
+func sessionCookieOf(ctx *echo.Context) string {
+	cookie, err := ctx.Cookie(cookieNameSession)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
 }
 
 // isLoginSessionToken returns whether the value has the format of a login session token, without querying the storage
@@ -295,24 +310,26 @@ func hashLoginSessionToken(token string) string {
 }
 
 // setLoginSessionCookie sets the session cookie: Secure when the connection is TLS or X-Forwarded-Proto is https
-func setLoginSessionCookie(ctx *fiber.Ctx, token string, maxAge int, expires time.Time) {
-	ctx.Cookie(&fiber.Cookie{
+func setLoginSessionCookie(ctx *echo.Context, token string, maxAge int, expires time.Time) {
+	ctx.SetCookie(&http.Cookie{
 		Name:     cookieNameSession,
 		Value:    token,
 		Path:     "/",
 		MaxAge:   maxAge,
 		Expires:  expires,
 		Secure:   isSecureRequest(ctx),
-		HTTPOnly: true,
-		SameSite: fiber.CookieSameSiteStrictMode,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	})
 }
 
 // isSecureRequest returns whether the connection is TLS or the reverse proxy says, with X-Forwarded-Proto, that it is
-func isSecureRequest(ctx *fiber.Ctx) bool {
-	if ctx.Context().IsTLS() {
+func isSecureRequest(ctx *echo.Context) bool {
+	// The TLS of the connection itself and the first value of X-Forwarded-Proto, exactly as before: never
+	// echo.Context.Scheme, which also trusts X-Forwarded-Protocol, X-Forwarded-Ssl and X-Url-Scheme
+	if httpx.IsTLS(ctx) {
 		return true
 	}
-	forwardedProto, _, _ := strings.Cut(ctx.Get(fiber.HeaderXForwardedProto), ",")
+	forwardedProto, _, _ := strings.Cut(httpx.Header(ctx, echo.HeaderXForwardedProto), ",")
 	return strings.EqualFold(strings.TrimSpace(forwardedProto), "https")
 }

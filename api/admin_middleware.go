@@ -2,13 +2,16 @@ package api
 
 import (
 	"mime"
+	"net/http"
 	"net/url"
 	"os"
 	"slices"
 	"strings"
 
 	"gatus/v5/config/admin"
-	"github.com/gofiber/fiber/v2"
+	"gatus/v5/internal/httpx"
+
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -26,42 +29,44 @@ var adminMediaTypes = []string{"application/json", "application/yaml", "applicat
 // The expected origin is derived only from the Host header and the scheme (TLS or X-Forwarded-Proto). Pages cannot
 // set Host, Origin or Sec-Fetch-* and a cross-site request with a custom header such as X-Forwarded-Proto requires a
 // CORS preflight that Gatus does not allow, so this is safe against CSRF. X-Forwarded-Host is ignored on purpose, and
-// so are Fiber's Hostname() and Protocol(), which trust any X-Forwarded-* header.
-func adminRequestProtection(adminConfig *admin.Config) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		switch c.Method() {
-		case fiber.MethodPost, fiber.MethodPut, fiber.MethodPatch, fiber.MethodDelete:
-		default:
-			return c.Next()
+// so is Echo's Scheme(), which trusts any X-Forwarded-* header.
+func adminRequestProtection(adminConfig *admin.Config) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			switch c.Request().Method {
+			case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			default:
+				return next(c)
+			}
+			if strings.EqualFold(httpx.Header(c, "Sec-Fetch-Site"), "cross-site") {
+				return adminError(c, http.StatusForbidden, "cross-site requests are not allowed")
+			}
+			if origin, present := requestOrigin(c); present && !isAllowedAdminOrigin(c, origin, adminConfig) {
+				return adminError(c, http.StatusForbidden, "origin is not allowed: "+origin)
+			}
+			body := httpx.Body(c)
+			// Fork: the restore routes accept a backup file, checked by their handler (see api/admin_backup.go)
+			if len(body) > adminMaximumBodySize && !isAdminRestorePath(httpx.Path(c)) {
+				return adminError(c, http.StatusRequestEntityTooLarge, "request body is too large")
+			}
+			if len(body) > 0 && !isAdminMediaType(httpx.Header(c, echo.HeaderContentType)) {
+				return adminError(c, http.StatusUnsupportedMediaType, "content type must be application/json or application/yaml")
+			}
+			return next(c)
 		}
-		if strings.EqualFold(c.Get("Sec-Fetch-Site"), "cross-site") {
-			return adminError(c, fiber.StatusForbidden, "cross-site requests are not allowed")
-		}
-		if origin, present := requestOrigin(c); present && !isAllowedAdminOrigin(c, origin, adminConfig) {
-			return adminError(c, fiber.StatusForbidden, "origin is not allowed: "+origin)
-		}
-		body := c.Body()
-		// Fork: the restore routes accept a backup file, checked by their handler (see api/admin_backup.go)
-		if len(body) > adminMaximumBodySize && !isAdminRestorePath(c.Path()) {
-			return adminError(c, fiber.StatusRequestEntityTooLarge, "request body is too large")
-		}
-		if len(body) > 0 && !isAdminMediaType(c.Get(fiber.HeaderContentType)) {
-			return adminError(c, fiber.StatusUnsupportedMediaType, "content type must be application/json or application/yaml")
-		}
-		return c.Next()
 	}
 }
 
-func adminError(c *fiber.Ctx, status int, message string) error {
-	return c.Status(status).JSON(fiber.Map{"error": message})
+func adminError(c *echo.Context, status int, message string) error {
+	return httpx.JSON(c, status, map[string]any{"error": message})
 }
 
 // requestOrigin returns the Origin of the request or, without it, the origin of the Referer
-func requestOrigin(c *fiber.Ctx) (string, bool) {
-	if origin := strings.TrimSpace(c.Get(fiber.HeaderOrigin)); len(origin) > 0 {
+func requestOrigin(c *echo.Context) (string, bool) {
+	if origin := strings.TrimSpace(httpx.Header(c, echo.HeaderOrigin)); len(origin) > 0 {
 		return normalizeOrigin(origin), true
 	}
-	if referer := strings.TrimSpace(c.Get(fiber.HeaderReferer)); len(referer) > 0 {
+	if referer := strings.TrimSpace(httpx.Header(c, "Referer")); len(referer) > 0 {
 		parsed, err := url.Parse(referer)
 		if err != nil || len(parsed.Scheme) == 0 || len(parsed.Host) == 0 {
 			return referer, true
@@ -71,7 +76,7 @@ func requestOrigin(c *fiber.Ctx) (string, bool) {
 	return "", false
 }
 
-func isAllowedAdminOrigin(c *fiber.Ctx, origin string, adminConfig *admin.Config) bool {
+func isAllowedAdminOrigin(c *echo.Context, origin string, adminConfig *admin.Config) bool {
 	if os.Getenv("ENVIRONMENT") == "dev" && origin == adminDevServerOrigin {
 		return true
 	}
@@ -87,14 +92,14 @@ func isAllowedAdminOrigin(c *fiber.Ctx, origin string, adminConfig *admin.Config
 }
 
 // derivedOrigin returns the origin of the request from its Host header and scheme
-func derivedOrigin(c *fiber.Ctx) string {
+func derivedOrigin(c *echo.Context) string {
 	scheme := "http"
-	if c.Context().IsTLS() {
+	if httpx.IsTLS(c) {
 		scheme = "https"
-	} else if forwardedProto, _, _ := strings.Cut(c.Get(fiber.HeaderXForwardedProto), ","); slices.Contains([]string{"http", "https"}, strings.ToLower(strings.TrimSpace(forwardedProto))) {
+	} else if forwardedProto, _, _ := strings.Cut(httpx.Header(c, echo.HeaderXForwardedProto), ","); slices.Contains([]string{"http", "https"}, strings.ToLower(strings.TrimSpace(forwardedProto))) {
 		scheme = strings.ToLower(strings.TrimSpace(forwardedProto))
 	}
-	return normalizeOrigin(scheme + "://" + string(c.Request().Host()))
+	return normalizeOrigin(scheme + "://" + c.Request().Host)
 }
 
 // normalizeOrigin lowercases an origin and removes the default port of its scheme

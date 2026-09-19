@@ -19,7 +19,8 @@ import (
 	"gatus/v5/storage/store"
 	"gatus/v5/storage/store/common"
 	"gatus/v5/watchdog"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 )
 
 // strictChartPayload mirrors the payload of the response time chart, decoded with DisallowUnknownFields, so that a new
@@ -58,7 +59,7 @@ func decodeChartPayload(t *testing.T, body string) strictChartPayload {
 }
 
 type chartTestEnvironment struct {
-	app      *fiber.App
+	app      *echo.Echo
 	endpoint *endpoint.Endpoint
 }
 
@@ -104,7 +105,7 @@ func (env *chartTestEnvironment) get(t *testing.T, target string, authenticated 
 	if authenticated {
 		request.SetBasicAuth("admin", "secret")
 	}
-	response, err := env.app.Test(request, -1)
+	response, err := testHTTP(env.app, request)
 	if err != nil {
 		t.Fatal(err)
 	}

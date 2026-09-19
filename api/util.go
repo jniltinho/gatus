@@ -3,7 +3,7 @@ package api
 import (
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -14,9 +14,9 @@ const (
 	DefaultPageSize = 50
 )
 
-func extractPageAndPageSizeFromRequest(c *fiber.Ctx, maximumNumberOfResults int) (page, pageSize int) {
+func extractPageAndPageSizeFromRequest(c *echo.Context, maximumNumberOfResults int) (page, pageSize int) {
 	var err error
-	if pageParameter := c.Query("page"); len(pageParameter) == 0 {
+	if pageParameter := c.QueryParam("page"); len(pageParameter) == 0 {
 		page = DefaultPage
 	} else {
 		page, err = strconv.Atoi(pageParameter)
@@ -27,7 +27,7 @@ func extractPageAndPageSizeFromRequest(c *fiber.Ctx, maximumNumberOfResults int)
 			page = DefaultPage
 		}
 	}
-	if pageSizeParameter := c.Query("pageSize"); len(pageSizeParameter) == 0 {
+	if pageSizeParameter := c.QueryParam("pageSize"); len(pageSizeParameter) == 0 {
 		pageSize = DefaultPageSize
 	} else {
 		pageSize, err = strconv.Atoi(pageSizeParameter)

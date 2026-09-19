@@ -26,14 +26,15 @@ import (
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
 	"gatus/v5/watchdog"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const backupTestPassword = "correct horse battery"
 
 type backupTestEnvironment struct {
-	app       *fiber.App
+	app       *echo.Echo
 	serverURL string
 	close     func()
 }
@@ -108,7 +109,7 @@ func (env *backupTestEnvironment) request(t *testing.T, method, path, contentTyp
 			request.Header.Set(name, value)
 		}
 	}
-	response, err := env.app.Test(request, -1)
+	response, err := testHTTP(env.app, request)
 	if err != nil {
 		t.Fatal(err)
 	}

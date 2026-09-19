@@ -109,6 +109,10 @@ func TestSend(t *testing.T) {
 	if recorder.Code != http.StatusNotFound || recorder.Body.String() != "Not Found" || recorder.Header().Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Errorf("unexpected answer: %d %q %q", recorder.Code, recorder.Body.String(), recorder.Header().Get("Content-Type"))
 	}
+	recorder = serve(func(c *echo.Context) error { return SendStatus(c, http.StatusNoContent) }, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusNoContent || recorder.Body.Len() != 0 || len(recorder.Header().Get("Content-Type")) != 0 {
+		t.Errorf("expected a 204 without body nor type, got %d %q %q", recorder.Code, recorder.Body.String(), recorder.Header().Get("Content-Type"))
+	}
 	recorder = serve(func(c *echo.Context) error {
 		SetHeader(c, "Content-Type", "image/svg+xml")
 		return SendString(c, http.StatusOK, "<svg/>")
@@ -185,6 +189,15 @@ func TestBufferBody(t *testing.T) {
 			}
 		})
 	}
+	t.Run("without the middleware the body is read when it is asked", func(t *testing.T) {
+		recorder := serve(func(c *echo.Context) error {
+			first, second := Body(c), Body(c)
+			return SendString(c, http.StatusOK, string(first)+"|"+string(second))
+		}, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("hello")))
+		if recorder.Body.String() != "hello|hello" {
+			t.Errorf("expected the body twice, got %q", recorder.Body.String())
+		}
+	})
 	t.Run("the limit of a route", func(t *testing.T) {
 		serve(func(c *echo.Context) error {
 			if _, err := BodyWithin(c, 4); err != ErrBodyTooLarge {

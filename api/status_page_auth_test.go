@@ -9,7 +9,8 @@ import (
 
 	pageconfig "gatus/v5/config/statuspage"
 	"gatus/v5/security"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,13 +39,13 @@ func protectedStatusPages(t *testing.T, password string) *pageconfig.Config {
 	}
 }
 
-func doStatusPageRequestWithHeaders(t *testing.T, app *fiber.App, method, target string, headers map[string]string) *http.Response {
+func doStatusPageRequestWithHeaders(t *testing.T, app *echo.Echo, method, target string, headers map[string]string) *http.Response {
 	t.Helper()
 	request := httptest.NewRequest(method, target, nil)
 	for name, value := range headers {
 		request.Header.Set(name, value)
 	}
-	response, err := app.Test(request, -1)
+	response, err := testHTTP(app, request)
 	if err != nil {
 		t.Fatalf("%s %s failed: %v", method, target, err)
 	}

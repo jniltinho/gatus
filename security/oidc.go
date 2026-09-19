@@ -8,8 +8,8 @@ import (
 
 	"github.com/TwiN/logr"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -56,28 +56,28 @@ func (c *OIDCConfig) initialize() error {
 	return nil
 }
 
-func (c *OIDCConfig) loginHandler(ctx *fiber.Ctx) error {
+func (c *OIDCConfig) loginHandler(ctx *echo.Context) error {
 	state, nonce := uuid.NewString(), uuid.NewString()
-	ctx.Cookie(&fiber.Cookie{
+	ctx.SetCookie(&http.Cookie{
 		Name:     cookieNameState,
 		Value:    state,
 		Path:     "/",
 		MaxAge:   int(time.Hour.Seconds()),
-		SameSite: "lax",
-		HTTPOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
 	})
-	ctx.Cookie(&fiber.Cookie{
+	ctx.SetCookie(&http.Cookie{
 		Name:     cookieNameNonce,
 		Value:    nonce,
 		Path:     "/",
 		MaxAge:   int(time.Hour.Seconds()),
-		SameSite: "lax",
-		HTTPOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
 	})
-	return ctx.Redirect(c.oauth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
+	return ctx.Redirect(http.StatusFound, c.oauth2Config.AuthCodeURL(state, oidc.Nonce(nonce)))
 }
 
-func (c *OIDCConfig) callbackHandler(w http.ResponseWriter, r *http.Request) { // TODO: Migrate to a native fiber handler
+func (c *OIDCConfig) callbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if there's an error
 	if len(r.URL.Query().Get("error")) > 0 {
 		http.Error(w, r.URL.Query().Get("error")+": "+r.URL.Query().Get("error_description"), http.StatusBadRequest)

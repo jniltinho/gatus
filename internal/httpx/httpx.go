@@ -68,10 +68,11 @@ func Vary(c *echo.Context, field string) {
 	header.Set(echo.HeaderVary, field)
 }
 
-// Path returns the path of the request. Never use echo.Context.Path for this: it returns the registered route, such as
+// Path returns the path of the request as it was sent, still escaped, which is what Fiber's Path returned and what the
+// handlers unescape themselves. Never use echo.Context.Path for this: it returns the registered route, such as
 // /status/:slug, whatever the request was.
 func Path(c *echo.Context) string {
-	return c.Request().URL.Path
+	return c.Request().URL.EscapedPath()
 }
 
 // IsTLS returns whether the connection itself uses TLS. Never use echo.Context.Scheme for this: it trusts
@@ -102,7 +103,8 @@ func RemoteIPOf(request *http.Request) netip.Addr {
 // Send writes the status and the body. The Content-Type must already be set, otherwise it is text/plain.
 func Send(c *echo.Context, status int, body []byte) error {
 	header := c.Response().Header()
-	if len(header.Get(echo.HeaderContentType)) == 0 {
+	// An empty body has no type, as before
+	if len(body) > 0 && len(header.Get(echo.HeaderContentType)) == 0 {
 		header.Set(echo.HeaderContentType, mimeTextPlain)
 	}
 	c.Response().WriteHeader(status)
@@ -115,8 +117,12 @@ func SendString(c *echo.Context, status int, body string) error {
 	return Send(c, status, []byte(body))
 }
 
-// SendStatus writes the status with its standard text as the body, as Fiber did
+// SendStatus writes the status with its standard text as the body, as Fiber did, except for the statuses that cannot
+// have a body (1xx, 204 and 304)
 func SendStatus(c *echo.Context, status int) error {
+	if status < http.StatusOK || status == http.StatusNoContent || status == http.StatusNotModified {
+		return NoContent(c, status)
+	}
 	return SendString(c, status, http.StatusText(status))
 }
 
@@ -158,16 +164,13 @@ func BufferBody(next echo.HandlerFunc) echo.HandlerFunc {
 		if request.ContentLength > MaximumBodySize {
 			return tooLarge(c)
 		}
-		body, err := io.ReadAll(io.LimitReader(request.Body, MaximumBodySize+1))
+		body, err := readAhead(c)
 		if err != nil {
 			return SendString(c, http.StatusBadRequest, "invalid request body")
 		}
 		if len(body) > MaximumBodySize {
 			return tooLarge(c)
 		}
-		_ = request.Body.Close()
-		request.Body = io.NopCloser(bytes.NewReader(body))
-		c.Set(bodyKey, body)
 		return next(c)
 	}
 }
@@ -178,9 +181,30 @@ func tooLarge(c *echo.Context) error {
 	return SendString(c, http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge))
 }
 
-// Body returns the body of the request, read ahead by BufferBody
+// readAhead reads the body once, up to one byte past MaximumBodySize so that the excess can be told, keeps it in the
+// store of the request and puts it back in the request for whoever reads the request itself
+func readAhead(c *echo.Context) ([]byte, error) {
+	request := c.Request()
+	if request.Body == nil || request.Body == http.NoBody {
+		return nil, nil
+	}
+	body, err := io.ReadAll(io.LimitReader(request.Body, MaximumBodySize+1))
+	if err != nil {
+		return nil, err
+	}
+	_ = request.Body.Close()
+	request.Body = io.NopCloser(bytes.NewReader(body))
+	c.Set(bodyKey, body)
+	return body, nil
+}
+
+// Body returns the body of the request, as many times as it is asked. BufferBody has normally read it ahead; without
+// that middleware it is read now, so that a check of the body never sees an empty one by accident.
 func Body(c *echo.Context) []byte {
-	body, _ := c.Get(bodyKey).([]byte)
+	if body, buffered := c.Get(bodyKey).([]byte); buffered {
+		return body
+	}
+	body, _ := readAhead(c)
 	return body
 }
 
@@ -198,6 +222,9 @@ type Router interface {
 	Use(middleware ...echo.MiddlewareFunc)
 	Add(method, path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) echo.RouteInfo
 	Any(path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) echo.RouteInfo
+	POST(path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) echo.RouteInfo
+	PUT(path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) echo.RouteInfo
+	DELETE(path string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) echo.RouteInfo
 	Group(prefix string, middleware ...echo.MiddlewareFunc) *echo.Group
 }
 

@@ -18,6 +18,7 @@ import (
 	"gatus/v5/statuspage"
 	"gatus/v5/storage"
 	"gatus/v5/storage/store"
+
 	"golang.org/x/crypto/bcrypt"
 )
 

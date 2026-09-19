@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -15,7 +16,10 @@ import (
 	"gatus/v5/watchdog"
 )
 
-// newEventStreamTestServer starts the router of the status page tests on a real listener, because app.Test reads the
+// eventStreamTestWriteTimeout is the write timeout of the server of the event stream tests
+const eventStreamTestWriteTimeout = 300 * time.Millisecond
+
+// newEventStreamTestServer starts the router of the status page tests on a real listener, because a recorder reads the
 // whole body and cannot test a stream
 func newEventStreamTestServer(t *testing.T) string {
 	t.Helper()
@@ -29,10 +33,18 @@ func newEventStreamTestServer(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() { _ = app.Listener(listener) }()
+	// A write timeout far shorter than the streams of these tests, as the 15 seconds of the real server are far shorter
+	// than a stream of minutes: every test that reads an event after it proves that the stream gave itself a longer
+	// deadline before its first byte
+	server := &http.Server{Handler: app, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: eventStreamTestWriteTimeout}
+	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() {
 		liveupdates.Close()
-		_ = app.ShutdownWithTimeout(2 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			_ = server.Close()
+		}
 		liveupdates.Open()
 		liveupdates.PingInterval, liveupdates.MaximumStreamDuration = previousPing, previousMaximum
 	})

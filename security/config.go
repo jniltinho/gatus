@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"sync"
 
+	"gatus/v5/internal/httpx"
 	g8 "github.com/TwiN/g8/v2"
-	"github.com/TwiN/logr"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/labstack/echo/v5"
 )
 
 const (
@@ -35,20 +34,21 @@ func (c *Config) ValidateAndSetDefaults() bool {
 }
 
 // RegisterHandlers registers all handlers required based on the security configuration
-func (c *Config) RegisterHandlers(router fiber.Router) error {
+func (c *Config) RegisterHandlers(router httpx.Router) error {
 	if c.OIDC != nil {
 		if err := c.OIDC.initialize(); err != nil {
 			return err
 		}
-		router.All("/oidc/login", c.OIDC.loginHandler)
-		router.All("/authorization-code/callback", adaptor.HTTPHandlerFunc(c.OIDC.callbackHandler))
+		router.Any("/oidc/login", c.OIDC.loginHandler)
+		// The callback is a net/http handler, which Echo serves as it is
+		router.Any("/authorization-code/callback", echo.WrapHandler(http.HandlerFunc(c.OIDC.callbackHandler)))
 	}
 	return nil
 }
 
 // ApplySecurityMiddleware applies an authentication middleware to the router passed.
 // The router passed should be a sub-router in charge of handlers that require authentication.
-func (c *Config) ApplySecurityMiddleware(router fiber.Router) error {
+func (c *Config) ApplySecurityMiddleware(router httpx.Router) error {
 	if c.OIDC != nil {
 		// We're going to use g8 for session handling
 		clientProvider := g8.NewClientProvider(func(token string) *g8.Client {
@@ -67,7 +67,8 @@ func (c *Config) ApplySecurityMiddleware(router fiber.Router) error {
 		// TODO: g8: Add a way to update cookie after? would need the writer
 		authorizationService := g8.NewAuthorizationService().WithClientProvider(clientProvider)
 		c.gate = g8.New().WithAuthorizationService(authorizationService).WithCustomTokenExtractor(customTokenExtractorFunc)
-		router.Use(adaptor.HTTPMiddleware(c.gate.Protect))
+		// g8 is a net/http middleware, which Echo wraps without converting the request
+		router.Use(echo.WrapMiddleware(c.gate.Protect))
 	} else if c.Basic != nil {
 		if _, err := base64.URLEncoding.DecodeString(c.Basic.PasswordBcryptHashBase64Encoded); err != nil {
 			return err
@@ -80,18 +81,12 @@ func (c *Config) ApplySecurityMiddleware(router fiber.Router) error {
 
 // IsAuthenticated checks whether the user is authenticated
 // If the Config does not warrant authentication, it will always return true.
-func (c *Config) IsAuthenticated(ctx *fiber.Ctx) bool {
+func (c *Config) IsAuthenticated(ctx *echo.Context) bool {
 	if c.UsesBasicLogin() {
 		return c.authenticateBasic(ctx).authenticated
 	}
 	if c.gate != nil {
-		// TODO: Update g8 to support fasthttp natively? (see g8's fasthttp branch)
-		request, err := adaptor.ConvertRequest(ctx, false)
-		if err != nil {
-			logr.Errorf("[security.IsAuthenticated] Unexpected error converting request: %v", err)
-			return false
-		}
-		token := c.gate.ExtractTokenFromRequest(request)
+		token := c.gate.ExtractTokenFromRequest(ctx.Request())
 		_, hasSession := sessions.Get(token)
 		return hasSession
 	}
