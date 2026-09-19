@@ -67,6 +67,11 @@
     --scrollbar-size: 10px;
     --scrollbar-thumb: 215.4 16.3% 46.9%;
     --scrollbar-thumb-hover: 215.4 16.3% 32%;
+    /* Fork: colours of the response time chart, which is a canvas and cannot use classes (ResponseTimeChart.vue) */
+    --chart-grid: rgba(0,0,0,0.1);
+    --chart-text: rgba(12,12,18,1.0);
+    --chart-tick: #6b7280;
+    --chart-tooltip: rgba(212,232,222,1.0);
   }
   
   :root.dark {
@@ -91,6 +96,53 @@
     --ring: 212.7 26.8% 83.9%;
     --scrollbar-thumb: 215 20.2% 65.1%;
     --scrollbar-thumb-hover: 210 40% 88%;
+    --chart-grid: rgba(255,255,255,0.1);
+    --chart-text: rgba(220,220,220,1.0);
+    --chart-tick: #9ca3af;
+    --chart-tooltip: rgba(32,42,38,1.0);
+  }
+
+  /* Fork: the bio theme, a light theme without the dark class, so that every dark: variant stays off. Navy (#1d3c55) for
+     the text and the primary buttons, blue (#285783) for the focus ring, teal (#34cdd7, #2cb7c0) only for highlight
+     surfaces: on white the teal has a contrast of 1.9 to 2.4, which is not enough for text nor for a focus ring. The
+     status colours are not here on purpose: they are the ones of the light theme (statusgray in tailwind.config.js). */
+  :root.theme-bio {
+    --background: 195 44% 96.5%;
+    --foreground: 207 49% 22.4%;
+    --card: 0 0% 100%;
+    --card-foreground: 207 49% 22.4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 207 49% 22.4%;
+    --primary: 207 49% 22.4%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 186 55% 92%;
+    --secondary-foreground: 207 49% 22.4%;
+    --muted: 195 35% 93%;
+    --muted-foreground: 207 25% 38%;
+    --accent: 186 60% 90%;
+    --accent-foreground: 207 49% 22.4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 200 30% 84%;
+    --input: 207 30% 50%;
+    --ring: 209 53% 33.5%;
+    --scrollbar-thumb: 207 30% 45%;
+    --scrollbar-thumb-hover: 207 49% 30%;
+    --chart-grid: rgba(29,60,85,0.12);
+    --chart-text: rgba(29,60,85,1.0);
+    --chart-tick: #59748a;
+    --chart-tooltip: rgba(214,243,245,1.0);
+    /* The gray scale, tinted with the navy: gray-800 is the navy itself */
+    --gray-50: 242 248 250;
+    --gray-100: 232 241 245;
+    --gray-200: 214 227 234;
+    --gray-300: 187 205 216;
+    --gray-400: 133 158 176;
+    --gray-500: 89 116 138;
+    --gray-600: 62 90 114;
+    --gray-700: 44 72 97;
+    --gray-800: 29 60 85;
+    --gray-900: 20 43 62;
   }
 }
 
@@ -180,6 +232,10 @@
         --scrollbar-thumb-hover: 222.2 47.4% 11%;
     }
 
+    :root.theme-bio {
+        --scrollbar-thumb: 207 49% 22%;
+        --scrollbar-thumb-hover: 207 60% 12%;
+    }
     :root.dark {
         --scrollbar-thumb: 210 40% 96%;
         --scrollbar-thumb-hover: 0 0% 100%;

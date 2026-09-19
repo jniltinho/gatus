@@ -1,16 +1,8 @@
 <template>
   <div class="relative min-h-screen bg-background px-4 text-foreground" data-testid="login-page">
-    <button
-      type="button"
-      class="absolute right-4 top-4 inline-flex h-9 items-center gap-2 border border-input bg-background px-3 text-sm hover:bg-accent motion-safe:transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-      :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-      data-testid="login-theme-toggle"
-      @click="switchTheme"
-    >
-      <Sun v-if="darkMode" class="h-4 w-4" aria-hidden="true" />
-      <Moon v-else class="h-4 w-4" aria-hidden="true" />
-      <span class="hidden sm:inline">{{ darkMode ? 'Light mode' : 'Dark mode' }}</span>
-    </button>
+    <div class="absolute right-4 top-4">
+      <ThemeSelector testid="login-theme-toggle" />
+    </div>
 
     <!-- The card starts at 15% of the height of the window -->
     <div class="mx-auto w-full max-w-sm pb-8 pt-[15vh]">
@@ -74,11 +66,10 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { Moon, Sun } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import Loading from '@/components/Loading.vue'
 import { PROTECTED_API_HEADERS } from '@/utils/auth'
-import { toggleTheme, wantsDarkMode } from '@/utils/theme'
+import ThemeSelector from '@/components/ThemeSelector.vue'
 
 const props = defineProps({
   // Reloads /api/v1/config in App.vue and returns whether the request is now authenticated
@@ -98,12 +89,6 @@ const password = ref('')
 const error = ref('')
 const submitting = ref(false)
 const usernameInput = ref(null)
-const darkMode = ref(wantsDarkMode())
-
-const switchTheme = () => {
-  darkMode.value = toggleTheme()
-}
-
 const submit = async () => {
   if (submitting.value) {
     return

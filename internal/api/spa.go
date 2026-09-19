@@ -35,7 +35,7 @@ func SinglePageApplication(uiConfig *ui.Config) echo.HandlerFunc {
 			return httpx.SendString(c, 500, "Failed to parse template. This should never happen, because the template is validated on start.")
 		}
 		// Fork: the same theme rules as the public status pages, see themeFromRequest
-		vd := ui.ViewData{UI: uiConfig, Theme: themeFromRequest(c, uiConfig), DefaultTheme: defaultTheme(uiConfig)}
+		vd := ui.NewViewData(uiConfig, themeFromRequest(c, uiConfig))
 		// Rendered into a buffer: once the first byte is written the answer cannot become an error anymore
 		var body bytes.Buffer
 		if err := t.Execute(&body, vd); err != nil {
@@ -43,7 +43,7 @@ func SinglePageApplication(uiConfig *ui.Config) echo.HandlerFunc {
 			logr.Errorf("[api.SinglePageApplication] Failed to execute template. This should never happen, because the template is validated on start. Error: %s", err.Error())
 			return httpx.SendString(c, 500, "Failed to parse template. This should never happen, because the template is validated on start.")
 		}
-		httpx.SetHeader(c, "Content-Type", "text/html")
+		setThemedHTMLHeaders(c)
 		return httpx.Send(c, 200, body.Bytes())
 	}
 }

@@ -97,7 +97,16 @@ const AGGREGATES_REFRESH_INTERVAL_MS = 60000
 const loading = ref(true)
 const error = ref(null)
 const payload = ref(null)
-const isDark = ref(document.documentElement.classList.contains('dark'))
+// Fork: the colours of the chart come from CSS variables of the theme (--chart-*, in index.css), read again whenever
+// the class of <html> changes. A boolean "is it dark" cannot tell the light theme from the bio one.
+const themeClass = ref(document.documentElement.className)
+const CHART_COLOR_FALLBACKS = { '--chart-grid': 'rgba(0,0,0,0.1)', '--chart-text': 'rgba(12,12,18,1.0)', '--chart-tick': '#6b7280', '--chart-tooltip': 'rgba(212,232,222,1.0)' }
+const chartColors = computed(() => {
+  // The dependency on themeClass makes this recompute when the theme changes
+  const style = themeClass.value !== undefined ? getComputedStyle(document.documentElement) : null
+  const read = (name) => (style && style.getPropertyValue(name).trim()) || CHART_COLOR_FALLBACKS[name]
+  return { grid: read('--chart-grid'), text: read('--chart-text'), tick: read('--chart-tick'), tooltip: read('--chart-tooltip') }
+})
 const windowWidth = ref(window.innerWidth)
 
 // Height of Uptime Kuma, by the width of the window instead of the width of the screen
@@ -187,9 +196,9 @@ const chartData = computed(() => {
 const numberFormat = new Intl.NumberFormat()
 
 const chartOptions = computed(() => {
-  const gridColor = isDark.value ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-  const textColor = isDark.value ? 'rgba(220,220,220,1.0)' : 'rgba(12,12,18,1.0)'
-  const tickColor = isDark.value ? '#9ca3af' : '#6b7280'
+  const gridColor = chartColors.value.grid
+  const textColor = chartColors.value.text
+  const tickColor = chartColors.value.tick
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -263,7 +272,7 @@ const chartOptions = computed(() => {
         mode: 'nearest',
         intersect: false,
         padding: 10,
-        backgroundColor: isDark.value ? 'rgba(32,42,38,1.0)' : 'rgba(212,232,222,1.0)',
+        backgroundColor: chartColors.value.tooltip,
         bodyColor: textColor,
         titleColor: textColor,
         // Only the line of the response time, not the columns nor the minimum and maximum
@@ -404,7 +413,7 @@ onMounted(() => {
   fetchChart()
   window.addEventListener('resize', onResize)
   themeObserver = new MutationObserver(() => {
-    isDark.value = document.documentElement.classList.contains('dark')
+    themeClass.value = document.documentElement.className
   })
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })

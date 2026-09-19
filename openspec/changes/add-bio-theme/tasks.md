@@ -7,16 +7,16 @@
 ## 2. Três temas de ponta a ponta
 
 - [ ] 2.1 `ui.default-theme` em `internal/config/ui`: validação, presença registrada antes dos padrões, precedência sobre `dark-mode` com aviso; testes, inclusive `gatus config validate` e recarregamento da configuração.
-- [ ] 2.2 `ViewData` com identificador, classe e `ThemeColor`; `themeFromRequest` e `defaultTheme` com três valores; template de `index.html` sem decisão própria.
-- [ ] 2.3 `Cache-Control: no-cache` e `Vary: Cookie` no HTML dos dois manipuladores, GET e HEAD, preservando `private, no-store` das páginas com login; contrato HTTP atualizado.
-- [ ] 2.4 `theme.cases.json` e os três testes que o consomem: Go, `theme.test.mjs` e o do script inline extraído de `index.html`; `theme.js` com escolha de tema no lugar de `toggleTheme`, classes mutuamente exclusivas e `theme-color` por tema.
-- [ ] 2.5 `ResponseTimeChart.vue` por identificador de tema e variáveis, redesenhando entre quaisquer dois temas, com teste que compara as cores efetivas das opções do Chart.js nos temas claro e escuro antes e depois (o `canvas` fica fora da D4); regra do tema `bio` em `SuiteCard.vue`; busca por outros seletores `.dark` em CSS e cores fixas em componentes.
+- [x] 2.2 `ViewData` com identificador, classe e `ThemeColor`; `themeFromRequest` e `defaultTheme` com três valores; template de `index.html` sem decisão própria.
+- [x] 2.3 `Cache-Control: no-cache` e `Vary: Cookie` no HTML dos dois manipuladores, GET e HEAD, preservando `private, no-store` das páginas com login; contrato HTTP atualizado.
+- [x] 2.4 `theme.cases.json` e os três testes que o consomem: Go, `theme.test.mjs` e o do script inline extraído de `index.html`; `theme.js` com escolha de tema no lugar de `toggleTheme`, classes mutuamente exclusivas e `theme-color` por tema.
+- [x] 2.5 `ResponseTimeChart.vue` por identificador de tema e variáveis, redesenhando entre quaisquer dois temas, com teste que compara as cores efetivas das opções do Chart.js nos temas claro e escuro antes e depois (o `canvas` fica fora da D4); regra do tema `bio` em `SuiteCard.vue`; busca por outros seletores `.dark` em CSS e cores fixas em componentes.
 
 ## 3. O tema
 
-- [ ] 3.1 Variáveis de `:root.theme-bio` (as do tema e a escala de cinza) com os papéis da D2; capturas do cabeçalho claro e do marinho para o dono escolher.
-- [ ] 3.2 Blocos de `:root.theme-bio` para a barra de rolagem e para `prefers-contrast: more`; `forced-colors` conferido.
-- [ ] 3.3 Componente de seletor de tema em `Settings.vue`, `PublicLayout.vue` e `LoginPage.vue`, com teclado e foco.
+- [x] 3.1 Variáveis de `:root.theme-bio` (as do tema e a escala de cinza) com os papéis da D2; capturas do cabeçalho claro e do marinho para o dono escolher.
+- [x] 3.2 Blocos de `:root.theme-bio` para a barra de rolagem e para `prefers-contrast: more`; `forced-colors` conferido.
+- [x] 3.3 Componente de seletor de tema em `Settings.vue`, `PublicLayout.vue` e `LoginPage.vue`, com teclado e foco.
 - [ ] 3.4 `custom.css` representativo (com `!important` e com sobrescrita de variáveis) nos três temas.
 - [ ] 3.5 Teste de que as cores de estado computadas no tema `bio` são idênticas às do tema claro. Script de contraste sobre as telas no tema `bio`: texto do tema ≥ 4,5:1, bordas de controle e foco ≥ 3:1, e nenhum par de cor de estado abaixo do mesmo par no tema claro.
 

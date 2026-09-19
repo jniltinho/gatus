@@ -34,20 +34,8 @@
       <!-- Divider -->
       <div class="h-5 w-px bg-border/50" />
 
-      <!-- Theme Toggle -->
-      <button
-        @click="toggleDarkMode"
-        :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-        class="p-1.5 rounded-none hover:bg-accent transition-colors group relative"
-      >
-        <Sun v-if="darkMode" class="h-3.5 w-3.5 transition-all" />
-        <Moon v-else class="h-3.5 w-3.5 transition-all" />
-        
-        <!-- Tooltip -->
-        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-          {{ darkMode ? 'Light mode' : 'Dark mode' }}
-        </div>
-      </button>
+      <!-- Theme selector (fork): three themes, see ThemeSelector.vue -->
+      <ThemeSelector testid="settings-theme-toggle" compact placement="top-start" />
     </div>
   </div>
 </template>
@@ -55,9 +43,10 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Sun, Moon, RefreshCw } from 'lucide-vue-next'
+import { RefreshCw } from 'lucide-vue-next'
 // Fork: the theme rule (cookie, otherwise the default theme of the server) lives in utils/theme.js
-import { applyTheme as applyDocumentTheme, toggleTheme, wantsDarkMode } from '@/utils/theme'
+import ThemeSelector from '@/components/ThemeSelector.vue'
+import { applyTheme as applyDocumentTheme, currentTheme } from '@/utils/theme'
 
 const emit = defineEmits(['refreshData'])
 
@@ -85,7 +74,6 @@ function getStoredRefreshInterval() {
 
 // State
 const refreshIntervalValue = ref(getStoredRefreshInterval())
-const darkMode = ref(wantsDarkMode())
 const showRefreshMenu = ref(false)
 let refreshIntervalHandler = null
 
@@ -124,14 +112,8 @@ const handleClickOutside = (event) => {
   }
 }
 
-const toggleDarkMode = () => {
-  darkMode.value = toggleTheme()
-}
-
 const applyTheme = () => {
-  const isDark = wantsDarkMode()
-  darkMode.value = isDark
-  applyDocumentTheme(isDark)
+  applyDocumentTheme(currentTheme())
 }
 
 // Lifecycle
