@@ -1,8 +1,10 @@
 # Screenshots
 
-The screens this fork adds to [TwiN/gatus](https://github.com/TwiN/gatus), captured at 1280×900 on
-`v5.36.0-fork.27`. Dark mode is the default of the fork; the public pages are shown in light mode, which every
-visitor can switch with the button in the header.
+The screens of [jniltinho/gatus](https://github.com/jniltinho/gatus), captured at 1280×900 by
+[capture.sh](capture.sh), which starts a local instance, registers endpoints, a status page and push keys through the
+administration and lets the history fill before taking the pictures: run it again whenever a screen changes. Dark mode
+is the default; the public pages are shown in light mode, which every visitor can switch with the button in the header.
+The logo in the header is optional (`ui.logo`).
 
 ## Dashboard
 

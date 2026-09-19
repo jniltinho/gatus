@@ -1,6 +1,16 @@
-[![Gatus](.github/assets/logo-with-dark-text.png)](https://github.com/jniltinho/gatus)
+<a href="https://github.com/jniltinho/gatus">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-with-light-text.png">
+    <img alt="Gatus" src=".github/assets/logo-with-dark-text.png" width="420">
+  </picture>
+</a>
 
 # Gatus (jniltinho/gatus)
+
+[![Release](https://img.shields.io/github/v/release/jniltinho/gatus?sort=semver)](https://github.com/jniltinho/gatus/releases)
+[![CI](https://github.com/jniltinho/gatus/actions/workflows/ci.yml/badge.svg)](https://github.com/jniltinho/gatus/actions/workflows/ci.yml)
+[![Docker pulls](https://img.shields.io/docker/pulls/jniltinho/gatus)](https://hub.docker.com/r/jniltinho/gatus)
+[![License](https://img.shields.io/github/license/jniltinho/gatus)](LICENSE)
 
 Health dashboard that monitors HTTP, ICMP, TCP, DNS and other services, evaluates conditions on the status, response
 time, body and certificates, sends alerts and shows the history of every check.
@@ -9,9 +19,8 @@ time, body and certificates, sends alerts and shows the history of every check.
 
 ## What it adds to the original Gatus
 
-This project started as a fork of [TwiN/gatus](https://github.com/TwiN/gatus) and is now developed on its own.
-Everything from the original keeps working the same
-way; on top of it:
+This project started as a fork of [TwiN/gatus](https://github.com/TwiN/gatus) and is now developed on its own. A
+configuration file of the original works unchanged; on top of it:
 
 | | |
 |---|---|
@@ -23,6 +32,8 @@ way; on top of it:
 | **TLS certificate expiration** | Days until the certificate expires, below the name of the endpoint on the dashboard and, with `show-certificate-expiration`, on the status pages. [docs/status-pages.md](docs/status-pages.md) |
 | **Login screen for `security.basic`** | A login page with logout instead of the browser dialog, with sessions stored in the database and a limit of failed logins, while `curl -u` keeps working. [docs/admin-endpoints.md](docs/admin-endpoints.md#login-screen) |
 | **Backup and restore of the administration** | A JSON file with the endpoints, status pages and push keys, optionally encrypted, restored with a preview of what changes. [docs/admin-endpoints.md](docs/admin-endpoints.md#backup-and-restore) |
+| **Command line** | `gatus config validate` checks a configuration before a deploy, `gatus password hash` generates the hash of a password, `gatus version` shows the build, and `gatus healthcheck` is the `HEALTHCHECK` of the image, which has no shell. [docs/cli.md](docs/cli.md) |
+| **Bulk management script** | `docs/manager-gatus.py` registers a CSV of hosts, renames a group in every endpoint, lists endpoints and status pages and exports the push tokens, through the administration API. [docs/admin-endpoints.md](docs/admin-endpoints.md#managing-endpoints-from-the-command-line) |
 | **Interface of its own** | Dark mode by default, square style, thin scrollbar in the colours of the theme and the Inter font served by Gatus itself, without calling any external service. |
 
 **[See every screen →](docs/screenshots/README.md)**
@@ -36,14 +47,40 @@ mkdir -p config && curl -sL -o config/config.yaml https://raw.githubusercontent.
 docker run -d --name gatus -p 127.0.0.1:8080:8080 -v "$PWD/config:/config" jniltinho/gatus:v6.0.0
 ```
 
-Open http://127.0.0.1:8080.
+Open http://127.0.0.1:8080. `docker ps` shows the container as `healthy` once `/health` answers.
+
+That keeps nothing across restarts. With Docker Compose, the history in SQLite and the administration enabled:
+
+```yaml
+services:
+  gatus:
+    image: jniltinho/gatus:v6.0.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"   # publish it through a reverse proxy, not directly
+    volumes:
+      - ./config:/config:ro
+      - gatus-data:/data
+volumes:
+  gatus-data:
+```
+
+```bash
+docker run --rm -it jniltinho/gatus:v6.0.0 password hash             # asks for the password, prints the hash
+docker run --rm -v "$PWD/config:/config:ro" jniltinho/gatus:v6.0.0 config validate   # before every deploy
+docker compose up -d
+```
+
+with the `storage`, `security` and `admin` blocks of the next section in `config/config.yaml`. For MariaDB or MySQL,
+start from [.examples/docker-compose-mariadb-storage](.examples/docker-compose-mariadb-storage).
 
 Without Docker, download `gatus_<version>_linux_<amd64|arm64>.tar.gz` from the
 [releases](https://github.com/jniltinho/gatus/releases) and run:
 
 ```bash
 tar xzf gatus_6.0.0_linux_amd64.tar.gz
-GATUS_CONFIG_PATH=config.yaml ./gatus
+./gatus config validate --config config.yaml
+./gatus --config config.yaml
 ```
 
 ## Minimal configuration
@@ -78,6 +115,13 @@ admin:
   enabled: true
 ```
 
+## Upgrading from v5.36.0-fork.N
+
+Change the image tag or the binary: the configuration file, the database and the API routes are the same, and a backup
+made on `v5.36.0-fork.27` restores on `v6.0.0` (this is tested by `test/e2e/upgrade.sh`). What changed with the new HTTP
+server is listed in the [release notes](https://github.com/jniltinho/gatus/releases/tag/v6.0.0); the one that can bite
+is that **paths are now case-sensitive** (`/HEALTH` and `/API/v1/...` answer `404`).
+
 ## Documentation
 
 | Topic | Where |
@@ -89,6 +133,7 @@ admin:
 | Command line: `serve`, `version`, `config validate`, `password hash` and `healthcheck` | [docs/cli.md](docs/cli.md) |
 | MySQL and MariaDB storage | [docs/storage-mysql.md](docs/storage-mysql.md) |
 | Push monitoring compatible with the Uptime Kuma | [docs/push-monitoring.md](docs/push-monitoring.md) |
+| Bulk management of endpoints and push tokens (`manager-gatus.py`) | [docs/admin-endpoints.md](docs/admin-endpoints.md#managing-endpoints-from-the-command-line) |
 | Docker Compose examples | [.examples](.examples) |
 
 ## Build from source
@@ -96,7 +141,11 @@ admin:
 ```bash
 make frontend-install frontend-build   # only when changing the web interface
 make build                             # binary in dist/gatus
+make lint test                         # go vet, gofmt and the Go tests
 ```
+
+`main.go` only calls the commands of `cmd/`; every other Go package lives in `internal/` and is documented with
+`go doc` (`go doc ./internal/api`, for example). The end-to-end suites are in `test/e2e/`.
 
 The Go module is named `gatus/v5` and does not depend on the original repository, so it cannot be installed with
 `go install`.
