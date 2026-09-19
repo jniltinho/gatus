@@ -91,15 +91,19 @@ A troca de tema MUST ser feita por um seletor que mostra o tema em uso e oferece
 - **THEN** o menu aparece inteiro dentro da janela e a página não ganha rolagem horizontal
 
 ### Requirement: Cores do tema Bio
-O tema Bio MUST definir o texto, as superfícies, as bordas, os links, o anel de foco e os botões primários, e o texto MUST ter pelo menos 4,5:1 de contraste com a superfície do tema em que aparece, e as bordas de controles e o anel de foco pelo menos 3:1. O verde-água do tema MUST NOT ser cor de texto nem a única indicação de foco sobre superfícies claras. As cores de estado (no ar, fora, pendente, sem dados) e as demais cores que não são cinza nem variável do tema MUST ser as mesmas do tema claro: para cada par de cor de estado e superfície, o contraste no tema Bio MUST ser maior ou igual ao do mesmo par no tema claro.
+O tema Bio MUST definir o texto, as superfícies, as bordas, os links, o anel de foco e os botões primários, e o texto MUST ter pelo menos 4,5:1 de contraste com a superfície do tema em que aparece, e as bordas de controles e o anel de foco pelo menos 3:1. O verde-água do tema MUST NOT ser cor de texto nem a única indicação de foco sobre superfícies claras. As cores de estado (no ar, fora, pendente, sem dados, e o passo pulado de uma suíte), inclusive as que hoje são tons de cinza, e as demais cores que não são cinza nem variável do tema MUST ser as mesmas do tema claro: para cada par de cor de estado e superfície, o contraste no tema Bio MUST ser maior ou igual ao do mesmo par no tema claro.
 
 #### Scenario: Medição
 - **WHEN** o contraste é medido por script sobre as telas no tema Bio
 - **THEN** todo texto nas cores do tema tem pelo menos 4,5:1, toda borda de controle e anel de foco pelo menos 3:1
 - **AND** nenhum par de cor de estado e superfície tem contraste menor que o do mesmo par no tema claro
 
+#### Scenario: Cinza de estado
+- **WHEN** um endpoint sem dados e um passo pulado de uma suíte são exibidos no tema Bio
+- **THEN** a cor do indicador de cada um é idêntica à do tema claro, e não a da escala de cinza do tema Bio
+
 ### Requirement: Temas existentes inalterados pela escala de cinza por variáveis
-A passagem da escala de cinza para variáveis CSS MUST NOT alterar os temas claro e escuro. Isso MUST ser verificado antes de qualquer cor do tema Bio e antes do seletor de tema: em todas as telas, nos dois temas, as cores computadas de todos os elementos (texto, fundo, bordas, contorno, preenchimento e traço de SVG, sombra) MUST ser iguais antes e depois da mudança.
+A passagem da escala de cinza para variáveis CSS MUST NOT alterar os temas claro e escuro. Isso MUST ser verificado antes de qualquer cor do tema Bio e antes do seletor de tema: em todas as telas, nos dois temas, as cores computadas de todos os elementos (texto, fundo, bordas, contorno, preenchimento e traço de SVG, sombra), sua opacidade e sua imagem de fundo MUST ser iguais antes e depois da mudança, com transições e animações desativadas, nos estados que o roteiro de verificação enumera e ativa (entre eles `hover`, `focus`, diálogos e menus abertos e grupos recolhidos e expandidos). Os pixels de imagens e do `canvas` do gráfico ficam fora dessa verificação.
 
 #### Scenario: Cores computadas iguais
 - **WHEN** as cores computadas de todos os elementos de cada tela são coletadas nos temas claro e escuro antes e depois da mudança da escala de cinza, com os mesmos dados

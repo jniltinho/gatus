@@ -1,8 +1,8 @@
 ## 1. Base: escala de cinza por variáveis, sem mudar nada
 
-- [ ] 1.1 Roteiro de cores computadas (D4): instância local com dados semeados, todas as telas, temas claro e escuro, JSON por tela; rodar no `master` e guardar a referência.
+- [ ] 1.1 Roteiro de cores computadas (D4): instância local com dados semeados; navegador, janela e condições de mídia fixos; transições e animações zeradas; espera por conteúdo estável; identificação estável dos elementos; lista explícita dos estados ativados (`hover`, `focus`, diálogos, menus, grupos recolhidos e expandidos, toasts, erros de formulário); cores, `opacity` e `background-image`, com `::before`/`::after`; temas claro e escuro, JSON por tela e por estado; rodar no `master` e guardar a referência.
 - [ ] 1.2 `gray` por variáveis em `theme.extend.colors` (50 a 900, canais RGB, `<alpha-value>`), mesmos valores em `:root` e `:root.dark`; `make frontend-build`; rodar 1.1 de novo: nenhuma diferença, incluindo utilidades com opacidade, `hover:`, `dark:` e `@apply`. Diferença → rever D3 antes de seguir.
-- [ ] 1.3 Os 2 `bg-white` e as 7 classes `gray-950` mortas de `LoginPage.vue`, só com 1.1 igual.
+- [ ] 1.3 Tokens de estado para "sem dados" e "pulado" (`EndpointRow.vue`, `Home.vue`, `FlowStep.vue`, `StepDetailsModal.vue`) com os valores literais de hoje, iguais nos três temas; os 2 `bg-white`; remoção das 7 classes `gray-950` mortas (`LoginPage.vue`, `AdminEndpointForm.vue`, `AdminPushKeys.vue`). Tudo só com 1.1 sem diferença.
 
 ## 2. Três temas de ponta a ponta
 
@@ -10,7 +10,7 @@
 - [ ] 2.2 `ViewData` com identificador, classe e `ThemeColor`; `themeFromRequest` e `defaultTheme` com três valores; template de `index.html` sem decisão própria.
 - [ ] 2.3 `Cache-Control: no-cache` e `Vary: Cookie` no HTML dos dois manipuladores, GET e HEAD, preservando `private, no-store` das páginas com login; contrato HTTP atualizado.
 - [ ] 2.4 `theme.cases.json` e os três testes que o consomem: Go, `theme.test.mjs` e o do script inline extraído de `index.html`; `theme.js` com escolha de tema no lugar de `toggleTheme`, classes mutuamente exclusivas e `theme-color` por tema.
-- [ ] 2.5 `ResponseTimeChart.vue` por identificador de tema e variáveis, redesenhando entre quaisquer dois temas; regra do tema `bio` em `SuiteCard.vue`; busca por outros seletores `.dark` em CSS e cores fixas em componentes.
+- [ ] 2.5 `ResponseTimeChart.vue` por identificador de tema e variáveis, redesenhando entre quaisquer dois temas, com teste que compara as cores efetivas das opções do Chart.js nos temas claro e escuro antes e depois (o `canvas` fica fora da D4); regra do tema `bio` em `SuiteCard.vue`; busca por outros seletores `.dark` em CSS e cores fixas em componentes.
 
 ## 3. O tema
 
@@ -18,7 +18,7 @@
 - [ ] 3.2 Blocos de `:root.theme-bio` para a barra de rolagem e para `prefers-contrast: more`; `forced-colors` conferido.
 - [ ] 3.3 Componente de seletor de tema em `Settings.vue`, `PublicLayout.vue` e `LoginPage.vue`, com teclado e foco.
 - [ ] 3.4 `custom.css` representativo (com `!important` e com sobrescrita de variáveis) nos três temas.
-- [ ] 3.5 Script de contraste sobre as telas no tema `bio`: texto do tema ≥ 4,5:1, bordas de controle e foco ≥ 3:1, e nenhum par de cor de estado abaixo do mesmo par no tema claro.
+- [ ] 3.5 Teste de que as cores de estado computadas no tema `bio` são idênticas às do tema claro. Script de contraste sobre as telas no tema `bio`: texto do tema ≥ 4,5:1, bordas de controle e foco ≥ 3:1, e nenhum par de cor de estado abaixo do mesmo par no tema claro.
 
 ## 4. Verificação
 
