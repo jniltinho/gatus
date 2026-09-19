@@ -200,9 +200,11 @@ func (cfg *Config) ValidateAndSetDefaults() error {
 	if len(cfg.Header) == 0 {
 		cfg.Header = defaultHeader
 	}
+	// Spaces alone are no logo of the user: they would become an <img> without image
+	cfg.Logo = strings.TrimSpace(cfg.Logo)
 	if len(cfg.Logo) == 0 {
 		cfg.Logo = defaultLogo
-	} else if strings.EqualFold(strings.TrimSpace(cfg.Logo), NoLogo) {
+	} else if strings.EqualFold(cfg.Logo, NoLogo) {
 		// The template and the frontend show a logo whenever there is one: "none" becomes no logo at all
 		cfg.Logo = ""
 	}

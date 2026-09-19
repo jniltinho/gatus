@@ -364,6 +364,8 @@ func TestConfig_Logo(t *testing.T) {
 		expected string
 	}{
 		"not-set":          {logo: "", expected: "/logo-192x192.png"},
+		"only-spaces":      {logo: "   ", expected: "/logo-192x192.png"},
+		"spaces-around":    {logo: " /logo-512x512.png ", expected: "/logo-512x512.png"},
 		"none":             {logo: "none", expected: ""},
 		"none-uppercase":   {logo: " None ", expected: ""},
 		"url-of-the-user":  {logo: "https://example.org/logo.svg", expected: "https://example.org/logo.svg"},
